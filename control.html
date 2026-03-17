@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Panel PRO Ticker</title>
+
+<style>
+body {
+    font-family: Arial;
+    background:#0f0f0f;
+    color:white;
+    padding:15px;
+}
+
+h2 { margin-top:0; }
+
+input, button, select {
+    width:100%;
+    padding:10px;
+    margin:5px 0;
+    border:none;
+    border-radius:5px;
+}
+
+button {
+    background:red;
+    color:white;
+    font-weight:bold;
+}
+
+.msg {
+    background:#222;
+    padding:8px;
+    margin:5px 0;
+    border-radius:5px;
+    font-size:13px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🎛 PANEL PRO</h2>
+
+<!-- MENSAJES -->
+<input id="msg" placeholder="Nuevo mensaje...">
+<button onclick="agregar()">Agregar mensaje</button>
+<button onclick="borrarTodo()">🧨 Borrar TODOS</button>
+
+<div id="lista"></div>
+
+<hr>
+
+<!-- AJUSTES -->
+<h3>⚙️ Ajustes</h3>
+
+<label>Color fondo</label>
+<input type="color" id="color">
+
+<label>Velocidad</label>
+<input type="range" min="50" max="300" id="vel">
+
+<label>Tamaño texto</label>
+<input type="range" min="18" max="40" id="size">
+
+<button onclick="guardarAjustes()">💾 Guardar ajustes</button>
+
+<button onclick="toggle()">ON / OFF</button>
+
+<script>
+const ws = new WebSocket("ws://" + location.hostname + ":3000");
+
+let estado = {
+    mensajes: [],
+    color:"#ff0000",
+    velocidad:100,
+    size:24,
+    activo:true
+};
+
+ws.onmessage = e => {
+    estado = JSON.parse(e.data);
+    limpiarExpirados();
+    render();
+};
+
+function enviar(){
+    ws.send(JSON.stringify(estado));
+}
+
+/* ===== MENSAJES ===== */
+
+function agregar(){
+    const texto = document.getElementById("msg").value;
+    if(!texto) return;
+
+    estado.mensajes.push({
+        text: texto,
+        time: Date.now()
+    });
+
+    document.getElementById("msg").value="";
+    enviar();
+}
+
+function borrarMensaje(i){
+    estado.mensajes.splice(i,1);
+    enviar();
+}
+
+function borrarTodo(){
+    estado.mensajes = [];
+    enviar();
+}
+
+/* ===== AUTO DELETE 24H ===== */
+function limpiarExpirados(){
+    const ahora = Date.now();
+    estado.mensajes = estado.mensajes.filter(m => {
+        return (ahora - m.time) < 86400000; // 24h
+    });
+}
+
+/* ===== AJUSTES ===== */
+
+function guardarAjustes(){
+    estado.color = document.getElementById("color").value;
+    estado.velocidad = document.getElementById("vel").value;
+    estado.size = document.getElementById("size").value;
+    enviar();
+}
+
+function toggle(){
+    estado.activo = !estado.activo;
+    enviar();
+}
+
+/* ===== UI ===== */
+
+function render(){
+    document.getElementById("lista").innerHTML = "";
+
+    estado.mensajes.forEach((m,i)=>{
+        document.getElementById("lista").innerHTML += `
+            <div class="msg">
+                ${m.text}
+                <button onclick="borrarMensaje(${i})">❌</button>
+            </div>
+        `;
+    });
+
+    document.getElementById("color").value = estado.color;
+    document.getElementById("vel").value = estado.velocidad;
+    document.getElementById("size").value = estado.size;
+}
+
+/* LIMPIEZA AUTOMÁTICA CADA MINUTO */
+setInterval(()=>{
+    limpiarExpirados();
+    enviar();
+},60000);
+
+</script>
+
+</body>
+</html>

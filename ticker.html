@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+body { margin:0; overflow:hidden; background:transparent;}
+#bar {
+    position:absolute;
+    bottom:0;
+    width:100%;
+    height:50px;
+    display:flex;
+    align-items:center;
+    font-size:24px;
+    font-weight:bold;
+    color:white;
+    overflow:hidden;
+}
+#text {
+    position:absolute;
+    white-space:nowrap;
+}
+</style>
+</head>
+<body>
+
+<div id="bar">
+    <div id="text">Cargando...</div>
+</div>
+
+<script>
+const ws = new WebSocket("ws://" + location.hostname + ":3000");
+
+let estado = {};
+const text = document.getElementById("text");
+const bar = document.getElementById("bar");
+
+let x = window.innerWidth;
+let last = performance.now();
+
+function loop(t){
+    let dt = (t - last)/1000;
+    last = t;
+
+    if(estado.activo !== false){
+        x -= (estado.velocidad || 100) * dt;
+    }
+
+    if(x < -text.offsetWidth){
+        x = window.innerWidth;
+    }
+
+    text.style.transform = `translateX(${x}px)`;
+    requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+
+ws.onmessage = e => {
+    estado = JSON.parse(e.data);
+
+    text.innerHTML = estado.mensajes.map(m=>m.text).join(" • ");
+    bar.style.background = estado.color;
+    text.style.fontSize = estado.size + "px";
+};
+</script>
+
+</body>
+</html>
