@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Panel PRO Ticker</title>
+<title>Panel MASTER Ticker</title>
 
 <style>
 body {
@@ -12,9 +12,9 @@ body {
     padding:15px;
 }
 
-h2 { margin-top:0; }
+h2,h3 { margin-top:10px; }
 
-input, button, select {
+input, button {
     width:100%;
     padding:10px;
     margin:5px 0;
@@ -26,6 +26,7 @@ button {
     background:red;
     color:white;
     font-weight:bold;
+    cursor:pointer;
 }
 
 .msg {
@@ -35,26 +36,40 @@ button {
     border-radius:5px;
     font-size:13px;
 }
+.actions button {
+    width:48%;
+    margin-top:5px;
+}
 </style>
 </head>
 
 <body>
 
-<h2>🎛 PANEL PRO</h2>
+<h2>🎛 PANEL MASTER</h2>
 
-<!-- MENSAJES -->
-<input id="msg" placeholder="Nuevo mensaje...">
-<button onclick="agregar()">Agregar mensaje</button>
+<!-- ENVIAR MANUAL -->
+<input id="msg" placeholder="Mensaje manual...">
+<button onclick="agregarManual()">Agregar directo al aire</button>
+
+<hr>
+
+<!-- PENDIENTES -->
+<h3>📩 Pendientes (usuarios)</h3>
+<div id="pendientes"></div>
+
+<hr>
+
+<!-- ACTIVOS -->
+<h3>📺 En pantalla</h3>
 <button onclick="borrarTodo()">🧨 Borrar TODOS</button>
-
-<div id="lista"></div>
+<div id="activos"></div>
 
 <hr>
 
 <!-- AJUSTES -->
 <h3>⚙️ Ajustes</h3>
 
-<label>Color fondo</label>
+<label>Color</label>
 <input type="color" id="color">
 
 <label>Velocidad</label>
@@ -64,7 +79,6 @@ button {
 <input type="range" min="18" max="40" id="size">
 
 <button onclick="guardarAjustes()">💾 Guardar ajustes</button>
-
 <button onclick="toggle()">ON / OFF</button>
 
 <script>
@@ -72,6 +86,7 @@ const ws = new WebSocket("ws://" + location.hostname + ":3000");
 
 let estado = {
     mensajes: [],
+    pendientes: [],
     color:"#ff0000",
     velocidad:100,
     size:24,
@@ -90,12 +105,13 @@ function enviar(){
 
 /* ===== MENSAJES ===== */
 
-function agregar(){
-    const texto = document.getElementById("msg").value;
-    if(!texto) return;
+// manual directo
+function agregarManual(){
+    const text = document.getElementById("msg").value;
+    if(!text) return;
 
     estado.mensajes.push({
-        text: texto,
+        text:text,
         time: Date.now()
     });
 
@@ -103,11 +119,23 @@ function agregar(){
     enviar();
 }
 
+// aprobar desde usuarios
+function aprobar(i){
+    ws.send(JSON.stringify({ aprobar:i }));
+}
+
+// rechazar
+function rechazar(i){
+    ws.send(JSON.stringify({ rechazar:i }));
+}
+
+// eliminar activo
 function borrarMensaje(i){
     estado.mensajes.splice(i,1);
     enviar();
 }
 
+// borrar todos
 function borrarTodo(){
     estado.mensajes = [];
     enviar();
@@ -116,9 +144,8 @@ function borrarTodo(){
 /* ===== AUTO DELETE 24H ===== */
 function limpiarExpirados(){
     const ahora = Date.now();
-    estado.mensajes = estado.mensajes.filter(m => {
-        return (ahora - m.time) < 86400000; // 24h
-    });
+
+    estado.mensajes = estado.mensajes.filter(m => (ahora - m.time) < 86400000);
 }
 
 /* ===== AJUSTES ===== */
@@ -138,23 +165,41 @@ function toggle(){
 /* ===== UI ===== */
 
 function render(){
-    document.getElementById("lista").innerHTML = "";
 
-    estado.mensajes.forEach((m,i)=>{
-        document.getElementById("lista").innerHTML += `
+    // PENDIENTES
+    document.getElementById("pendientes").innerHTML = "";
+
+    estado.pendientes.forEach((m,i)=>{
+        document.getElementById("pendientes").innerHTML += `
             <div class="msg">
                 ${m.text}
-                <button onclick="borrarMensaje(${i})">❌</button>
+                <div class="actions">
+                    <button onclick="aprobar(${i})">✅ Aprobar</button>
+                    <button onclick="rechazar(${i})">❌ Rechazar</button>
+                </div>
             </div>
         `;
     });
 
+    // ACTIVOS
+    document.getElementById("activos").innerHTML = "";
+
+    estado.mensajes.forEach((m,i)=>{
+        document.getElementById("activos").innerHTML += `
+            <div class="msg">
+                ${m.text}
+                <button onclick="borrarMensaje(${i})">❌ Eliminar</button>
+            </div>
+        `;
+    });
+
+    // SETTINGS
     document.getElementById("color").value = estado.color;
     document.getElementById("vel").value = estado.velocidad;
     document.getElementById("size").value = estado.size;
 }
 
-/* LIMPIEZA AUTOMÁTICA CADA MINUTO */
+/* LIMPIEZA AUTOMÁTICA */
 setInterval(()=>{
     limpiarExpirados();
     enviar();
