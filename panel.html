@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel Ticker</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0f172a;
+            color: #e5e7eb;
+            margin: 0;
+            padding: 20px;
+        }
+        .card {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #020617;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(15,23,42,0.8);
+            border: 1px solid #1e293b;
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 1.4rem;
+            color: #38bdf8;
+        }
+        label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9ca3af;
+            display: block;
+            margin-bottom: 4px;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 8px;
+            border: 1px solid #374151;
+            background: #020617;
+            color: #e5e7eb;
+            padding: 10px 12px;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+        input[type="color"] {
+            width: 60px;
+            height: 32px;
+            padding: 0;
+            border-radius: 8px;
+            border: 1px solid #374151;
+            background: #020617;
+            margin-right: 8px;
+        }
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        button {
+            border: none;
+            border-radius: 999px;
+            padding: 8px 16px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #22c55e;
+            color: #020617;
+        }
+        .btn-secondary {
+            background: #1f2937;
+            color: #e5e7eb;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: #f9fafb;
+        }
+        .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .status {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #9ca3af;
+        }
+        .preview {
+            margin-top: 16px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #1f2937;
+        }
+        .preview-bar {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: #f9fafb;
+        }
+        .messages-list {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: #9ca3af;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .messages-list div {
+            padding: 2px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Panel de Control del Ticker</h1>
+        <form id="form-add">
+            <label for="text">Mensaje (se puede escribir varios, separados por salto de línea)</label>
+            <textarea id="text" name="text" placeholder="Ej: Próximo invitado a continuación..."></textarea>
+
+            <label>Color de fondo</label>
+            <div class="row">
+                <input type="color" id="color" name="color" value="#65203e">
+                <input type="text" id="colorHex" placeholder="#65203e">
+            </div>
+
+            <div class="actions">
+                <button type="submit" class="btn-primary">Enviar mensaje(s)</button>
+                <button type="button" id="btn-clear" class="btn-danger">Borrar todos</button>
+                <button type="button" id="btn-refresh" class="btn-secondary">Refrescar estado</button>
+            </div>
+        </form>
+
+        <div class="status" id="status">Listo.</div>
+
+        <div class="preview">
+            <div id="preview-bar" class="preview-bar" style="background:#65203e;">
+                <span id="preview-text">Sin mensajes</span>
+            </div>
+            <div class="messages-list" id="messages-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const apiBase = 'api.php';
+
+        const form = document.getElementById('form-add');
+        const textEl = document.getElementById('text');
+        const colorEl = document.getElementById('color');
+        const colorHexEl = document.getElementById('colorHex');
+        const statusEl = document.getElementById('status');
+        const previewBar = document.getElementById('preview-bar');
+        const previewText = document.getElementById('preview-text');
+        const messagesList = document.getElementById('messages-list');
+
+        function setStatus(msg) {
+            statusEl.textContent = msg;
+        }
+
+        function applyState(state) {
+            if (!state) return;
+            const color = state.settings?.color || '#65203e';
+            const msgs = Array.isArray(state.messages) ? state.messages : [];
+
+            previewBar.style.background = color;
+            colorEl.value = color;
+            colorHexEl.value = color;
+
+            if (msgs.length === 0) {
+                previewText.textContent = 'Sin mensajes';
+                messagesList.innerHTML = '';
+            } else {
+                previewText.innerHTML = msgs.map(m => m.text).join(' • ');
+                messagesList.innerHTML = msgs
+                    .map(m => `<div>• ${m.text}</div>`)
+                    .join('');
+            }
+        }
+
+        async function fetchState() {
+            try {
+                const res = await fetch(apiBase + '?action=get');
+                const json = await res.json();
+                applyState(json);
+                setStatus('Estado actualizado.');
+            } catch (e) {
+                console.error(e);
+                setStatus('Error al leer estado.');
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const raw = textEl.value.trim();
+            if (!raw) {
+                setStatus('Escribe al menos un mensaje.');
+                return;
+            }
+
+            // Varios mensajes: separamos por saltos de línea
+            const lineas = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            const color = (colorHexEl.value || colorEl.value || '#65203e').trim();
+
+            try {
+                setStatus('Enviando...');
+                for (const linea of lineas) {
+                    const body = new URLSearchParams();
+                    body.set('text', linea);
+                    if (color) body.set('color', color);
+
+                    await fetch(apiBase + '?action=add', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body
+                    });
+                }
+                textEl.value = '';
+                setStatus('Mensaje(s) enviado(s).');
+                fetchState();
+            } catch (e) {
+                console.error(e);
+                setStatus('Error al enviar mensajes.');
+            }
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', async () => {
+            if (!confirm('¿Borrar todos los mensajes del ticker?')) return;
+            try {
+                setStatus('Borrando mensajes...');
+                await fetch(apiBase + '?action=clear', {
+                    method: 'POST'
+                });
+                setStatus('Mensajes borrados.');
+                fetchState();
+            } catch (e) {
+                console.error(e);
+                setStatus('Error al borrar mensajes.');
+            }
+        });
+
+        document.getElementById('btn-refresh').addEventListener('click', fetchState);
+
+        // Sincronizar color picker y texto
+        colorEl.addEventListener('input', () => {
+            colorHexEl.value = colorEl.value;
+            previewBar.style.background = colorEl.value;
+        });
+        colorHexEl.addEventListener('input', () => {
+            let v = colorHexEl.value.trim();
+            if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+                colorEl.value = v;
+                previewBar.style.background = v;
+            }
+        });
+
+        // Carga inicial
+        fetchState();
+    </script>
+</body>
+</html>
+
