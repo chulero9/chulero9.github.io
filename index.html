@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enviar Mensaje</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #141e30, #243b55);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+}
+
+h2 {
+    margin-bottom: 20px;
+}
+
+input {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    border-radius: 10px;
+    border: none;
+    outline: none;
+    margin-bottom: 15px;
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    border-radius: 10px;
+    border: none;
+    background: #00c853;
+    color: white;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:disabled {
+    background: gray;
+    cursor: not-allowed;
+}
+
+.status {
+    margin-top: 15px;
+    font-size: 14px;
+    opacity: 0.8;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>📺 ¡Aparecé en pantalla!</h2>
+
+    <input 
+        type="text" 
+        id="msgText" 
+        placeholder="Escribí tu mensaje acá..." 
+        maxlength="100"
+        autocomplete="off"
+    >
+
+    <button id="btnSend" onclick="sendMessage()">Enviar</button>
+
+    <div class="status" id="status"></div>
+</div>
+
+<script>
+let bloqueado = false;
+
+function sendMessage() {
+    const input = document.getElementById('msgText');
+    const button = document.getElementById('btnSend');
+    const status = document.getElementById('status');
+
+    let text = input.value.trim();
+
+    // Validación
+    if (!text) {
+        status.innerText = "⚠️ Escribe un mensaje válido";
+        return;
+    }
+
+    // Anti spam simple (2 seg)
+    if (bloqueado) {
+        status.innerText = "⏳ Espera un momento...";
+        return;
+    }
+
+    bloqueado = true;
+    button.disabled = true;
+    button.innerText = "Enviando...";
+    status.innerText = "";
+
+    const params = new URLSearchParams();
+    params.append('text', text);
+
+    fetch('api.php?action=add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: params.toString()
+    })
+    .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+    })
+    .then(() => {
+        input.value = "";
+        status.innerText = "✅ Mensaje enviado";
+    })
+    .catch(() => {
+        status.innerText = "❌ Error al enviar";
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.innerText = "Enviar";
+
+        setTimeout(() => bloqueado = false, 2000);
+    });
+}
+
+// ENTER para enviar
+document.getElementById('msgText').addEventListener('keypress', e => {
+    if (e.key === 'Enter') sendMessage();
+});
+</script>
+
+</body>
+</html>

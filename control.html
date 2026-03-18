@@ -2,208 +2,185 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Panel MASTER Ticker</title>
+<title>Control del Ticker</title>
 
 <style>
 body {
-    font-family: Arial;
-    background:#0f0f0f;
-    color:white;
-    padding:15px;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #1e1e1e;
+    color: white;
 }
 
-h2,h3 { margin-top:10px; }
+.container {
+    width: 400px;
+    margin: 30px auto;
+}
 
-input, button {
-    width:100%;
-    padding:10px;
-    margin:5px 0;
-    border:none;
-    border-radius:5px;
+h2 {
+    margin-bottom: 20px;
+}
+
+.card {
+    background: #2c2c2c;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin: 10px 0;
+}
+
+input[type="color"] {
+    width: 50px;
+    height: 30px;
+    border: none;
 }
 
 button {
-    background:red;
-    color:white;
-    font-weight:bold;
-    cursor:pointer;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
 }
 
-.msg {
-    background:#222;
-    padding:8px;
-    margin:5px 0;
-    border-radius:5px;
-    font-size:13px;
+.btn-save {
+    background: #28a745;
+    color: white;
 }
-.actions button {
-    width:48%;
-    margin-top:5px;
+
+.btn-delete {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-delete-all {
+    background: #ffc107;
+    color: black;
+}
+
+.message {
+    background: #3a3a3a;
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 4px solid #28a745;
 }
 </style>
 </head>
 
 <body>
 
-<h2>🎛 PANEL MASTER</h2>
+<div class="container">
 
-<!-- ENVIAR MANUAL -->
-<input id="msg" placeholder="Mensaje manual...">
-<button onclick="agregarManual()">Agregar directo al aire</button>
+<h2>Control del Ticker</h2>
 
-<hr>
+<!-- Ajustes -->
+<div class="card">
+    <h3>🎨 Ajustes Visuales</h3>
 
-<!-- PENDIENTES -->
-<h3>📩 Pendientes (usuarios)</h3>
-<div id="pendientes"></div>
+    <label>
+        Color del Ticker:
+        <input type="color" id="colorPicker">
+    </label>
 
-<hr>
+    <label>
+        <input type="checkbox" id="autoDelete">
+        Borrar mensajes automáticamente (24hs)
+    </label>
 
-<!-- ACTIVOS -->
-<h3>📺 En pantalla</h3>
-<button onclick="borrarTodo()">🧨 Borrar TODOS</button>
-<div id="activos"></div>
+    <button class="btn-save" onclick="guardarAjustes()">Guardar Ajustes</button>
+</div>
 
-<hr>
+<!-- Mensajes -->
+<div class="card">
+    <h3>💬 Mensajes Activos</h3>
 
-<!-- AJUSTES -->
-<h3>⚙️ Ajustes</h3>
+    <button class="btn-delete-all" onclick="borrarTodos()">Borrar TODOS</button>
 
-<label>Color</label>
-<input type="color" id="color">
+    <div id="listaMensajes"></div>
+</div>
 
-<label>Velocidad</label>
-<input type="range" min="50" max="300" id="vel">
-
-<label>Tamaño texto</label>
-<input type="range" min="18" max="40" id="size">
-
-<button onclick="guardarAjustes()">💾 Guardar ajustes</button>
-<button onclick="toggle()">ON / OFF</button>
+</div>
 
 <script>
-const ws = new WebSocket("ws://" + location.hostname + ":3000");
 
-let estado = {
-    mensajes: [],
-    pendientes: [],
-    color:"#ff0000",
-    velocidad:100,
-    size:24,
-    activo:true
-};
+// Cargar datos
+function cargarDatos() {
+    fetch('api.php?action=get')
+    .then(r => r.json())
+    .then(data => {
 
-ws.onmessage = e => {
-    estado = JSON.parse(e.data);
-    limpiarExpirados();
-    render();
-};
+        // Ajustes
+        if (data.settings) {
+            document.getElementById('colorPicker').value = data.settings.color || "#ff0000";
+            document.getElementById('autoDelete').checked = data.settings.autoDelete;
+        }
 
-function enviar(){
-    ws.send(JSON.stringify(estado));
-}
+        // Mensajes
+        const contenedor = document.getElementById('listaMensajes');
+        contenedor.innerHTML = "";
 
-/* ===== MENSAJES ===== */
+        if (data.messages && data.messages.length > 0) {
+            data.messages.forEach(m => {
 
-// manual directo
-function agregarManual(){
-    const text = document.getElementById("msg").value;
-    if(!text) return;
+                const div = document.createElement('div');
+                div.className = "message";
 
-    estado.mensajes.push({
-        text:text,
-        time: Date.now()
+                div.innerHTML = `
+                    <span>${m.text}</span>
+                    <button class="btn-delete" onclick="borrarMensaje(${m.id})">Borrar</button>
+                `;
+
+                contenedor.appendChild(div);
+            });
+        } else {
+            contenedor.innerHTML = "<p>No hay mensajes</p>";
+        }
+
     });
-
-    document.getElementById("msg").value="";
-    enviar();
 }
 
-// aprobar desde usuarios
-function aprobar(i){
-    ws.send(JSON.stringify({ aprobar:i }));
+// Guardar ajustes
+function guardarAjustes() {
+    const color = document.getElementById('colorPicker').value;
+    const autoDelete = document.getElementById('autoDelete').checked ? 1 : 0;
+
+    const params = new URLSearchParams();
+    params.append('color', color);
+    params.append('autoDelete', autoDelete);
+
+    fetch('api.php?action=settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString()
+    })
+    .then(() => alert("Ajustes guardados"));
 }
 
-// rechazar
-function rechazar(i){
-    ws.send(JSON.stringify({ rechazar:i }));
+// Borrar uno
+function borrarMensaje(id) {
+    fetch('api.php?action=delete&id=' + id)
+    .then(() => cargarDatos());
 }
 
-// eliminar activo
-function borrarMensaje(i){
-    estado.mensajes.splice(i,1);
-    enviar();
+// Borrar todos
+function borrarTodos() {
+    if (!confirm("¿Borrar todos los mensajes?")) return;
+
+    fetch('api.php?action=deleteAll')
+    .then(() => cargarDatos());
 }
 
-// borrar todos
-function borrarTodo(){
-    estado.mensajes = [];
-    enviar();
-}
-
-/* ===== AUTO DELETE 24H ===== */
-function limpiarExpirados(){
-    const ahora = Date.now();
-
-    estado.mensajes = estado.mensajes.filter(m => (ahora - m.time) < 86400000);
-}
-
-/* ===== AJUSTES ===== */
-
-function guardarAjustes(){
-    estado.color = document.getElementById("color").value;
-    estado.velocidad = document.getElementById("vel").value;
-    estado.size = document.getElementById("size").value;
-    enviar();
-}
-
-function toggle(){
-    estado.activo = !estado.activo;
-    enviar();
-}
-
-/* ===== UI ===== */
-
-function render(){
-
-    // PENDIENTES
-    document.getElementById("pendientes").innerHTML = "";
-
-    estado.pendientes.forEach((m,i)=>{
-        document.getElementById("pendientes").innerHTML += `
-            <div class="msg">
-                ${m.text}
-                <div class="actions">
-                    <button onclick="aprobar(${i})">✅ Aprobar</button>
-                    <button onclick="rechazar(${i})">❌ Rechazar</button>
-                </div>
-            </div>
-        `;
-    });
-
-    // ACTIVOS
-    document.getElementById("activos").innerHTML = "";
-
-    estado.mensajes.forEach((m,i)=>{
-        document.getElementById("activos").innerHTML += `
-            <div class="msg">
-                ${m.text}
-                <button onclick="borrarMensaje(${i})">❌ Eliminar</button>
-            </div>
-        `;
-    });
-
-    // SETTINGS
-    document.getElementById("color").value = estado.color;
-    document.getElementById("vel").value = estado.velocidad;
-    document.getElementById("size").value = estado.size;
-}
-
-/* LIMPIEZA AUTOMÁTICA */
-setInterval(()=>{
-    limpiarExpirados();
-    enviar();
-},60000);
+// Auto refresco
+setInterval(cargarDatos, 3000);
+cargarDatos();
 
 </script>
 

@@ -2,67 +2,97 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<title>Ticker OBS PRO</title>
+
 <style>
-body { margin:0; overflow:hidden; background:transparent;}
-#bar {
-    position:absolute;
-    bottom:0;
-    width:100%;
-    height:50px;
-    display:flex;
-    align-items:center;
-    font-size:24px;
-    font-weight:bold;
-    color:white;
-    overflow:hidden;
+body {
+    margin: 0;
+    background: transparent;
+    overflow: hidden;
+    font-family: Arial;
 }
-#text {
-    position:absolute;
-    white-space:nowrap;
+
+#ticker-container {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 60px;
+    background: #ff0000;
+    color: white;
+    display: flex;
+    align-items: center;
+    font-size: 26px;
+    font-weight: bold;
+    overflow: hidden;
+}
+
+#ticker-content {
+    position: absolute;
+    white-space: nowrap;
+    will-change: transform;
 }
 </style>
 </head>
+
 <body>
 
-<div id="bar">
-    <div id="text">Cargando...</div>
+<div id="ticker-container">
+    <div id="ticker-content">Esperando mensajes...</div>
 </div>
 
 <script>
-const ws = new WebSocket("ws://" + location.hostname + ":3000");
+let ultimoTexto = "";
+const pxPorSegundo = 100;
 
-let estado = {};
-const text = document.getElementById("text");
-const bar = document.getElementById("bar");
+const ticker = document.getElementById('ticker-content');
+let posicionX = window.innerWidth;
+let ultimoTiempo = performance.now();
 
-let x = window.innerWidth;
-let last = performance.now();
+function moverTicker(t) {
+    let delta = (t - ultimoTiempo) / 1000;
+    ultimoTiempo = t;
 
-function loop(t){
-    let dt = (t - last)/1000;
-    last = t;
+    posicionX -= pxPorSegundo * delta;
 
-    if(estado.activo !== false){
-        x -= (estado.velocidad || 100) * dt;
+    if (posicionX < -ticker.offsetWidth) {
+        posicionX = window.innerWidth;
     }
 
-    if(x < -text.offsetWidth){
-        x = window.innerWidth;
-    }
-
-    text.style.transform = `translateX(${x}px)`;
-    requestAnimationFrame(loop);
+    ticker.style.transform = `translateX(${posicionX}px)`;
+    requestAnimationFrame(moverTicker);
 }
 
-requestAnimationFrame(loop);
+requestAnimationFrame(moverTicker);
 
-ws.onmessage = e => {
-    estado = JSON.parse(e.data);
+function updateTicker() {
+    fetch('api.php?action=get&nocache=' + Date.now())
+    .then(r => r.json())
+    .then(data => {
 
-    text.innerHTML = estado.mensajes.map(m=>m.text).join(" • ");
-    bar.style.background = estado.color;
-    text.style.fontSize = estado.size + "px";
-};
+        if (data.settings) {
+            document.getElementById('ticker-container').style.backgroundColor = data.settings.color;
+        }
+
+        let texto = "Esperando mensajes...";
+
+        if (data.messages && data.messages.length > 0) {
+            texto = data.messages.map(m => m.text).join('   •   ');
+        }
+
+        if (texto !== ultimoTexto) {
+            ticker.innerHTML = texto;
+            ultimoTexto = texto;
+
+            // 🔥 Reinicia suavemente desde la derecha
+            posicionX = window.innerWidth;
+        }
+
+    })
+    .catch(() => {});
+}
+
+setInterval(updateTicker, 3000);
+updateTicker();
 </script>
 
 </body>
