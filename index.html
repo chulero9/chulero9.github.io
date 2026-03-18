@@ -81,8 +81,6 @@ button:disabled {
 </div>
 
 <script>
-let bloqueado = false;
-
 function sendMessage() {
     const input = document.getElementById('msgText');
     const button = document.getElementById('btnSend');
@@ -90,52 +88,36 @@ function sendMessage() {
 
     let text = input.value.trim();
 
-    // Validación
     if (!text) {
-        status.innerText = "⚠️ Escribe un mensaje válido";
+        status.innerText = "⚠️ Escribe algo";
         return;
     }
 
-    // Anti spam simple (2 seg)
-    if (bloqueado) {
-        status.innerText = "⏳ Espera un momento...";
-        return;
-    }
-
-    bloqueado = true;
     button.disabled = true;
     button.innerText = "Enviando...";
-    status.innerText = "";
-
-    const params = new URLSearchParams();
-    params.append('text', text);
 
     fetch('api.php?action=add', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: params.toString()
+        body: 'text=' + encodeURIComponent(text)
     })
-    .then(res => {
-        if (!res.ok) throw new Error();
-        return res.json();
-    })
-    .then(() => {
+    .then(res => res.text()) // 👈 evita errores JSON
+    .then(response => {
+        console.log("RESPUESTA:", response);
         input.value = "";
-        status.innerText = "✅ Mensaje enviado";
+        status.innerText = "✅ Enviado";
     })
-    .catch(() => {
-        status.innerText = "❌ Error al enviar";
+    .catch(err => {
+        console.error(err);
+        status.innerText = "❌ Error";
     })
     .finally(() => {
         button.disabled = false;
         button.innerText = "Enviar";
-
-        setTimeout(() => bloqueado = false, 2000);
     });
 }
-
 // ENTER para enviar
 document.getElementById('msgText').addEventListener('keypress', e => {
     if (e.key === 'Enter') sendMessage();
