@@ -41,58 +41,51 @@ body {
 </div>
 
 <script>
-let ultimoTexto = "";
-const pxPorSegundo = 100;
-
 const ticker = document.getElementById('ticker-content');
+
 let posicionX = window.innerWidth;
 let ultimoTiempo = performance.now();
+const velocidad = 100;
 
-function moverTicker(t) {
+// Movimiento ultra fluido
+function mover(t) {
     let delta = (t - ultimoTiempo) / 1000;
     ultimoTiempo = t;
 
-    posicionX -= pxPorSegundo * delta;
+    posicionX -= velocidad * delta;
 
     if (posicionX < -ticker.offsetWidth) {
         posicionX = window.innerWidth;
     }
 
     ticker.style.transform = `translateX(${posicionX}px)`;
-    requestAnimationFrame(moverTicker);
+    requestAnimationFrame(mover);
 }
+requestAnimationFrame(mover);
 
-requestAnimationFrame(moverTicker);
+// 🔥 CONEXIÓN TIEMPO REAL
+const evtSource = new EventSource('stream.php');
 
-function updateTicker() {
-    fetch('api.php?action=get&nocache=' + Date.now())
-    .then(r => r.json())
-    .then(data => {
+evtSource.onmessage = function(event) {
+    const data = JSON.parse(event.data);
 
-        if (data.settings) {
-            document.getElementById('ticker-container').style.backgroundColor = data.settings.color;
-        }
+    // Color dinámico
+    if (data.settings) {
+        document.getElementById('ticker-container').style.backgroundColor = data.settings.color;
+    }
 
-        let texto = "Esperando mensajes...";
+    // Mensajes
+    let texto = "Esperando mensajes...";
 
-        if (data.messages && data.messages.length > 0) {
-            texto = data.messages.map(m => m.text).join('   •   ');
-        }
+    if (data.messages && data.messages.length > 0) {
+        texto = data.messages.map(m => m.text).join('   •   ');
+    }
 
-        if (texto !== ultimoTexto) {
-            ticker.innerHTML = texto;
-            ultimoTexto = texto;
+    ticker.innerHTML = texto;
 
-            // 🔥 Reinicia suavemente desde la derecha
-            posicionX = window.innerWidth;
-        }
-
-    })
-    .catch(() => {});
-}
-
-setInterval(updateTicker, 3000);
-updateTicker();
+    // Reinicio limpio
+    posicionX = window.innerWidth;
+};
 </script>
 
 </body>
