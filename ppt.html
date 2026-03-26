@@ -13,16 +13,16 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #000; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; height: 100vh; overflow: hidden; }
-    
+   
     /* === FIX PARPADEO === */
-    video { 
-      display: block; 
-      width: 100%; 
-      height: 100%; 
-      object-fit: contain; 
-      background: #000; 
+    video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
     }
-    
+   
     .lobby { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #0f172a; padding: 20px; }
     .glass { background: rgba(30, 41, 59, 0.95); padding: 40px; border-radius: 16px; width: 100%; max-width: 450px; border: 1px solid #334155; }
     input { width: 100%; background: #000; border: 2px solid #334155; color: white; padding: 15px; border-radius: 8px; font-size: 1rem; margin-bottom: 15px; text-align: center; }
@@ -51,8 +51,6 @@
     .on-air.active { display: block; }
     .audio-indicator { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 6px; font-size: 0.75rem; z-index: 100; }
     .connection-indicator { position: absolute; top: 50px; left: 20px; font-size: 0.7rem; color: #64748b; background: rgba(0,0,0,0.7); padding: 4px 8px; border-radius: 4px; z-index: 100; }
-    .warning-box { position: absolute; top: 80px; left: 20px; background: rgba(245, 158, 11, 0.9); color: #000; padding: 8px 12px; border-radius: 6px; font-size: 0.75rem; z-index: 100; font-weight: bold; max-width: 300px; }
-    .success-box { position: absolute; top: 80px; left: 20px; background: rgba(34, 197, 94, 0.9); color: #000; padding: 8px 12px; border-radius: 6px; font-size: 0.75rem; z-index: 100; font-weight: bold; }
     .p-controls { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(15, 23, 42, 0.95); padding: 15px; border-radius: 12px; display: flex; gap: 10px; z-index: 100; border: 1px solid #334155; }
     .p-btn { width: 50px; height: 50px; border-radius: 8px; border: none; background: #334155; color: white; font-size: 1.2rem; cursor: pointer; }
     .p-btn.off { background: #ef4444; }
@@ -70,7 +68,6 @@
 </head>
 <body>
   <div id="root"></div>
-
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
@@ -86,24 +83,20 @@
       useEffect(() => {
         const video = ref.current;
         if (!video || !stream) return;
-
         video.srcObject = stream;
         video.muted = props.muted !== false;
-
         const play = () => video.play().catch(() => {});
         video.onloadedmetadata = play;
         if (stream.active) play();
-
         return () => {
           if (video.srcObject) video.srcObject = null;
         };
       }, [stream]);
-
       return <video ref={ref} autoPlay playsInline {...props} />;
     });
 
     // ==========================================
-    // DIRECTOR
+    // DIRECTOR (CORREGIDO)
     // ==========================================
     const Director = ({ room }) => {
       const [slots, setSlots] = useState({1:{},2:{},3:{}});
@@ -113,7 +106,27 @@
 
       useEffect(() => {
         peer.current = new Peer(`dir_${room}`, PEER_CONFIG);
+
         peer.current.on('open', () => console.log('✅ Director listo'));
+
+        // === CONEXIÓN DE DATOS (CORRECCIÓN CRÍTICA) ===
+        peer.current.on('connection', (conn) => {
+          const match = conn.peer.match(/pres_(.+?)_(\d+)_/);
+          if (!match) return;
+          const id = parseInt(match[2]);
+
+          dataConnsRef.current[id] = conn;
+
+          conn.on('data', (data) => {
+            if (data.type === 'info' && data.source) {
+              setSlots(s => ({ ...s, [id]: { ...s[id], source: data.source } }));
+            }
+          });
+
+          conn.on('close', () => {
+            delete dataConnsRef.current[id];
+          });
+        });
 
         peer.current.on('call', call => {
           const match = call.peer.match(/pres_(.+?)_(\d+)_/);
@@ -121,19 +134,14 @@
           const id = parseInt(match[2]);
 
           call.answer();
+
           call.on('stream', stream => {
-            setSlots(s => ({...s, [id]: {...s[id], stream}}));
-          });
-          call.on('close', () => {
-            setSlots(s => ({...s, [id]: {}}));
+            setSlots(s => ({ ...s, [id]: { ...s[id], stream } }));
           });
 
-          const dataConn = peer.current.connect(call.peer);
-          dataConnsRef.current[id] = dataConn;
-          dataConn.on('data', data => {
-            if (data.type === 'info' && data.source) {
-              setSlots(s => ({...s, [id]: {...s[id], source: data.source}}));
-            }
+          call.on('close', () => {
+            setSlots(s => ({ ...s, [id]: {} }));
+            delete dataConnsRef.current[id];
           });
         });
 
@@ -143,6 +151,7 @@
       const toggleLive = (id) => {
         const newActive = activeSlot === id ? null : id;
         setActiveSlot(newActive);
+
         Object.keys(dataConnsRef.current).forEach(sid => {
           const conn = dataConnsRef.current[sid];
           if (conn?.open) conn.send({ tally: newActive === parseInt(sid) ? 'live' : 'idle' });
@@ -189,11 +198,9 @@
                         <small>Esperando presentador...</small>
                       </div>
                     )}
-
                     <button className="copy-btn" onClick={() => copyObsUrl(id)}>
                       <i className="fas fa-copy"></i> Link OBS
                     </button>
-
                     {hasStream && <Video stream={slot.stream} muted={false} />}
                   </div>
                 </div>
@@ -205,7 +212,7 @@
     };
 
     // ==========================================
-    // PRESENTER
+    // PRESENTER (con cleanup de streams)
     // ==========================================
     const Presenter = ({ room, slot }) => {
       const [step, setStep] = useState('select');
@@ -216,14 +223,13 @@
       const [error, setError] = useState('');
       const [muted, setMuted] = useState(false);
       const [connStatus, setConnStatus] = useState({ director: 'waiting', obs: 'waiting' });
-
       const peer = useRef(null);
       const micTrackRef = useRef(null);
-      const dataConnRef = useRef(null);
       const directorIntervalRef = useRef(null);
       const obsIntervalRef = useRef(null);
       const myId = useRef(`pres_${room}_${slot}_${Date.now()}`).current;
 
+      // Inicialización PeerJS
       useEffect(() => {
         peer.current = new Peer(myId, PEER_CONFIG);
         peer.current.on('open', () => console.log('✅ Presenter listo'));
@@ -236,27 +242,45 @@
         };
       }, []);
 
+      // Cleanup de streams (evita cámara/micro encendidos al cerrar)
+      useEffect(() => {
+        return () => {
+          if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+          }
+        };
+      }, [localStream]);
+
       const startLocalStream = async () => {
         try {
           setError('');
           let stream;
+
           if (source === 'screen') {
             const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
             if (includeMic) {
               const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
               micTrackRef.current = micStream.getAudioTracks()[0];
               stream = new MediaStream([screenStream.getVideoTracks()[0], ...screenStream.getAudioTracks(), micTrackRef.current]);
-            } else stream = screenStream;
+            } else {
+              stream = screenStream;
+            }
             screenStream.getVideoTracks()[0].onended = () => window.location.reload();
           } else {
-            stream = await navigator.mediaDevices.getUserMedia({ video: {width:1280,height:720}, audio: true });
+            stream = await navigator.mediaDevices.getUserMedia({ 
+              video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
+              audio: true 
+            });
             micTrackRef.current = stream.getAudioTracks()[0];
           }
+
           setLocalStream(stream);
           setStep('live');
           connectToDirector(stream);
           connectToObs(stream);
-        } catch (e) { setError(e.message); }
+        } catch (e) {
+          setError(e.message || 'Error al obtener el stream');
+        }
       };
 
       const connectToDirector = (stream) => {
@@ -268,13 +292,15 @@
           if (dirCall) dirCall.on('open', () => setConnStatus(s => ({...s, director:'connected'})));
 
           const dataConn = peer.current.connect(`dir_${room}`);
-          dataConnRef.current = dataConn;
           dataConn.on('open', () => {
             setConnStatus(s => ({...s, director:'connected'}));
             dataConn.send({ type: 'info', source, slot: parseInt(slot)||1 });
           });
-          dataConn.on('data', data => { if (data.tally !== undefined) setTally(data.tally); });
+          dataConn.on('data', data => { 
+            if (data.tally !== undefined) setTally(data.tally); 
+          });
         };
+
         tryDirector();
         directorIntervalRef.current = setInterval(tryDirector, 2500);
       };
@@ -287,6 +313,7 @@
           const obsCall = peer.current.call(`obs_${room}_${slot}`, stream);
           if (obsCall) obsCall.on('open', () => setConnStatus(s => ({...s, obs:'connected'})));
         };
+
         setTimeout(tryObs, 1500);
         obsIntervalRef.current = setInterval(tryObs, 5000);
         setTimeout(() => clearInterval(obsIntervalRef.current), 180000);
@@ -350,13 +377,12 @@
     };
 
     // ==========================================
-    // OBS (optimizado)
+    // OBS (optimizado - código muerto eliminado)
     // ==========================================
     const Obs = ({ room, slot, debug }) => {
       const [stream, setStream] = useState(null);
       const [debugInfo, setDebugInfo] = useState('Iniciando...');
       const peer = useRef(null);
-      const videoRef = useRef(null);
 
       useEffect(() => {
         const obsId = `obs_${room}_${slot}`;
@@ -372,13 +398,6 @@
         return () => peer.current?.destroy();
       }, [room, slot]);
 
-      useEffect(() => {
-        if (stream && videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
-        }
-      }, [stream]);
-
       return (
         <div className="obs">
           {stream ? (
@@ -393,7 +412,7 @@
               <small style={{marginTop:'20px', opacity:0.6}}>ID: obs_{room}_{slot}</small>
             </div>
           )}
-          {debug && <div className="obs-debug" style={{display:'block'}}>{debugInfo}</div>}
+          {debug && <div style={{position:'absolute', bottom: '20px', left: '20px', background: 'rgba(0,0,0,0.7)', padding: '8px 12px', borderRadius: '4px', fontSize: '0.75rem', zIndex: 100}}>{debugInfo}</div>}
         </div>
       );
     };
@@ -425,9 +444,13 @@
         <div className="lobby">
           <div className="glass">
             <h1 style={{color:'#8b5cf6', marginBottom:'20px', textAlign:'center'}}><i className="fas fa-broadcast-tower"></i> StreamCall LAN</h1>
-            <input value={state.room} onChange={e => setState({...state, room: e.target.value.toUpperCase()})} placeholder="NOMBRE SALA" />
+            <input 
+              value={state.room} 
+              onChange={e => setState({...state, room: e.target.value.toUpperCase()})} 
+              placeholder="NOMBRE SALA" 
+            />
             <button className="btn" onClick={() => window.location.href=`?mode=director&room=${state.room}`}>Soy Director</button>
-            <button className="btn btn-purple" onClick={() => window.location.href=`?mode=presenter&room=${state.room}&slot=1`}>Soy Presentador</button>
+            <button className="btn btn-purple" onClick={() => window.location.href=`?mode=presenter&room=${state.room}&slot=1`}>Soy Presentador (Slot 1)</button>
           </div>
         </div>
       );
