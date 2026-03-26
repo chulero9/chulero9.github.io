@@ -75,6 +75,9 @@
         .guest-layout.tally-live .big-tally-text { display: block; background: #ef4444; color: white; }
         .guest-layout.tally-prev .big-tally-text { display: block; background: #22c55e; color: black; }
         @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+        /* NUEVO: Mensaje de error de cámara */
+        .camera-error { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(239,68,68,0.95); color: white; padding: 30px 40px; border-radius: 16px; text-align: center; font-weight: 900; z-index: 999; max-width: 320px; }
     </style>
 </head>
 <body>
@@ -94,7 +97,6 @@
             return sharedAudioCtx;
         };
 
-        // === VIDEO PLAYER CORREGIDO (ahora acepta style para el efecto espejo) ===
         const VideoPlayer = ({ stream, muted, className, style = {} }) => {
             const videoRef = useRef(null);
             useEffect(() => {
@@ -115,7 +117,6 @@
 
         const VUMeter = ({ stream }) => {
             const barRef = useRef(null);
-           
             useEffect(() => {
                 if (!stream || stream.getAudioTracks().length === 0) return;
                 let anim;
@@ -348,7 +349,7 @@
             );
         };
 
-        // --- INVITADO (GUEST) ---
+        // --- INVITADO (GUEST) - VERSIÓN ULTRA ESTABLE ---
         const GuestView = ({ roomName, slotId }) => {
             const [joined, setJoined] = useState(false);
             const [quality, setQuality] = useState('720');
@@ -357,22 +358,52 @@
             const [camOff, setCamOff] = useState(false);
             const [returnStream, setReturnStream] = useState(null);
             const [facingMode, setFacingMode] = useState('user');
-           
+            const [cameraError, setCameraError] = useState(null);   // ← NUEVO: para mostrar error
+
             const peer = useRef(null);
             const mqttClient = useRef(null);
             const localStream = useRef(null);
             const [myStreamState, setMyStreamState] = useState(null);
 
+            // Función reutilizable para obtener stream (con fallback)
+            const getStreamWithFallback = async (isSwitch = false) => {
+                const res = { '360': [640,360], '720': [1280,720], '1080': [1920,1080] };
+                const targetRes = res[quality] || res['720'];
+
+                // Intento 1: con resolución deseada
+                try {
+                    return await navigator.mediaDevices.getUserMedia({
+                        video: { 
+                            width: { ideal: targetRes[0] },
+                            height: { ideal: targetRes[1] },
+                            facingMode: facingMode 
+                        },
+                        audio: { echoCancellation: true, noiseSuppression: true }
+                    });
+                } catch (e) {
+                    console.warn("Resolución alta falló → fallback a básica");
+                }
+
+                // Intento 2: solo facingMode (la cámara elige la mejor resolución posible)
+                try {
+                    return await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: facingMode },
+                        audio: { echoCancellation: true, noiseSuppression: true }
+                    });
+                } catch (e) {
+                    throw e; // falla total
+                }
+            };
+
             const switchCamera = async () => {
                 const nextMode = facingMode === 'user' ? 'environment' : 'user';
                 setFacingMode(nextMode);
+                setCameraError(null);
+
                 try {
-                    const res = { '360': [640,360], '720': [1280,720], '1080': [1920,1080] };
-                    const newVideoState = await navigator.mediaDevices.getUserMedia({
-                        video: { width: { ideal: res[quality][0] }, height: { ideal: res[quality][1] }, facingMode: nextMode }
-                    });
+                    const newVideoState = await getStreamWithFallback(true);
                     const newVideoTrack = newVideoState.getVideoTracks()[0];
-                   
+
                     if (peer.current) {
                         Object.values(peer.current.connections).forEach(connArray => {
                             connArray.forEach(connection => {
@@ -383,52 +414,46 @@
                             });
                         });
                     }
+
                     if (localStream.current) {
                         const oldVideoTrack = localStream.current.getVideoTracks()[0];
-                        localStream.current.removeTrack(oldVideoTrack);
+                        if (oldVideoTrack) localStream.current.removeTrack(oldVideoTrack);
                         localStream.current.addTrack(newVideoTrack);
                         setMyStreamState(new MediaStream(localStream.current.getTracks()));
                         if (oldVideoTrack) oldVideoTrack.stop();
                     }
 
-                    // Limpiar stream temporal de la nueva cámara
+                    // Limpiar stream temporal
                     newVideoState.getTracks().forEach(track => track.stop());
-
-                } catch (e) { 
+                } catch (e) {
                     console.error(e);
-                    alert("No se pudo cambiar la cámara.\n\nInténtalo de nuevo o revisa los permisos."); 
+                    setCameraError("No se pudo cambiar la cámara");
                 }
             };
 
             useEffect(() => {
                 if (!joined) return;
-               
+
                 const mq = mqtt.connect(MQTT_BROKER);
                 mqttClient.current = mq;
                 mq.on('connect', () => { mq.subscribe(`sc_tally/${roomName.toUpperCase()}/${slotId}`); });
                
                 mq.on('message', (t, msg) => {
-                    const data = msg.toString();
-                    if (t.includes('tally')) setTally(JSON.parse(data).state);
+                    if (t.includes('tally')) setTally(JSON.parse(msg.toString()).state);
                 });
-               
+
                 const init = async () => {
+                    setCameraError(null);
                     try {
-                        const res = { '360': [640,360], '720': [1280,720], '1080': [1920,1080] };
-                       
-                        const s = await navigator.mediaDevices.getUserMedia({
-                            video: { width: { ideal: res[quality][0] }, height: { ideal: res[quality][1] }, facingMode: facingMode },
-                            audio: { echoCancellation: true, noiseSuppression: true }
-                        });
-                       
+                        const s = await getStreamWithFallback();
                         localStream.current = s;
                         setMyStreamState(s);
-                       
+
                         const baseId = roomName.toUpperCase();
                         peer.current = new Peer(`sc_guest_${baseId}_${slotId}`, PEER_CONFIG);
                        
                         peer.current.on('open', () => {
-                            setTimeout(() => { peer.current.call(`sc_dir_${baseId}`, localStream.current); }, 300);
+                            setTimeout(() => { peer.current.call(`sc_dir_${baseId}`, s); }, 300);
                         });
                         peer.current.on('connection', (conn) => {
                             conn.on('data', (data) => {
@@ -439,43 +464,71 @@
                         });
                         peer.current.on('call', (c) => {
                             c.answer();
-                            c.on('stream', (rem) => { setReturnStream(rem); });
+                            c.on('stream', (rem) => setReturnStream(rem));
                         });
-                    } catch (e) { 
+                    } catch (e) {
                         console.error(e);
-                        alert("No se pudo acceder a la cámara o micrófono.\n\nPor favor permite el acceso en la ventana emergente."); 
+                        setCameraError("No se pudo acceder a la cámara");
                     }
                 };
+
                 init();
-                return () => { peer.current?.destroy(); mq.end(); };
+
+                return () => { 
+                    peer.current?.destroy(); 
+                    mq.end(); 
+                };
             }, [joined]);
 
             const toggleMic = () => { 
                 if (localStream.current) { 
                     const t = localStream.current.getAudioTracks()[0]; 
-                    t.enabled = !t.enabled; 
+                    if (t) t.enabled = !t.enabled; 
                     setMicMuted(!t.enabled); 
                 } 
             };
             const toggleCam = () => { 
                 if (localStream.current) { 
                     const t = localStream.current.getVideoTracks()[0]; 
-                    t.enabled = !t.enabled; 
+                    if (t) t.enabled = !t.enabled; 
                     setCamOff(!t.enabled); 
                 } 
             };
 
+            const retryCamera = () => {
+                if (joined) {
+                    // Forzar re-intento
+                    setMyStreamState(null);
+                    setCameraError(null);
+                    // Re-ejecutar init manualmente
+                    const mq = mqtt.connect(MQTT_BROKER);
+                    mqttClient.current = mq;
+                    const initRetry = async () => {
+                        try {
+                            const s = await getStreamWithFallback();
+                            localStream.current = s;
+                            setMyStreamState(s);
+                        } catch (e) {
+                            setCameraError("Sigue sin funcionar. Revisa permisos o prueba en HTTPS.");
+                        }
+                    };
+                    initRetry();
+                }
+            };
+
             if (!joined) return (
-                <div className="lobby-container"><div className="glass-box">
-                    <h2 className="text-xl font-black mb-2 text-white uppercase tracking-widest">SALA: {roomName}</h2>
-                    <h3 className="text-2xl font-black mb-4 text-blue-400 uppercase tracking-widest">MÓVIL {slotId}</h3>
-                    <select className="quality-select" value={quality} onChange={e => setQuality(e.target.value)}>
-                        <option value="360">360p (BAJA)</option>
-                        <option value="720">720p (MEDIA)</option>
-                        <option value="1080">1080p (ALTA)</option>
-                    </select>
-                    <button className="btn btn-blue w-full mt-2" onClick={() => setJoined(true)}>ENTRAR AL VIVO</button>
-                </div></div>
+                <div className="lobby-container">
+                    <div className="glass-box">
+                        <h2 className="text-xl font-black mb-2 text-white uppercase tracking-widest">SALA: {roomName}</h2>
+                        <h3 className="text-2xl font-black mb-4 text-blue-400 uppercase tracking-widest">MÓVIL {slotId}</h3>
+                        <select className="quality-select" value={quality} onChange={e => setQuality(e.target.value)}>
+                            <option value="360">360p (BAJA - más estable)</option>
+                            <option value="720">720p (MEDIA)</option>
+                            <option value="1080">1080p (ALTA)</option>
+                        </select>
+                        <button className="btn btn-blue w-full mt-2" onClick={() => setJoined(true)}>ENTRAR AL VIVO</button>
+                    </div>
+                </div>
             );
 
             return (
@@ -499,7 +552,22 @@
                             }} 
                         />
                     )}
-                   
+
+                    {/* MENSAJE DE ERROR DE CÁMARA */}
+                    {cameraError && (
+                        <div className="camera-error">
+                            <div className="text-2xl mb-3">📷</div>
+                            <p className="text-xl font-black mb-4">{cameraError}</p>
+                            <button 
+                                onClick={retryCamera}
+                                className="btn btn-blue w-full py-3 text-lg"
+                            >
+                                REINTENTAR CÁMARA
+                            </button>
+                            <p className="text-xs mt-4 opacity-75">Asegúrate de permitir la cámara y usar HTTPS</p>
+                        </div>
+                    )}
+
                     <div className="guest-overlay">
                         <div className="text-[10px] font-bold text-gray-400 uppercase mr-2">CH {slotId}</div>
                         <div className={`mic-btn ${micMuted?'off':'on'}`} onClick={toggleMic}>{micMuted ? '🔇' : '🎤'}</div>
@@ -532,11 +600,13 @@
            
             if (appState.mode === 'lobby') {
                 return (
-                    <div className="lobby-container"><div className="glass-box">
-                        <h1 className="text-3xl font-black mb-6 uppercase text-blue-500 tracking-tighter">StreamCall PRO (3 CANALES)</h1>
-                        <input value={appState.room} onChange={(e) => setAppState({...appState, room: e.target.value.toUpperCase()})} placeholder="NOMBRE SALA" />
-                        <button className="btn btn-blue w-full py-4 text-lg" onClick={() => window.location.href=`?mode=director&room=${appState.room}`}>ABRIR DASHBOARD DIRECTOR</button>
-                    </div></div>
+                    <div className="lobby-container">
+                        <div className="glass-box">
+                            <h1 className="text-3xl font-black mb-6 uppercase text-blue-500 tracking-tighter">StreamCall PRO (3 CANALES)</h1>
+                            <input value={appState.room} onChange={(e) => setAppState({...appState, room: e.target.value.toUpperCase()})} placeholder="NOMBRE SALA" />
+                            <button className="btn btn-blue w-full py-4 text-lg" onClick={() => window.location.href=`?mode=director&room=${appState.room}`}>ABRIR DASHBOARD DIRECTOR</button>
+                        </div>
+                    </div>
                 );
             }
             return null;
