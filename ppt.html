@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PPT Call - LAN Clean 2.5</title>
+  <title>PPT Call - LAN Clean</title>
   
-  <!-- React + PeerJS + Tailwind -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -29,7 +28,6 @@
       -webkit-backface-visibility: hidden; backface-visibility: hidden;
     }
 
-    /* Resto de estilos (sin cambios) */
     .lobby { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #0f172a; padding: 20px; }
     .glass { background: rgba(30, 41, 59, 0.95); padding: 40px; border-radius: 16px; width: 100%; max-width: 480px; border: 1px solid #334155; }
     input { width: 100%; background: #000; border: 2px solid #334155; color: white; padding: 15px; border-radius: 8px; font-size: 1rem; margin-bottom: 20px; text-align: center; }
@@ -67,7 +65,6 @@
     .slot-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 25px 0; }
     .slot-btn { background: rgba(51, 65, 85, 0.6); border: 2px solid #334155; border-radius: 12px; padding: 20px 10px; text-align: center; cursor: pointer; transition: all 0.2s; }
     .slot-btn:hover { border-color: #8b5cf6; transform: translateY(-2px); }
-    .screen-ended { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; }
   </style>
 </head>
 <body>
@@ -80,9 +77,6 @@
       config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } 
     };
 
-    // ==========================================
-    // OPTIMIZACIÓN DE STREAM (720p / 30fps)
-    // ==========================================
     const optimizeStream = (stream) => {
       const videoTrack = stream.getVideoTracks()[0];
       if (!videoTrack) return stream;
@@ -94,9 +88,6 @@
       return stream;
     };
 
-    // ==========================================
-    // VIDEO COMPONENT (estable)
-    // ==========================================
     const Video = React.memo(({ stream, muted = true, ...props }) => {
       const videoRef = useRef(null);
       const currentStreamRef = useRef(null);
@@ -139,7 +130,7 @@
     });
 
     // ==========================================
-    // DIRECTOR
+    // DIRECTOR (mejorado)
     // ==========================================
     const Director = ({ room }) => {
       const [slots, setSlots] = useState({1:{},2:{},3:{}});
@@ -245,7 +236,7 @@
     };
 
     // ==========================================
-    // PRESENTER (CORREGIDO)
+    // PRESENTER (diseño ORIGINAL restaurado)
     // ==========================================
     const Presenter = ({ room, slot }) => {
       const [step, setStep] = useState('select');
@@ -257,7 +248,6 @@
       const [muted, setMuted] = useState(false);
       const [connStatus, setConnStatus] = useState({ director: 'waiting', obs: 'waiting' });
       const [peerReady, setPeerReady] = useState(false);
-      const [screenEnded, setScreenEnded] = useState(false);
 
       const peer = useRef(null);
       const micTrackRef = useRef(null);
@@ -274,7 +264,6 @@
         });
 
         peer.current.on('error', err => {
-          console.error(err);
           if (err.type === 'peer-unavailable') {
             setError('No se encontró Director u OBS. ¿Están abiertos?');
           }
@@ -287,17 +276,14 @@
         };
       }, []);
 
-      // Cleanup stream
       useEffect(() => {
         return () => {
           if (localStream) localStream.getTracks().forEach(track => track.stop());
         };
       }, [localStream]);
 
-      // Conexiones solo cuando peer y stream estén listos (FIX RACE CONDITION)
       useEffect(() => {
         if (!localStream || !peerReady) return;
-
         connectToDirector(localStream);
         connectToObs(localStream);
       }, [localStream, peerReady]);
@@ -305,7 +291,6 @@
       const startLocalStream = async () => {
         try {
           setError('');
-          setScreenEnded(false);
           let stream;
 
           if (source === 'screen') {
@@ -313,7 +298,8 @@
               video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } },
               audio: true
             });
-            screenStream.getVideoTracks()[0].onended = () => setScreenEnded(true);
+            // Comportamiento original: recargar al terminar compartir pantalla
+            screenStream.getVideoTracks()[0].onended = () => window.location.reload();
 
             if (includeMic) {
               const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -371,8 +357,7 @@
         };
         setTimeout(tryObs, 1500);
         obsIntervalRef.current = setInterval(tryObs, 5000);
-        // 10 minutos de retry (antes eran solo 3)
-        setTimeout(() => clearInterval(obsIntervalRef.current), 600000);
+        setTimeout(() => clearInterval(obsIntervalRef.current), 600000); // 10 minutos
       };
 
       const toggleMic = () => {
@@ -387,7 +372,6 @@
           <div className="lobby">
             <div className="glass">
               <h2 style={{color:'#8b5cf6', marginBottom:'20px'}}><i className="fas fa-laptop"></i> Laptop {slot}</h2>
-              {/* ... resto igual ... */}
               <div className="mode-grid">
                 <div className={`mode-card ${source==='screen'?'selected':''}`} onClick={()=>setSource('screen')}>
                   <div className="mode-icon"><i className="fas fa-desktop"></i></div>
@@ -426,34 +410,17 @@
 
           {localStream && <Video stream={localStream} muted={true} style={{objectFit: source==='screen'?'contain':'cover'}} />}
 
-          {/* Mensaje pantalla terminada */}
-          {screenEnded && (
-            <div className="screen-ended">
-              <i className="fas fa-desktop" style={{fontSize:'4rem', marginBottom:'20px', opacity:0.6}}></i>
-              <h3>La compartición de pantalla ha finalizado</h3>
-              <button className="btn btn-purple mt-6" onClick={() => window.location.reload()}>
-                <i className="fas fa-redo"></i> Reconectar
-              </button>
-            </div>
-          )}
-
           <div className="p-controls">
-            {(includeMic || source==='camera') && (
-              <button className={`p-btn ${muted?'off':''}`} onClick={toggleMic}>
-                <i className={muted?'fas fa-microphone-slash':'fas fa-microphone'}></i>
-              </button>
-            )}
+            {(includeMic || source==='camera') && <button className={`p-btn ${muted?'off':''}`} onClick={toggleMic}><i className={muted?'fas fa-microphone-slash':'fas fa-microphone'}></i></button>}
             <button className="p-btn switch" onClick={()=>window.location.reload()}>CAMBIAR</button>
-            <button className="p-btn" style={{background:'#ef4444'}} onClick={()=>window.location.href='./'}>
-              <i className="fas fa-sign-out-alt"></i>
-            </button>
+            <button className="p-btn" style={{background:'#ef4444'}} onClick={()=>window.location.href='./'}><i className="fas fa-sign-out-alt"></i></button>
           </div>
         </div>
       );
     };
 
     // ==========================================
-    // OBS (sin cambios importantes)
+    // OBS (sin cambios)
     // ==========================================
     const Obs = ({ room, slot, debug }) => {
       const [stream, setStream] = useState(null);
@@ -488,7 +455,7 @@
               <small style={{marginTop:'20px', opacity:0.6}}>ID: obs_{room}_{slot}</small>
             </div>
           )}
-          {debug && <div style={{position:'absolute', bottom: '20px', left: '20px', background: 'rgba(0,0,0,0.7)', padding: '8px 12px', borderRadius: '4px', fontSize: '0.75rem', zIndex: 100}}>{debugInfo}</div>}
+          {debug && <div style={{position:'absolute', bottom: '20px', left: '20px', background: 'rgba(0,0,0,0.7)', padding: '8px 12px', borderRadius: '4px', fontSize: '0.75rem', z-index: 100}}>{debugInfo}</div>}
         </div>
       );
     };
@@ -546,9 +513,7 @@
       );
     };
 
-    // Inicialización Tailwind
     tailwind.config = { theme: { extend: {} } };
-
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
