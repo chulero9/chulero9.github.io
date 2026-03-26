@@ -14,13 +14,17 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #000; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; height: 100vh; overflow: hidden; }
    
-    /* === FIX PARPADEO === */
+    /* === FIX PARPADEO MEJORADO === */
     video {
       display: block;
       width: 100%;
       height: 100%;
       object-fit: contain;
       background: #000;
+      /* Mejoras anti-flicker */
+      image-rendering: crisp-edges;
+      transform: translateZ(0); /* fuerza GPU */
+      will-change: transform;
     }
    
     .lobby { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #0f172a; padding: 20px; }
@@ -76,23 +80,57 @@
     };
 
     // ==========================================
-    // VIDEO COMPONENT (FIX PARPADEO)
+    // VIDEO COMPONENT (FIX PARPADEO ULTRA-ESTABLE)
     // ==========================================
-    const Video = React.memo(({ stream, ...props }) => {
-      const ref = useRef(null);
+    const Video = React.memo(({ stream, muted = true, ...props }) => {
+      const videoRef = useRef(null);
+      const currentStreamRef = useRef(null);
+
       useEffect(() => {
-        const video = ref.current;
-        if (!video || !stream) return;
-        video.srcObject = stream;
-        video.muted = props.muted !== false;
-        const play = () => video.play().catch(() => {});
-        video.onloadedmetadata = play;
-        if (stream.active) play();
+        const video = videoRef.current;
+        if (!video) return;
+
+        const newStreamId = stream ? stream.id : null;
+        const currentStreamId = currentStreamRef.current ? currentStreamRef.current.id : null;
+
+        // Solo actualizamos si el stream es realmente diferente (por ID)
+        if (newStreamId !== currentStreamId) {
+          if (stream) {
+            video.srcObject = stream;
+            currentStreamRef.current = stream;
+          } else {
+            video.srcObject = null;
+            currentStreamRef.current = null;
+          }
+
+          video.muted = muted !== false;
+
+          const play = () => {
+            if (video.paused) video.play().catch(() => {});
+          };
+
+          video.onloadedmetadata = play;
+          if (stream && stream.active) {
+            if (video.readyState >= 2) play();
+            else video.onloadeddata = play;
+          }
+        } else if (stream) {
+          // Mismo stream → solo actualizamos muted si cambió
+          if (video.muted !== (muted !== false)) {
+            video.muted = muted !== false;
+          }
+        }
+
         return () => {
-          if (video.srcObject) video.srcObject = null;
+          // Solo limpiamos si el stream desapareció completamente
+          if (!stream && video.srcObject) {
+            video.srcObject = null;
+            currentStreamRef.current = null;
+          }
         };
-      }, [stream]);
-      return <video ref={ref} autoPlay playsInline {...props} />;
+      }, [stream ? stream.id : null, muted]);
+
+      return <video ref={videoRef} autoPlay playsInline {...props} />;
     });
 
     // ==========================================
@@ -109,7 +147,6 @@
 
         peer.current.on('open', () => console.log('✅ Director listo'));
 
-        // === CONEXIÓN DE DATOS (CORRECCIÓN CRÍTICA) ===
         peer.current.on('connection', (conn) => {
           const match = conn.peer.match(/pres_(.+?)_(\d+)_/);
           if (!match) return;
@@ -212,7 +249,7 @@
     };
 
     // ==========================================
-    // PRESENTER (con cleanup de streams)
+    // PRESENTER
     // ==========================================
     const Presenter = ({ room, slot }) => {
       const [step, setStep] = useState('select');
@@ -229,7 +266,6 @@
       const obsIntervalRef = useRef(null);
       const myId = useRef(`pres_${room}_${slot}_${Date.now()}`).current;
 
-      // Inicialización PeerJS
       useEffect(() => {
         peer.current = new Peer(myId, PEER_CONFIG);
         peer.current.on('open', () => console.log('✅ Presenter listo'));
@@ -242,7 +278,6 @@
         };
       }, []);
 
-      // Cleanup de streams (evita cámara/micro encendidos al cerrar)
       useEffect(() => {
         return () => {
           if (localStream) {
@@ -377,7 +412,7 @@
     };
 
     // ==========================================
-    // OBS (optimizado - código muerto eliminado)
+    // OBS
     // ==========================================
     const Obs = ({ room, slot, debug }) => {
       const [stream, setStream] = useState(null);
