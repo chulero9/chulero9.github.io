@@ -636,7 +636,9 @@
         const currentVideoDeviceId = useRef('');
         const switchingCameraRef   = useRef(false);
         const [videoDevices, setVideoDevices] = useState([]);
-        const [switchingCamera, setSwitchingCamera] = useState(false);
+        const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
+        const outboundDirectorCall = useRef(null);
+        const outboundObsCalls = useRef({});
 
         const refreshVideoDevices = async () => {
             try {
@@ -664,8 +666,10 @@
         };
 
         const replaceOutgoingVideoTrack = async (newTrack) => {
-            if (!peer.current?.connections) return;
+            if (!peer.current?.connections) return true;
 
+            let replacedAny = false;
+            let hadFailure = false;
             const groups = Object.values(peer.current.connections);
             for (const group of groups) {
                 for (const conn of group) {
@@ -675,11 +679,33 @@
                     if (sender) {
                         try {
                             await sender.replaceTrack(newTrack);
+                            replacedAny = true;
                         } catch (err) {
+                            hadFailure = true;
                             console.warn('No se pudo reemplazar track de video', err);
                         }
                     }
                 }
+            }
+            return replacedAny && !hadFailure;
+        };
+
+        const reDialOutputs = () => {
+            const baseId = roomName.toUpperCase();
+            if (peer.current && localStream.current) {
+                try {
+                    outboundDirectorCall.current?.close?.();
+                } catch {}
+                try {
+                    outboundDirectorCall.current = peer.current.call(`sc_dir_${baseId}`, localStream.current);
+                } catch (err) {
+                    console.warn('No se pudo re-llamar al director', err);
+                }
+
+                Object.values(outboundObsCalls.current || {}).forEach(call => {
+                    try { call?.close?.(); } catch {}
+                });
+                outboundObsCalls.current = {};
             }
         };
 
@@ -689,85 +715,73 @@
 
             const nextMode = facingMode === 'environment' ? 'user' : 'environment';
             const [w, h] = RESOLUTIONS[quality];
-            const oldVideoTrack = localStream.current?.getVideoTracks?.()[0] || null;
+            const currentStream = localStream.current;
+            const oldVideoTrack = currentStream?.getVideoTracks?.()[0] || null;
+            const audioTracks = currentStream?.getAudioTracks?.() || [];
 
-            const getNewVideoTrack = async (releaseCurrentCameraFirst = false) => {
+            const getNewVideoStream = async () => {
                 const devices = await refreshVideoDevices();
                 const preferredDevice = findPreferredDevice(devices, nextMode, currentVideoDeviceId.current);
                 const attempts = [];
 
-                if (preferredDevice?.deviceId) {
-                    attempts.push({ deviceId: { exact: preferredDevice.deviceId } });
-                }
+                if (preferredDevice?.deviceId) attempts.push({ deviceId: { exact: preferredDevice.deviceId } });
                 attempts.push({ facingMode: { exact: nextMode } });
                 attempts.push({ facingMode: { ideal: nextMode } });
-                if (preferredDevice?.deviceId) {
-                    attempts.push({ deviceId: preferredDevice.deviceId });
-                }
-                attempts.push(true);
-
-                if (releaseCurrentCameraFirst && oldVideoTrack && oldVideoTrack.readyState !== 'ended') {
-                    try { oldVideoTrack.stop(); } catch {}
-                }
+                if (preferredDevice?.deviceId) attempts.push({ deviceId: preferredDevice.deviceId });
+                attempts.push({ width: { ideal: w }, height: { ideal: h } });
 
                 let lastError = null;
                 for (const extra of attempts) {
                     try {
-                        const tempStream = await navigator.mediaDevices.getUserMedia({
-                            video: extra === true
-                                ? { width: { ideal: w }, height: { ideal: h } }
-                                : { width: { ideal: w }, height: { ideal: h }, ...extra },
+                        return await navigator.mediaDevices.getUserMedia({
+                            video: { width: { ideal: w }, height: { ideal: h }, ...extra },
                             audio: false
                         });
-                        const track = tempStream.getVideoTracks()[0];
-                        return { track, tempStream };
                     } catch (err) {
                         lastError = err;
                     }
                 }
-                throw lastError || new Error('No se pudo acceder a otra cámara');
+                throw lastError || new Error('No se pudo acceder a la otra cámara');
             };
 
             switchingCameraRef.current = true;
-            setSwitchingCamera(true);
+            setIsSwitchingCamera(true);
 
             try {
-                let result;
-                try {
-                    result = await getNewVideoTrack(false);
-                } catch (firstError) {
-                    console.warn('Primer intento de cambio de cámara falló, reintentando…', firstError);
-                    result = await getNewVideoTrack(true);
-                }
-
-                const newTrack = result.track;
-                newTrack.enabled = !camOff;
-
-                await replaceOutgoingVideoTrack(newTrack);
-
-                const audioTracks = localStream.current?.getAudioTracks?.() || [];
-                const nextStream = new MediaStream([...audioTracks, newTrack]);
-                localStream.current = nextStream;
-                setMyStreamState(nextStream);
-
-                currentVideoDeviceId.current = newTrack.getSettings?.().deviceId || '';
-                setFacingMode(nextMode);
-
                 if (oldVideoTrack && oldVideoTrack.readyState !== 'ended') {
                     try { oldVideoTrack.stop(); } catch {}
                 }
 
-                result.tempStream?.getTracks?.().forEach(track => {
-                    if (track !== newTrack) {
-                        try { track.stop(); } catch {}
-                    }
-                });
+                await new Promise(resolve => setTimeout(resolve, 180));
+
+                const tempStream = await getNewVideoStream();
+                const newTrack = tempStream.getVideoTracks()[0];
+                if (!newTrack) throw new Error('No se obtuvo track de video nuevo');
+
+                newTrack.enabled = !camOff;
+
+                const nextStream = new MediaStream([...audioTracks, newTrack]);
+                localStream.current = nextStream;
+                setMyStreamState(nextStream);
+
+                const replaceOk = await replaceOutgoingVideoTrack(newTrack);
+                if (!replaceOk) {
+                    reDialOutputs();
+                } else {
+                    setTimeout(() => {
+                        try { reDialOutputs(); } catch {}
+                    }, 250);
+                }
+
+                currentVideoDeviceId.current = newTrack.getSettings?.().deviceId || '';
+                setFacingMode(nextMode);
+                refreshVideoDevices();
             } catch (e) {
                 console.error('Error al cambiar la cámara', e);
-                alert('No se pudo cambiar la cámara en este dispositivo');
+                alert(`No se pudo cambiar la cámara: ${e?.message || 'error desconocido'}`);
             } finally {
                 switchingCameraRef.current = false;
-                setSwitchingCamera(false);
+                setIsSwitchingCamera(false);
             }
         };
 
@@ -805,13 +819,25 @@
                     peer.current = new Peer(`sc_guest_${baseId}_${slotId}`, PEER_CONFIG);
 
                     peer.current.on('open', () => {
-                        setTimeout(() => peer.current.call(`sc_dir_${baseId}`, localStream.current), 300);
+                        setTimeout(() => {
+                            try {
+                                outboundDirectorCall.current = peer.current.call(`sc_dir_${baseId}`, localStream.current);
+                            } catch (err) {
+                                console.warn('No se pudo iniciar llamada al director', err);
+                            }
+                        }, 300);
                     });
 
                     peer.current.on('connection', (conn) => {
                         conn.on('data', (data) => {
-                            if (data === 'WAKE_UP_OBS' && localStream.current)
-                                peer.current.call(`sc_obs_${baseId}_${slotId}`, localStream.current);
+                            if (data === 'WAKE_UP_OBS' && localStream.current) {
+                                try {
+                                    const obsCall = peer.current.call(`sc_obs_${baseId}_${slotId}`, localStream.current);
+                                    outboundObsCalls.current[`sc_obs_${baseId}_${slotId}`] = obsCall;
+                                } catch (err) {
+                                    console.warn('No se pudo iniciar llamada a OBS', err);
+                                }
+                            }
                         });
                     });
 
@@ -826,6 +852,11 @@
 
             init();
             return () => {
+                try { outboundDirectorCall.current?.close?.(); } catch {}
+                Object.values(outboundObsCalls.current || {}).forEach(call => {
+                    try { call?.close?.(); } catch {}
+                });
+                outboundObsCalls.current = {};
                 peer.current?.destroy();
                 mq.end();
                 localStream.current?.getTracks().forEach(t => t.stop());
@@ -948,10 +979,10 @@
                         className="icon-btn switch"
                         onClick={switchCamera}
                         title="Cambiar cámara"
-                        disabled={switchingCamera}
-                        style={{ opacity: switchingCamera ? 0.6 : 1 }}
+                        disabled={isSwitchingCamera}
+                        style={{ opacity: isSwitchingCamera ? 0.6 : 1 }}
                     >
-                        {switchingCamera ? '⏳' : '🔄'}
+                        {isSwitchingCamera ? '⏳' : '🔄'}
                     </button>
                 </div>
             </div>
