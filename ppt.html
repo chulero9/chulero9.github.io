@@ -14,7 +14,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #000; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; height: 100vh; overflow: hidden; }
    
-    /* === FIX PARPADEO MEJORADO === */
+    /* === OPTIMIZACIÓN ANTI-LAG + ANTI-PARPADEO === */
     video {
       display: block;
       width: 100%;
@@ -24,6 +24,9 @@
       image-rendering: crisp-edges;
       transform: translateZ(0);
       will-change: transform;
+      /* Baja latencia en reproducción */
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
     }
    
     .lobby { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #0f172a; padding: 20px; }
@@ -32,7 +35,6 @@
     .btn { width: 100%; padding: 15px; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; background: #3b82f6; color: white; font-size: 1rem; margin-bottom: 10px; }
     .btn-purple { background: #8b5cf6; }
     .checkbox-container { display: flex; align-items: center; gap: 10px; margin: 15px 0; padding: 15px; background: rgba(51, 65, 85, 0.5); border-radius: 8px; cursor: pointer; }
-    .checkbox-container input[type="checkbox"] { width: 20px; height: 20px; margin: 0; }
     .checkbox-label { font-size: 0.9rem; color: #cbd5e1; }
     .director { display: flex; flex-direction: column; height: 100vh; background: #000; }
     .header { background: #0f172a; border-bottom: 1px solid #334155; padding: 15px; text-align: center; }
@@ -69,7 +71,6 @@
     .obs-wait { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #64748b; text-align: center; display: flex; flex-direction: column; align-items: center; }
     .obs-ready { position: absolute; top: 20px; left: 20px; background: rgba(34, 197, 94, 0.9); color: #000; padding: 6px 14px; border-radius: 9999px; font-size: 0.75rem; font-weight: bold; z-index: 100; }
 
-    /* Nuevo estilo para selector de slots */
     .slot-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 25px 0; }
     .slot-btn { background: rgba(51, 65, 85, 0.6); border: 2px solid #334155; border-radius: 12px; padding: 20px 10px; text-align: center; cursor: pointer; transition: all 0.2s; }
     .slot-btn:hover { border-color: #8b5cf6; transform: translateY(-2px); }
@@ -86,7 +87,26 @@
     };
 
     // ==========================================
-    // VIDEO COMPONENT (FIX PARPADEO ULTRA-ESTABLE)
+    // OPTIMIZACIÓN DE STREAM (720p / 30fps)
+    // ==========================================
+    const optimizeStream = (stream) => {
+      const videoTrack = stream.getVideoTracks()[0];
+      if (!videoTrack) return stream;
+
+      // Aplicar constraints de baja latencia y estabilidad
+      videoTrack.applyConstraints({
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30, max: 30 },
+        // Algunos navegadores aceptan bitrate aproximado vía advanced
+        advanced: [{ bitrate: 1500000 }] // ~1.5 Mbps (balance perfecto LAN)
+      }).catch(() => {}); // silenciar si no soportado
+
+      return stream;
+    };
+
+    // ==========================================
+    // VIDEO COMPONENT (ULTRA ESTABLE + BAJA LATENCIA)
     // ==========================================
     const Video = React.memo(({ stream, muted = true, ...props }) => {
       const videoRef = useRef(null);
@@ -110,19 +130,14 @@
 
           video.muted = muted !== false;
 
-          const play = () => {
-            if (video.paused) video.play().catch(() => {});
-          };
-
+          const play = () => video.play().catch(() => {});
           video.onloadedmetadata = play;
           if (stream && stream.active) {
             if (video.readyState >= 2) play();
             else video.onloadeddata = play;
           }
         } else if (stream) {
-          if (video.muted !== (muted !== false)) {
-            video.muted = muted !== false;
-          }
+          if (video.muted !== (muted !== false)) video.muted = muted !== false;
         }
 
         return () => {
@@ -199,7 +214,7 @@
         <div className="director">
           <div className="header">
             <h2 style={{color: '#8b5cf6'}}><i className="fas fa-th-large"></i> MONITOR | {room}</h2>
-            <small style={{color: '#64748b'}}>Link OBS siempre visible • Sin parpadeo</small>
+            <small style={{color: '#64748b'}}>720p • 30fps • Baja latencia</small>
           </div>
           <div className="grid">
             {[1,2,3].map(id => {
@@ -242,7 +257,7 @@
     };
 
     // ==========================================
-    // PRESENTER
+    // PRESENTER (OPTIMIZADO)
     // ==========================================
     const Presenter = ({ room, slot }) => {
       const [step, setStep] = useState('select');
@@ -281,25 +296,42 @@
         try {
           setError('');
           let stream;
+
           if (source === 'screen') {
-            const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+            const screenStream = await navigator.mediaDevices.getDisplayMedia({
+              video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                frameRate: { ideal: 30, max: 30 }
+              },
+              audio: true
+            });
             if (includeMic) {
               const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
               micTrackRef.current = micStream.getAudioTracks()[0];
               stream = new MediaStream([screenStream.getVideoTracks()[0], ...screenStream.getAudioTracks(), micTrackRef.current]);
-            } else stream = screenStream;
+            } else {
+              stream = screenStream;
+            }
             screenStream.getVideoTracks()[0].onended = () => window.location.reload();
           } else {
-            stream = await navigator.mediaDevices.getUserMedia({ 
-              video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
-              audio: true 
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                frameRate: { ideal: 30, max: 30 }
+              },
+              audio: true
             });
             micTrackRef.current = stream.getAudioTracks()[0];
           }
-          setLocalStream(stream);
+
+          // === OPTIMIZACIÓN FINAL ===
+          const optimized = optimizeStream(stream);
+          setLocalStream(optimized);
           setStep('live');
-          connectToDirector(stream);
-          connectToObs(stream);
+          connectToDirector(optimized);
+          connectToObs(optimized);
         } catch (e) {
           setError(e.message || 'Error al obtener el stream');
         }
@@ -354,12 +386,10 @@
                 <div className={`mode-card ${source==='screen'?'selected':''}`} onClick={()=>setSource('screen')}>
                   <div className="mode-icon"><i className="fas fa-desktop"></i></div>
                   <div>Presentación</div>
-                  <small style={{color: '#94a3b8', fontSize: '0.75rem'}}>PowerPoint, PDF, etc.</small>
                 </div>
                 <div className={`mode-card ${source==='camera'?'selected':''}`} onClick={()=>setSource('camera')}>
                   <div className="mode-icon"><i className="fas fa-video"></i></div>
                   <div>Cámara Web</div>
-                  <small style={{color: '#94a3b8', fontSize: '0.75rem'}}>Con audio</small>
                 </div>
               </div>
               {source==='screen' && (
@@ -370,11 +400,8 @@
               )}
               {error && <div className="error">{error}</div>}
               <button className="btn btn-purple" onClick={startLocalStream}>
-                <i className="fas fa-play"></i> INICIAR TRANSMISIÓN
+                <i className="fas fa-play"></i> INICIAR TRANSMISIÓN (720p 30fps)
               </button>
-              <div style={{marginTop: '15px', fontSize: '0.75rem', color: '#64748b', textAlign: 'center'}}>
-                                Abre primero OBS y luego clic en Iniciar
-              </div>
             </div>
           </div>
         );
@@ -442,7 +469,7 @@
     };
 
     // ==========================================
-    // APP (AHORA CON SELECTOR DE SLOT)
+    // APP
     // ==========================================
     const App = () => {
       const [state, setState] = useState({ mode: null, room: 'EVENTO', slot: '1', debug: true });
@@ -464,7 +491,6 @@
       if (state.mode === 'obs') return <Obs room={state.room} slot={state.slot} debug={state.debug} />;
       if (state.mode === 'presenter') return <Presenter room={state.room} slot={state.slot} />;
 
-      // === LOBBY CON SELECTOR DE SLOT ===
       return (
         <div className="lobby">
           <div className="glass">
