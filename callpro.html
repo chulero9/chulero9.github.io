@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>StreamCall V10 PRO (Neon Edition)</title>
+    <title>StreamCall V10 PRO</title>
     
-    <!-- Librerías Esenciales -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
@@ -27,18 +25,9 @@
             padding: 0; 
             height: 100vh; 
             overflow: hidden; 
-            transition: background-color 0.3s ease;
         }
         body.obs-mode { background-color: transparent !important; }
-        body.light-theme { 
-            background-color: #f8f9fa;
-            color: #1a1a1a;
-        }
-
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #18181b; }
-        ::-webkit-scrollbar-thumb { background: #52525b; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #71717a; }
+        body.light-theme { background-color: #f8f9fa; color: #1a1a1a; }
 
         .lobby-container { 
             display: flex; 
@@ -48,11 +37,8 @@
             height: 100%; 
             background: radial-gradient(circle at center, #18181b 0%, #09090b 100%); 
             padding: 20px; 
-            text-align: center; 
         }
-        body.light-theme .lobby-container {
-            background: radial-gradient(circle at center, #e5e7eb 0%, #f3f4f6 100%);
-        }
+        body.light-theme .lobby-container { background: radial-gradient(circle at center, #e5e7eb 0%, #f3f4f6 100%); }
 
         .glass-box { 
             background: rgba(24, 24, 27, 0.6); 
@@ -64,11 +50,7 @@
             max-width: 400px; 
             width: 100%; 
         }
-        body.light-theme .glass-box {
-            background: rgba(255, 255, 255, 0.7);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1);
-        }
+        body.light-theme .glass-box { background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(0, 0, 0, 0.1); }
 
         input, select { 
             width: 100%; 
@@ -82,26 +64,10 @@
             font-weight: bold; 
             margin-bottom: 20px; 
             outline: none; 
-            text-transform: uppercase; 
-            transition: all 0.3s ease;
             font-family: 'Plus Jakarta Sans', sans-serif;
         }
-        body.light-theme input, 
-        body.light-theme select {
-            background: #f0f0f0;
-            border: 1px solid #d1d5db;
-            color: #1a1a1a;
-        }
-
-        input:focus, select:focus { 
-            border-color: #8b5cf6; 
-            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); 
-        }
-        
-        .quality-select { 
-            font-size: 1rem; 
-            text-align: center; 
-        }
+        body.light-theme input, body.light-theme select { background: #f0f0f0; border: 1px solid #d1d5db; color: #1a1a1a; }
+        input:focus, select:focus { border-color: #8b5cf6; box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); }
 
         .btn { 
             width: 100%; 
@@ -120,69 +86,21 @@
             font-family: 'Plus Jakarta Sans', sans-serif;
         }
         .btn:hover:not(:disabled) { transform: translateY(-2px); }
-        .btn:active:not(:disabled) { transform: translateY(1px); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         
-        .btn-violet { background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3); }
-        .btn-emerald { background: linear-gradient(135deg, #10b981, #059669); color: white; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2); }
-        .btn-rose { background: linear-gradient(135deg, #f43f5e, #be123c); color: white; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3); }
+        .btn-violet { background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; margin-bottom: 12px; }
+        .btn-emerald { background: linear-gradient(135deg, #10b981, #059669); color: white; margin-bottom: 12px; }
+        .btn-rose { background: linear-gradient(135deg, #f43f5e, #be123c); color: white; margin-bottom: 12px; }
         .btn-dark { background: #27272a; color: white; margin-bottom: 12px; border: 1px solid #3f3f46; }
         .btn-dark:hover:not(:disabled) { background: #3f3f46; }
 
-        .obs-layout { 
-            width: 100vw; 
-            height: 100vh; 
-            position: relative; 
-            overflow: hidden; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            background: #000; 
-        }
-        .obs-video { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover; 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            z-index: 1; 
-        }
-        .obs-status { 
-            position: relative; 
-            z-index: 9999; 
-            background: rgba(0,0,0,0.85); 
-            color: #a78bfa; 
-            padding: 20px 30px; 
-            border-radius: 12px; 
-            font-family: 'Courier New', monospace; 
-            font-size: 16px; 
-            border: 2px solid #a78bfa; 
-            text-align: center; 
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+        .obs-layout { width: 100vw; height: 100vh; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000; }
+        .obs-video { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1; }
+        .obs-status { position: relative; z-index: 9999; background: rgba(0,0,0,0.85); color: #a78bfa; padding: 20px 30px; border-radius: 12px; font-family: 'Courier New', monospace; font-size: 16px; border: 2px solid #a78bfa; display: flex; align-items: center; gap: 10px; }
 
-        .director-layout { 
-            display: flex; 
-            height: 100vh; 
-            position: relative; 
-        }
-        .video-stage { 
-            flex: 1; 
-            background: #000; 
-            position: relative; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            overflow: hidden; 
-        }
-        .remote-video { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: contain; 
-        }
+        .director-layout { display: flex; height: 100vh; position: relative; }
+        .video-stage { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .remote-video { width: 100%; height: 100%; object-fit: contain; }
         
         .director-controls { 
             width: 380px; 
@@ -196,17 +114,9 @@
             overflow-y: auto;
             padding: 20px;
         }
-        body.light-theme .director-controls {
-            background: #f8f9fa;
-            border-left-color: #e5e7eb;
-        }
+        body.light-theme .director-controls { background: #f8f9fa; border-left-color: #e5e7eb; }
 
-        .tally-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr 1fr; 
-            gap: 10px; 
-            margin-bottom: 25px; 
-        }
+        .tally-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 25px; }
         .t-btn { 
             padding: 16px 5px; 
             font-size: 0.8rem; 
@@ -219,22 +129,9 @@
             transition: all 0.2s;
             font-family: 'Plus Jakarta Sans', sans-serif;
         }
-        .t-btn.active-idle { 
-            border-color: #52525b; 
-            color: white; 
-            background: #27272a; 
-        }
-        .t-btn.active-prev { 
-            background: rgba(16, 185, 129, 0.15); 
-            border-color: #10b981; 
-            color: #34d399; 
-        }
-        .t-btn.active-live { 
-            background: rgba(244, 63, 94, 0.15); 
-            border-color: #f43f5e; 
-            color: #fb7185; 
-            animation: pulseRose 2s infinite; 
-        }
+        .t-btn.active-idle { border-color: #52525b; color: white; background: #27272a; }
+        .t-btn.active-prev { background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: #34d399; }
+        .t-btn.active-live { background: rgba(244, 63, 94, 0.15); border-color: #f43f5e; color: #fb7185; animation: pulseRose 2s infinite; }
         
         .clean-mode .director-controls { display: none !important; }
         .clean-mode .video-stage { width: 100vw; }
@@ -289,14 +186,8 @@
             z-index: 50; 
             box-sizing: border-box; 
         }
-        .guest-layout.tally-live .guest-tally-border { 
-            border-color: #f43f5e; 
-            box-shadow: inset 0 0 60px rgba(244, 63, 94, 0.6); 
-        }
-        .guest-layout.tally-prev .guest-tally-border { 
-            border-color: #10b981; 
-            box-shadow: inset 0 0 60px rgba(16, 185, 129, 0.6); 
-        }
+        .guest-layout.tally-live .guest-tally-border { border-color: #f43f5e; box-shadow: inset 0 0 60px rgba(244, 63, 94, 0.6); }
+        .guest-layout.tally-prev .guest-tally-border { border-color: #10b981; box-shadow: inset 0 0 60px rgba(16, 185, 129, 0.6); }
         
         .return-pip { 
             position: absolute; 
@@ -312,18 +203,10 @@
             opacity: 0; 
             pointer-events: none; 
             transition: opacity 0.3s; 
-            cursor: grab; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
         }
-        .return-pip.active { 
-            opacity: 1; 
-            pointer-events: auto; 
-        }
-        .return-pip video { 
-            width: 100%; 
-            height: 100%; 
-            object-fit: cover; 
-        }
+        .return-pip.active { opacity: 1; pointer-events: auto; }
+        .return-pip video { width: 100%; height: 100%; object-fit: cover; }
         .pip-label { 
             position: absolute; 
             bottom: 8px; 
@@ -373,15 +256,8 @@
             border: 1px solid #3f3f46;
             font-family: 'Plus Jakarta Sans', sans-serif;
         }
-        .mic-btn:hover:not(.off) { 
-            background: #3f3f46; 
-            transform: scale(1.05); 
-        }
-        .mic-btn.off { 
-            background: #e11d48; 
-            color: white; 
-            border-color: #f43f5e; 
-        }
+        .mic-btn:hover:not(.off) { background: #3f3f46; transform: scale(1.05); }
+        .mic-btn.off { background: #e11d48; color: white; border-color: #f43f5e; }
 
         .big-tally-text { 
             position: absolute; 
@@ -399,72 +275,18 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             font-family: 'Plus Jakarta Sans', sans-serif;
         }
-        .guest-layout.tally-live .big-tally-text { 
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
-            background: #e11d48; 
-            color: white; 
-        }
-        .guest-layout.tally-prev .big-tally-text { 
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
-            background: #10b981; 
-            color: white; 
-        }
+        .guest-layout.tally-live .big-tally-text { display: flex; align-items: center; gap: 8px; background: #e11d48; color: white; }
+        .guest-layout.tally-prev .big-tally-text { display: flex; align-items: center; gap: 8px; background: #10b981; color: white; }
 
-        .stats-panel {
-            background: rgba(24, 24, 27, 0.7);
-            border: 1px solid #3f3f46;
-            border-radius: 12px;
-            padding: 12px;
-            margin: 10px 0;
-            font-size: 0.8rem;
-            color: #a1a1a1;
-            font-family: 'Courier New', monospace;
-        }
-        body.light-theme .stats-panel {
-            background: rgba(243, 244, 246, 0.7);
-            border-color: #d1d5db;
-            color: #6b7280;
-        }
-        .stat-line {
-            display: flex;
-            justify-content: space-between;
-            margin: 4px 0;
-        }
+        .stats-panel { background: rgba(24, 24, 27, 0.7); border: 1px solid #3f3f46; border-radius: 12px; padding: 12px; margin: 10px 0; font-size: 0.8rem; color: #a1a1a1; font-family: 'Courier New', monospace; }
+        .stat-line { display: flex; justify-content: space-between; margin: 4px 0; }
         .stat-good { color: #10b981; }
         .stat-warn { color: #f59e0b; }
         .stat-bad { color: #ef4444; }
 
-        .diagnostics-overlay {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(24, 24, 27, 0.95);
-            border: 2px solid #8b5cf6;
-            border-radius: 12px;
-            padding: 15px;
-            max-width: 300px;
-            z-index: 999;
-            font-family: 'Courier New', monospace;
-            font-size: 0.75rem;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        .diagnostics-overlay h3 {
-            color: #8b5cf6;
-            margin-top: 0;
-            border-bottom: 1px solid #3f3f46;
-            padding-bottom: 8px;
-        }
-        .diagnostics-item {
-            display: flex;
-            justify-content: space-between;
-            margin: 4px 0;
-            color: #a1a1a1;
-        }
+        .diagnostics-overlay { position: fixed; top: 20px; left: 20px; background: rgba(24, 24, 27, 0.95); border: 2px solid #8b5cf6; border-radius: 12px; padding: 15px; max-width: 300px; z-index: 999; font-family: 'Courier New', monospace; font-size: 0.75rem; max-height: 80vh; overflow-y: auto; }
+        .diagnostics-overlay h3 { color: #8b5cf6; margin-top: 0; border-bottom: 1px solid #3f3f46; padding-bottom: 8px; }
+        .diagnostics-item { display: flex; justify-content: space-between; margin: 4px 0; color: #a1a1a1; }
 
         @keyframes pulseRose { 
             0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); } 
@@ -472,56 +294,16 @@
             100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); } 
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader { border: 4px solid rgba(139, 92, 246, 0.2); border-top-color: #8b5cf6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
 
-        .animate-spin {
-            animation: spin 1s linear infinite;
-        }
+        .error-toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(239, 68, 68, 0.9); color: white; padding: 15px 25px; border-radius: 8px; border: 1px solid #dc2626; z-index: 10000; animation: slideUp 0.3s ease; }
 
-        .loader {
-            border: 4px solid rgba(139, 92, 246, 0.2);
-            border-top-color: #8b5cf6;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-
-        .error-toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(239, 68, 68, 0.9);
-            color: white;
-            padding: 15px 25px;
-            border-radius: 8px;
-            border: 1px solid #dc2626;
-            z-index: 10000;
-            animation: slideUp 0.3s ease;
-        }
-
-        @keyframes slideUp {
-            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
-            to { transform: translateX(-50%) translateY(0); opacity: 1; }
-        }
+        @keyframes slideUp { from { transform: translateX(-50%) translateY(100px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
 
         @media (max-width: 768px) {
-            .director-controls {
-                width: 100% !important;
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                max-height: 50vh;
-                border-left: none;
-                border-top: 1px solid #27272a;
-            }
-            .video-stage {
-                height: 50%;
-            }
+            .director-controls { width: 100% !important; position: absolute; bottom: 0; left: 0; right: 0; max-height: 50vh; border-left: none; border-top: 1px solid #27272a; }
+            .video-stage { height: 50%; }
         }
     </style>
 </head>
@@ -529,7 +311,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback } = React;
+        const { useState, useEffect, useRef } = React;
 
         const CONFIG = {
             PEER_CONFIG: { 
@@ -547,39 +329,16 @@
             MQTT_BROKER: 'wss://broker.emqx.io:8084/mqtt',
             MQTT_USER: 'streamcall',
             MQTT_PASS: 'streamcall123',
-            MAX_RECONNECT_ATTEMPTS: 3,
-            RECONNECT_DELAY: 2000,
         };
 
         const Logger = {
             logs: [],
-            
-            log(level, event, data = {}) {
+            info: (e, d) => console.log(`[INFO] ${e}:`, d),
+            error: (e, d) => console.error(`[ERROR] ${e}:`, d),
+            warn: (e, d) => console.warn(`[WARN] ${e}:`, d),
+            export: () => {
                 try {
-                    const entry = {
-                        timestamp: new Date().toISOString(),
-                        level,
-                        event,
-                        data,
-                    };
-                    this.logs.push(entry);
-                    console.log(`[${level}] ${event}:`, data);
-                    
-                    if (this.logs.length > 1000) {
-                        this.logs = this.logs.slice(-1000);
-                    }
-                } catch (e) {
-                    console.error('Logger error:', e);
-                }
-            },
-            
-            info(event, data) { this.log('INFO', event, data); },
-            warn(event, data) { this.log('WARN', event, data); },
-            error(event, data) { this.log('ERROR', event, data); },
-            
-            export() {
-                try {
-                    const data = JSON.stringify(this.logs, null, 2);
+                    const data = JSON.stringify(Logger.logs, null, 2);
                     const blob = new Blob([data], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -587,674 +346,408 @@
                     a.download = `streamcall-logs-${Date.now()}.json`;
                     a.click();
                     URL.revokeObjectURL(url);
-                    Logger.info('Export', 'Logs exportados');
                 } catch (e) {
-                    Logger.error('Export', e);
+                    console.error('Export error:', e);
                 }
             }
         };
 
         const StatsCollector = {
-            stats: {
-                latency: 0,
-                packetLoss: 0,
-                jitter: 0,
-                videoResolution: '0x0',
-            },
-            
-            updateStats(newStats) {
-                this.stats = { ...this.stats, ...newStats };
-            },
-            
-            getConnectionQuality() {
-                const { latency, packetLoss } = this.stats;
-                if (latency < 50 && packetLoss < 1) return 'excellent';
-                if (latency < 100 && packetLoss < 2) return 'good';
-                if (latency < 200 && packetLoss < 5) return 'fair';
-                return 'poor';
-            },
-            
-            async collectFromPeerConnection(peerConnection) {
+            stats: { latency: 0, packetLoss: 0, jitter: 0, videoResolution: '0x0' },
+            updateStats: (s) => { StatsCollector.stats = { ...StatsCollector.stats, ...s }; },
+            collect: async (pc) => {
                 try {
-                    if (!peerConnection) return;
-                    
-                    const stats = await peerConnection.getStats();
-                    
-                    stats.forEach(report => {
-                        try {
-                            if (report.type === 'inbound-rtp' && report.kind === 'video') {
-                                const latency = (report.currentRoundTripTime || 0) * 1000;
-                                const packetLoss = report.packetsLost && report.packetsReceived 
-                                    ? (report.packetsLost / (report.packetsReceived + report.packetsLost)) * 100 
-                                    : 0;
-                                
-                                this.updateStats({
-                                    latency: latency.toFixed(2),
-                                    packetLoss: Math.max(0, packetLoss.toFixed(2)),
-                                    jitter: ((report.jitter || 0) * 1000).toFixed(2),
-                                    videoResolution: `${report.frameWidth || 0}x${report.frameHeight || 0}`,
-                                });
-                            }
-                        } catch (e) {
-                            Logger.warn('StatsItem', e);
+                    if (!pc) return;
+                    const stats = await pc.getStats();
+                    stats.forEach(r => {
+                        if (r.type === 'inbound-rtp' && r.kind === 'video') {
+                            StatsCollector.updateStats({
+                                latency: ((r.currentRoundTripTime || 0) * 1000).toFixed(2),
+                                packetLoss: Math.max(0, ((r.packetsLost || 0) / ((r.packetsReceived || 0) + (r.packetsLost || 0) || 1) * 100).toFixed(2)),
+                                jitter: ((r.jitter || 0) * 1000).toFixed(2),
+                                videoResolution: `${r.frameWidth || 0}x${r.frameHeight || 0}`,
+                            });
                         }
                     });
                 } catch (e) {
-                    Logger.warn('StatsCollection', e);
+                    Logger.warn('Stats', e.message);
                 }
             }
         };
 
         const Storage = {
-            save(key, value) {
-                try {
-                    localStorage.setItem(key, JSON.stringify(value));
-                } catch (e) {
-                    Logger.warn('StorageSave', e);
-                }
-            },
-            
-            load(key, defaultValue = null) {
-                try {
-                    const item = localStorage.getItem(key);
-                    return item ? JSON.parse(item) : defaultValue;
-                } catch (e) {
-                    Logger.warn('StorageLoad', e);
-                    return defaultValue;
-                }
-            },
+            save: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+            load: (k, d) => { try { const i = localStorage.getItem(k); return i ? JSON.parse(i) : d; } catch (e) { return d; } }
         };
 
         const RecordingService = {
             recorder: null,
             chunks: [],
             isRecording: false,
-            
-            start(stream) {
+            start: (stream) => {
                 try {
-                    if (!stream || stream.getTracks().length === 0) {
-                        Logger.warn('Recording', 'Stream inválido');
-                        return;
+                    if (!stream || stream.getTracks().length === 0) return;
+                    RecordingService.chunks = [];
+                    const mimeTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+                    let mime = 'video/webm';
+                    for (let m of mimeTypes) {
+                        if (MediaRecorder.isTypeSupported(m)) { mime = m; break; }
                     }
-                    
-                    this.chunks = [];
-                    
-                    const mimeTypes = [
-                        'video/webm;codecs=vp9,opus',
-                        'video/webm;codecs=vp8,opus',
-                        'video/webm',
-                    ];
-                    
-                    let selectedMime = 'video/webm';
-                    for (let mime of mimeTypes) {
-                        if (MediaRecorder.isTypeSupported(mime)) {
-                            selectedMime = mime;
-                            break;
-                        }
-                    }
-                    
-                    this.recorder = new MediaRecorder(stream, {
-                        mimeType: selectedMime,
-                        audioBitsPerSecond: 128000,
-                        videoBitsPerSecond: 2500000,
-                    });
-                    
-                    this.recorder.ondataavailable = (e) => {
-                        if (e.data.size > 0) this.chunks.push(e.data);
+                    RecordingService.recorder = new MediaRecorder(stream, { mimeType: mime });
+                    RecordingService.recorder.ondataavailable = (e) => { if (e.data.size > 0) RecordingService.chunks.push(e.data); };
+                    RecordingService.recorder.onstop = () => {
+                        const blob = new Blob(RecordingService.chunks, { type: 'video/webm' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `streamcall-${Date.now()}.webm`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
                     };
-                    
-                    this.recorder.onstop = () => this.download();
-                    this.recorder.onerror = (e) => Logger.error('RecorderError', e.error);
-                    
-                    this.recorder.start();
-                    this.isRecording = true;
-                    Logger.info('Recording', 'iniciado');
+                    RecordingService.recorder.start();
+                    RecordingService.isRecording = true;
                 } catch (e) {
-                    Logger.error('RecordingStart', e);
+                    Logger.error('RecStart', e.message);
                 }
             },
-            
-            stop() {
+            stop: () => {
                 try {
-                    if (this.recorder && this.isRecording) {
-                        this.recorder.stop();
-                        this.isRecording = false;
-                        Logger.info('Recording', 'detenido');
+                    if (RecordingService.recorder && RecordingService.isRecording) {
+                        RecordingService.recorder.stop();
+                        RecordingService.isRecording = false;
                     }
                 } catch (e) {
-                    Logger.error('RecordingStop', e);
-                }
-            },
-            
-            download() {
-                try {
-                    if (this.chunks.length === 0) return;
-                    
-                    const blob = new Blob(this.chunks, { type: 'video/webm' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `streamcall-${Date.now()}.webm`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    Logger.info('Recording', 'descargado');
-                } catch (e) {
-                    Logger.error('RecordingDownload', e);
+                    Logger.error('RecStop', e.message);
                 }
             }
         };
 
         const StatsPanel = ({ stats }) => (
             <div className="stats-panel">
-                <div className="stat-line">
-                    <span>Latencia:</span>
-                    <span className={stats.latency < 100 ? 'stat-good' : stats.latency < 200 ? 'stat-warn' : 'stat-bad'}>
-                        {stats.latency}ms
-                    </span>
-                </div>
-                <div className="stat-line">
-                    <span>Pérdida:</span>
-                    <span className={stats.packetLoss < 1 ? 'stat-good' : stats.packetLoss < 5 ? 'stat-warn' : 'stat-bad'}>
-                        {stats.packetLoss}%
-                    </span>
-                </div>
-                <div className="stat-line">
-                    <span>Res:</span>
-                    <span>{stats.videoResolution}</span>
-                </div>
+                <div className="stat-line"><span>Latencia:</span><span className={stats.latency < 100 ? 'stat-good' : 'stat-bad'}>{stats.latency}ms</span></div>
+                <div className="stat-line"><span>Pérdida:</span><span className={stats.packetLoss < 1 ? 'stat-good' : 'stat-bad'}>{stats.packetLoss}%</span></div>
             </div>
         );
 
-        const DiagnosticsOverlay = ({ stats, logs, onExport }) => (
-            <div className="diagnostics-overlay">
-                <h3>🔧 DIAGNÓSTICOS</h3>
-                <div className="diagnostics-item">
-                    <span>Latencia:</span>
-                    <span>{stats.latency}ms</span>
-                </div>
-                <div className="diagnostics-item">
-                    <span>Pérdida:</span>
-                    <span>{stats.packetLoss}%</span>
-                </div>
-                <div className="diagnostics-item">
-                    <span>Logs:</span>
-                    <span>{logs.length}</span>
-                </div>
-                <button 
-                    onClick={onExport}
-                    style={{
-                        width: '100%',
-                        padding: '8px',
-                        marginTop: '10px',
-                        background: '#8b5cf6',
-                        border: 'none',
-                        borderRadius: '6px',
-                        color: 'white',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem',
-                        fontWeight: 'bold',
-                    }}
-                >
-                    📥 Exportar Logs
-                </button>
-            </div>
-        );
-
-        // COMPONENTE DIRECTOR
-        const ReceiverView = ({ roomName, isObsMode, pin = '' }) => {
-            const [status, setStatus] = useState('BUSCANDO SEÑAL...');
-            const [guestConnected, setGuestConnected] = useState(false);
+        // DIRECTOR
+        const ReceiverView = ({ roomName, isObsMode, pin }) => {
+            const [status, setStatus] = useState('BUSCANDO...');
+            const [connected, setConnected] = useState(false);
             const [tally, setTally] = useState('idle');
             const [cleanMode, setCleanMode] = useState(false);
-            const [audioDevices, setAudioDevices] = useState([]);
+            const [audios, setAudios] = useState([]);
             const [selectedAudio, setSelectedAudio] = useState('');
-            const [talkbackActive, setTalkbackActive] = useState(false);
-            const [showDiagnostics, setShowDiagnostics] = useState(false);
-            const [stats, setStats] = useState({ ...StatsCollector.stats });
-            const [recordingActive, setRecordingActive] = useState(false);
-            const [error, setError] = useState(null);
+            const [talkback, setTalkback] = useState(false);
+            const [diag, setDiag] = useState(false);
+            const [stats, setStats] = useState(StatsCollector.stats);
+            const [rec, setRec] = useState(false);
+            const [err, setErr] = useState(null);
 
             const peer = useRef(null);
-            const remoteVideoRef = useRef(null);
-            const mqttClient = useRef(null);
-            const returnStreamRef = useRef(null);
-            const returnCallRef = useRef(null);
-            const statsIntervalRef = useRef(null);
+            const video = useRef(null);
+            const mqtt = useRef(null);
+            const talkStream = useRef(null);
+            const talkCall = useRef(null);
+            const timerStats = useRef(null);
 
             useEffect(() => {
-                initializeReceiver();
-                return cleanup;
+                init();
+                return () => {
+                    clearInterval(timerStats.current);
+                    try {
+                        if (rec) RecordingService.stop();
+                        talkStream.current?.getTracks().forEach(t => t.stop());
+                        talkCall.current?.close();
+                        if (peer.current) peer.current.destroy();
+                        if (mqtt.current) mqtt.current.end();
+                    } catch (e) {}
+                };
             }, [roomName, isObsMode]);
 
-            const initializeReceiver = async () => {
+            const init = async () => {
                 try {
-                    Logger.info('ReceiverInit', `Modo: ${isObsMode ? 'OBS' : 'Director'}`);
-
                     if (!isObsMode) {
-                        try {
-                            const devs = await navigator.mediaDevices.enumerateDevices();
-                            const audios = devs.filter(d => d.kind === 'audioinput');
-                            setAudioDevices(audios);
-                            if (audios.length > 0) {
-                                setSelectedAudio(Storage.load('selectedAudio') || audios[0].deviceId);
-                            }
-                        } catch (e) {
-                            Logger.warn('EnumerateDevices', e.message);
-                        }
-                        connectMQTT();
+                        const devs = await navigator.mediaDevices.enumerateDevices();
+                        const as = devs.filter(d => d.kind === 'audioinput');
+                        setAudios(as);
+                        if (as.length > 0) setSelectedAudio(Storage.load('sa', as[0].deviceId));
+
+                        const opts = { clientId: `dir_${Date.now()}`, username: CONFIG.MQTT_USER, password: CONFIG.MQTT_PASS, clean: true };
+                        mqtt.current = mqtt.connect(CONFIG.MQTT_BROKER, opts);
+                        mqtt.current.on('error', () => {});
                     }
 
-                    initializePeer();
-                    
-                    statsIntervalRef.current = setInterval(() => {
-                        if (peer.current?._pc) {
-                            StatsCollector.collectFromPeerConnection(peer.current._pc);
-                            setStats({ ...StatsCollector.stats });
+                    const baseId = roomName.toUpperCase();
+                    const myId = isObsMode ? `obs_${baseId}` : `dir_${baseId}`;
+                    peer.current = new Peer(myId, CONFIG.PEER_CONFIG);
+
+                    peer.current.on('open', () => { setStatus('LISTO'); });
+                    peer.current.on('call', handleCall);
+                    peer.current.on('error', (e) => {
+                        Logger.error('Peer', e.type);
+                        if (e.type !== 'peer-unavailable') setErr(e.type);
+                    });
+
+                    timerStats.current = setInterval(() => {
+                        if (peer.current && peer.current.connections && Object.keys(peer.current.connections).length > 0) {
+                            const conn = Object.values(peer.current.connections)[0];
+                            if (conn && conn[0] && conn[0].peerConnection) {
+                                StatsCollector.collect(conn[0].peerConnection);
+                                setStats({ ...StatsCollector.stats });
+                            }
                         }
                     }, 2000);
                 } catch (e) {
-                    Logger.error('ReceiverInit', e.message);
-                    setError(e.message);
+                    Logger.error('Init', e.message);
+                    setErr(e.message);
                 }
             };
 
-            const connectMQTT = () => {
+            const handleCall = (call) => {
                 try {
-                    const options = {
-                        clientId: `dir_${Date.now()}`,
-                        username: CONFIG.MQTT_USER,
-                        password: CONFIG.MQTT_PASS,
-                        reconnectPeriod: CONFIG.RECONNECT_DELAY,
-                        clean: true,
-                    };
-                    
-                    mqttClient.current = mqtt.connect(CONFIG.MQTT_BROKER, options);
-                    mqttClient.current.on('connect', () => Logger.info('MQTT', 'Conectado'));
-                    mqttClient.current.on('error', (err) => Logger.error('MQTT', err.message));
-                } catch (e) {
-                    Logger.error('MQTTConnect', e.message);
-                }
-            };
-
-            const initializePeer = () => {
-                try {
-                    const baseId = roomName.toUpperCase();
-                    const myId = isObsMode ? `obs_${baseId}` : `dir_${baseId}`;
-                    
-                    Logger.info('Peer', `Inicializando: ${myId}`);
-                    peer.current = new Peer(myId, CONFIG.PEER_CONFIG);
-
-                    peer.current.on('open', (id) => {
-                        setStatus('SALA LISTA');
-                        Logger.info('Peer', `Abierto: ${id}`);
-                    });
-
-                    peer.current.on('call', handleIncomingCall);
-                    peer.current.on('error', (err) => {
-                        Logger.error('PeerError', err.type);
-                        if (err.type !== 'peer-unavailable') {
-                            setError('Error: ' + err.type);
-                        }
-                    });
-                } catch (e) {
-                    Logger.error('PeerInit', e.message);
-                    setError(e.message);
-                }
-            };
-
-            const handleIncomingCall = (call) => {
-                try {
-                    Logger.info('Call', `Entrante de: ${call.peer}`);
                     call.answer();
-
-                    call.on('stream', (stream) => {
-                        Logger.info('Stream', 'Recibido');
-                        if (remoteVideoRef.current) {
-                            remoteVideoRef.current.srcObject = stream;
-                            remoteVideoRef.current.play()
-                                .then(() => {
-                                    setGuestConnected(true);
-                                    setStatus('ONLINE');
-                                    setError(null);
-                                    Logger.info('Video', 'Reproduciendo');
-                                    
-                                    if (recordingActive && !RecordingService.isRecording) {
-                                        RecordingService.start(stream);
-                                    }
-                                })
-                                .catch(e => {
-                                    setStatus('ERROR DE REPRODUCCIÓN');
-                                    Logger.error('PlayError', e.message);
-                                });
+                    call.on('stream', (s) => {
+                        if (video.current) {
+                            video.current.srcObject = s;
+                            video.current.play().then(() => {
+                                setConnected(true);
+                                setStatus('ONLINE');
+                                setErr(null);
+                                if (rec && !RecordingService.isRecording) RecordingService.start(s);
+                            }).catch(e => setErr(e.message));
                         }
                     });
-
-                    call.on('error', (err) => Logger.error('CallError', err.message));
-                    call.on('close', () => {
-                        setGuestConnected(false);
-                        setStatus('DESCONECTADO');
-                    });
+                    call.on('close', () => { setConnected(false); });
+                    call.on('error', (e) => setErr(e.message));
                 } catch (e) {
-                    Logger.error('IncomingCall', e.message);
+                    Logger.error('Call', e.message);
                 }
             };
 
-            const cleanup = () => {
-                clearInterval(statsIntervalRef.current);
-                try {
-                    if (recordingActive) RecordingService.stop();
-                    returnStreamRef.current?.getTracks().forEach(t => t.stop());
-                    returnCallRef.current?.close();
-                    if (peer.current) peer.current.destroy();
-                    mqttClient.current?.end();
-                } catch (e) {
-                    Logger.warn('Cleanup', e.message);
-                }
-            };
-
-            const handleTally = (s) => {
+            const tally_set = (s) => {
                 try {
                     setTally(s);
-                    if (mqttClient.current?.connected) {
-                        mqttClient.current.publish(`sc_tally/${roomName}`, JSON.stringify({ state: s }), { retain: true });
-                    }
-                } catch (e) {
-                    Logger.error('Tally', e.message);
-                }
+                    if (mqtt.current) mqtt.current.publish(`sc_tally/${roomName}`, JSON.stringify({ state: s }), { retain: true });
+                } catch (e) {}
             };
 
-            const toggleReturn = async () => {
+            const toggle_talkback = async () => {
                 try {
-                    if (talkbackActive) {
-                        returnStreamRef.current?.getTracks().forEach(t => t.stop());
-                        returnCallRef.current?.close();
-                        setTalkbackActive(false);
+                    if (talkback) {
+                        talkStream.current?.getTracks().forEach(t => t.stop());
+                        talkCall.current?.close();
+                        setTalkback(false);
                     } else {
-                        const s = await navigator.mediaDevices.getUserMedia({
-                            audio: { deviceId: selectedAudio },
-                            video: false
-                        });
-                        returnStreamRef.current = s;
-                        const guestId = `guest_${roomName.toUpperCase()}`;
-                        returnCallRef.current = peer.current.call(guestId, s);
-                        setTalkbackActive(true);
-                        Logger.info('Talkback', 'Iniciado');
+                        const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedAudio } });
+                        talkStream.current = s;
+                        talkCall.current = peer.current.call(`guest_${roomName.toUpperCase()}`, s);
+                        setTalkback(true);
                     }
                 } catch (e) {
-                    Logger.error('Talkback', e.message);
-                    setError('Error: ' + e.message);
+                    setErr(e.message);
                 }
             };
 
-            const copyLink = (m) => {
+            const copy_link = (m) => {
                 try {
-                    const url = `${window.location.href.split('?')[0]}?mode=${m}&room=${roomName}${pin ? `&pin=${pin}` : ''}`;
-                    navigator.clipboard.writeText(url);
-                    alert(`Link copiado`);
-                } catch (e) {
-                    Logger.error('Copy', e.message);
-                }
+                    const u = `${window.location.href.split('?')[0]}?mode=${m}&room=${roomName}${pin ? `&pin=${pin}` : ''}`;
+                    navigator.clipboard.writeText(u);
+                    alert('Copiado');
+                } catch (e) {}
             };
 
             if (isObsMode) {
                 return (
                     <div className="obs-layout">
-                        <video ref={remoteVideoRef} className="obs-video" autoPlay playsInline muted />
-                        {!guestConnected && <div className="obs-status"><div className="loader" />{status}</div>}
-                        {showDiagnostics && <DiagnosticsOverlay stats={stats} logs={Logger.logs} onExport={() => Logger.export()} />}
-                        {error && <div className="error-toast">{error}</div>}
+                        <video ref={video} className="obs-video" autoPlay playsInline muted />
+                        {!connected && <div className="obs-status"><div className="loader" />{status}</div>}
+                        {diag && <div className="diagnostics-overlay"><h3>📊</h3><button onClick={() => Logger.export()} style={{ width: '100%', padding: '8px', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>📥 Logs</button></div>}
+                        {err && <div className="error-toast">{err}</div>}
                     </div>
                 );
             }
 
             return (
                 <div className={`director-layout ${cleanMode ? 'clean-mode' : ''}`}>
-                    {cleanMode && <div className="exit-btn" onClick={() => setCleanMode(false)}>✕ SALIR</div>}
-                    
+                    {cleanMode && <div className="exit-btn" onClick={() => setCleanMode(false)}>✕</div>}
                     <div className="video-stage">
-                        <video ref={remoteVideoRef} className="remote-video" autoPlay playsInline muted />
-                        {!guestConnected && <div style={{ position: 'absolute', color: '#71717a', fontWeight: 'bold' }}>📡 {status}</div>}
+                        <video ref={video} className="remote-video" autoPlay playsInline muted />
+                        {!connected && <div style={{ position: 'absolute', color: '#71717a' }}>📡 {status}</div>}
                     </div>
-
                     <div className="director-controls">
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, background: 'linear-gradient(135deg, #a78bfa, #d8b4fe)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '20px', marginTop: 0, textAlign: 'center' }}>
-                            📡 StreamCall PRO
-                        </h2>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, background: 'linear-gradient(135deg, #a78bfa, #d8b4fe)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '20px', textAlign: 'center' }}>📡 StreamCall</h2>
 
-                        <label style={{ color: '#a78bfa', fontWeight: 'bold', fontSize: '0.75rem', marginBottom: '8px', display: 'block' }}>🎧 RETORNO</label>
-                        <select value={selectedAudio} onChange={e => { setSelectedAudio(e.target.value); Storage.save('selectedAudio', e.target.value); }}>
-                            {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Audio'}</option>)}
+                        <label style={{ color: '#a78bfa', fontSize: '0.75rem', marginBottom: '8px', display: 'block', fontWeight: 'bold' }}>🎧 Audio</label>
+                        <select value={selectedAudio} onChange={e => { setSelectedAudio(e.target.value); Storage.save('sa', e.target.value); }}>
+                            <option value="">-- Seleccionar --</option>
+                            {audios.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Audio'}</option>)}
                         </select>
-                        
-                        <button className={`btn ${talkbackActive ? 'btn-rose' : 'btn-violet'}`} onClick={toggleReturn} disabled={!guestConnected}>
-                            {talkbackActive ? '⏹ Detener' : '▶ Activar'}
-                        </button>
+                        <button className={`btn ${talkback ? 'btn-rose' : 'btn-violet'}`} onClick={toggle_talkback} disabled={!connected}>{talkback ? '⏹ Parar' : '▶ Retorno'}</button>
 
                         <div style={{ height: '1px', background: '#3f3f46', margin: '15px 0' }} />
 
-                        <button className={`btn ${recordingActive ? 'btn-rose' : 'btn-emerald'}`} onClick={() => {
-                            if (recordingActive) {
-                                RecordingService.stop();
-                                setRecordingActive(false);
-                            } else if (remoteVideoRef.current?.srcObject) {
-                                RecordingService.start(remoteVideoRef.current.srcObject);
-                                setRecordingActive(true);
-                            } else {
-                                setError('Sin stream');
-                            }
-                        }} disabled={!guestConnected}>
-                            {recordingActive ? '⏹ Grabar' : '⏺ Grabar'}
-                        </button>
+                        <button className={`btn ${rec ? 'btn-rose' : 'btn-emerald'}`} onClick={() => {
+                            if (rec) { RecordingService.stop(); setRec(false); }
+                            else if (video.current?.srcObject) { RecordingService.start(video.current.srcObject); setRec(true); }
+                            else setErr('Sin stream');
+                        }} disabled={!connected}>{rec ? '⏹' : '⏺'} Grabar</button>
 
                         <div style={{ height: '1px', background: '#3f3f46', margin: '15px 0' }} />
 
-                        <label style={{ color: '#a1a1a1', fontWeight: 'bold', fontSize: '0.75rem', marginBottom: '8px', display: 'block' }}>🔗 ENLACES</label>
-                        <button className="btn btn-emerald" onClick={() => copyLink('obs')}>Link OBS</button>
-                        <button className="btn btn-dark" onClick={() => copyLink('guest')}>Link Guest</button>
+                        <label style={{ color: '#a1a1a1', fontSize: '0.75rem', marginBottom: '8px', display: 'block', fontWeight: 'bold' }}>🔗 Enlaces</label>
+                        <button className="btn btn-emerald" onClick={() => copy_link('obs')}>Link OBS</button>
+                        <button className="btn btn-dark" onClick={() => copy_link('guest')}>Link Guest</button>
 
                         <div style={{ height: '1px', background: '#3f3f46', margin: '15px 0' }} />
 
-                        <label style={{ color: '#a1a1a1', fontWeight: 'bold', fontSize: '0.75rem', marginBottom: '8px', display: 'block' }}>🚦 TALLY</label>
+                        <label style={{ color: '#a1a1a1', fontSize: '0.75rem', marginBottom: '8px', display: 'block', fontWeight: 'bold' }}>🚦 Tally</label>
                         <div className="tally-grid">
-                            <button className={`t-btn ${tally === 'idle' ? 'active-idle' : ''}`} onClick={() => handleTally('idle')}>OFF</button>
-                            <button className={`t-btn ${tally === 'prev' ? 'active-prev' : ''}`} onClick={() => handleTally('prev')}>PREV</button>
-                            <button className={`t-btn ${tally === 'live' ? 'active-live' : ''}`} onClick={() => handleTally('live')}>AIRE</button>
+                            <button className={`t-btn ${tally === 'idle' ? 'active-idle' : ''}`} onClick={() => tally_set('idle')}>OFF</button>
+                            <button className={`t-btn ${tally === 'prev' ? 'active-prev' : ''}`} onClick={() => tally_set('prev')}>PREV</button>
+                            <button className={`t-btn ${tally === 'live' ? 'active-live' : ''}`} onClick={() => tally_set('live')}>AIRE</button>
                         </div>
 
-                        {guestConnected && <StatsPanel stats={stats} />}
+                        {connected && <StatsPanel stats={stats} />}
 
-                        <button className="btn btn-dark" onClick={() => setShowDiagnostics(!showDiagnostics)}>🐛 Diag</button>
+                        <button className="btn btn-dark" onClick={() => setDiag(!diag)}>🐛 Diag</button>
                         <button className="btn btn-dark" onClick={() => setCleanMode(true)}>⛶ Limpia</button>
                     </div>
 
-                    {showDiagnostics && <DiagnosticsOverlay stats={stats} logs={Logger.logs} onExport={() => Logger.export()} />}
-                    {error && <div className="error-toast">{error}</div>}
+                    {err && <div className="error-toast">{err}</div>}
                 </div>
             );
         };
 
-        // COMPONENTE GUEST
-        const GuestView = ({ roomName, pin = '' }) => {
+        // GUEST
+        const GuestView = ({ roomName, pin }) => {
             const [joined, setJoined] = useState(false);
-            const [quality, setQuality] = useState(Storage.load('preferredQuality', '720'));
+            const [quality, setQuality] = useState(Storage.load('pq', '720'));
             const [tally, setTally] = useState('idle');
-            const [micMuted, setMicMuted] = useState(false);
+            const [micOff, setMicOff] = useState(false);
             const [camOff, setCamOff] = useState(false);
-            const [receivingVideo, setReceivingVideo] = useState(false);
-            const [pinInput, setPinInput] = useState('');
-            const [pinRequired, setPinRequired] = useState(!!pin);
-            const [stats, setStats] = useState({ ...StatsCollector.stats });
-            const [cameraMode, setCameraMode] = useState(Storage.load('cameraMode', 'user'));
-            const [recordingActive, setRecordingActive] = useState(false);
-            const [error, setError] = useState(null);
-            const [guestStatus, setGuestStatus] = useState('Iniciando...');
+            const [has_video, setHasVideo] = useState(false);
+            const [pin_in, setPinIn] = useState('');
+            const [needs_pin, setNeedsPin] = useState(!!pin);
+            const [stats, setStats] = useState(StatsCollector.stats);
+            const [camera, setCamera] = useState(Storage.load('cm', 'user'));
+            const [rec, setRec] = useState(false);
+            const [err, setErr] = useState(null);
 
-            const localVideoRef = useRef(null);
-            const returnMediaRef = useRef(null);
+            const localVideo = useRef(null);
+            const returnVideo = useRef(null);
             const peer = useRef(null);
-            const mqttClient = useRef(null);
+            const mqtt = useRef(null);
             const localStream = useRef(null);
-            const statsIntervalRef = useRef(null);
+            const timerStats = useRef(null);
 
             useEffect(() => {
                 if (!joined) return;
-                initializeGuest();
-                return cleanup;
-            }, [joined, quality, cameraMode]);
+                init_guest();
+                return () => {
+                    clearInterval(timerStats.current);
+                    try {
+                        if (rec) RecordingService.stop();
+                        localStream.current?.getTracks().forEach(t => t.stop());
+                        if (peer.current) peer.current.destroy();
+                        if (mqtt.current) mqtt.current.end();
+                    } catch (e) {}
+                };
+            }, [joined, quality, camera]);
 
-            const initializeGuest = async () => {
+            const init_guest = async () => {
                 try {
-                    Logger.info('GuestInit', `Calidad: ${quality}, Cámara: ${cameraMode}`);
-                    setGuestStatus('Obteniendo media...');
-
-                    // MQTT
-                    const options = {
-                        clientId: `guest_${Date.now()}`,
-                        username: CONFIG.MQTT_USER,
-                        password: CONFIG.MQTT_PASS,
-                        reconnectPeriod: CONFIG.RECONNECT_DELAY,
-                    };
-                    
-                    mqttClient.current = mqtt.connect(CONFIG.MQTT_BROKER, options);
-                    mqttClient.current.on('connect', () => Logger.info('MQTT', 'Conectado'));
-                    mqttClient.current.on('message', (topic, payload) => {
-                        try {
-                            const data = JSON.parse(payload.toString());
-                            if (data.state) setTally(data.state);
-                        } catch (e) {
-                            // Ignorar errores de parse
+                    const opts = { clientId: `guest_${Date.now()}`, username: CONFIG.MQTT_USER, password: CONFIG.MQTT_PASS };
+                    mqtt.current = mqtt.connect(CONFIG.MQTT_BROKER, opts);
+                    let msg_handler_added = false;
+                    mqtt.current.on('connect', () => {
+                        if (!msg_handler_added) {
+                            msg_handler_added = true;
+                            mqtt.current.subscribe(`sc_tally/${roomName}`);
+                            mqtt.current.on('message', (topic, payload) => {
+                                try {
+                                    const d = JSON.parse(payload.toString());
+                                    if (d.state) setTally(d.state);
+                                } catch (e) {}
+                            });
                         }
                     });
-                    mqttClient.current.on('error', () => {});
+                    mqtt.current.on('error', () => {});
 
-                    // getUserMedia
                     const res = { '360': [640, 360], '720': [1280, 720], '1080': [1920, 1080] };
                     const [w, h] = res[quality] || res['720'];
                     
                     const s = await navigator.mediaDevices.getUserMedia({
-                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: cameraMode },
+                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: camera },
                         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                    }).catch(e => {
+                        if (e.name === 'NotAllowedError') throw new Error('Permiso denegado');
+                        if (e.name === 'NotFoundError') throw new Error('Dispositivo no encontrado');
+                        throw e;
                     });
                     
                     localStream.current = s;
-                    setGuestStatus('Stream obtenido');
                     
-                    if (localVideoRef.current) {
-                        localVideoRef.current.srcObject = s;
-                        await localVideoRef.current.play();
+                    if (localVideo.current) {
+                        localVideo.current.srcObject = s;
+                        await localVideo.current.play();
                     }
 
-                    // Peer
                     const guestId = `guest_${roomName.toUpperCase()}`;
-                    Logger.info('Peer', `ID: ${guestId}`);
-                    setGuestStatus('Conectando a Peer...');
-                    
                     peer.current = new Peer(guestId, CONFIG.PEER_CONFIG);
 
-                    peer.current.on('open', (id) => {
-                        Logger.info('Peer', `Abierto: ${id}`);
-                        setGuestStatus('Esperando director...');
+                    peer.current.on('open', () => {
+                        Logger.info('Peer', guestId);
                     });
 
                     peer.current.on('call', (c) => {
                         try {
-                            Logger.info('Call', `De: ${c.peer}`);
                             c.answer(localStream.current);
                             c.on('stream', (rem) => {
-                                if (returnMediaRef.current) {
-                                    returnMediaRef.current.srcObject = rem;
-                                    returnMediaRef.current.play().catch(() => {});
+                                if (returnVideo.current) {
+                                    returnVideo.current.srcObject = rem;
+                                    returnVideo.current.play().catch(() => {});
                                 }
-                                setReceivingVideo(true);
+                                setHasVideo(true);
                             });
                         } catch (e) {
-                            Logger.error('CallAnswer', e.message);
+                            Logger.error('Call', e.message);
                         }
                     });
 
-                    peer.current.on('error', (err) => {
-                        Logger.error('PeerError', err.type);
-                        if (err.type !== 'peer-unavailable') {
-                            setError('Error: ' + err.type);
-                        }
+                    peer.current.on('error', (e) => {
+                        if (e.type !== 'peer-unavailable') setErr(e.type);
                     });
 
-                    // Stats
-                    statsIntervalRef.current = setInterval(() => {
-                        if (peer.current?._pc) {
-                            StatsCollector.collectFromPeerConnection(peer.current._pc);
-                            setStats({ ...StatsCollector.stats });
+                    timerStats.current = setInterval(() => {
+                        if (peer.current && peer.current.connections && Object.keys(peer.current.connections).length > 0) {
+                            const conn = Object.values(peer.current.connections)[0];
+                            if (conn && conn[0] && conn[0].peerConnection) {
+                                StatsCollector.collect(conn[0].peerConnection);
+                                setStats({ ...StatsCollector.stats });
+                            }
                         }
                     }, 2000);
 
-                    // Subscribe MQTT
-                    if (mqttClient.current?.connected) {
-                        mqttClient.current.subscribe(`sc_tally/${roomName}`);
-                    }
-
-                    setError(null);
-                    setGuestStatus('Conectado';
+                    setErr(null);
                 } catch (e) {
-                    Logger.error('GuestInit', e.message);
-                    setError('Error: ' + e.message);
-                    setGuestStatus('Error: ' + e.message);
+                    Logger.error('Guest', e.message);
+                    setErr(e.message);
                 }
-            };
-
-            const cleanup = () => {
-                clearInterval(statsIntervalRef.current);
-                try {
-                    if (recordingActive) RecordingService.stop();
-                    localStream.current?.getTracks().forEach(t => t.stop());
-                    if (peer.current) peer.current.destroy();
-                    mqttClient.current?.end();
-                } catch (e) {
-                    Logger.warn('Cleanup', e.message);
-                }
-            };
-
-            const toggleMic = () => {
-                if (localStream.current?.getAudioTracks()[0]) {
-                    const t = localStream.current.getAudioTracks()[0];
-                    t.enabled = !t.enabled;
-                    setMicMuted(!t.enabled);
-                }
-            };
-
-            const toggleCam = () => {
-                if (localStream.current?.getVideoTracks()[0]) {
-                    const t = localStream.current.getVideoTracks()[0];
-                    t.enabled = !t.enabled;
-                    setCamOff(!t.enabled);
-                }
-            };
-
-            const switchCamera = () => {
-                const newMode = cameraMode === 'user' ? 'environment' : 'user';
-                setCameraMode(newMode);
-                Storage.save('cameraMode', newMode);
             };
 
             if (!joined) {
-                if (pinRequired) {
+                if (needs_pin) {
                     return (
                         <div className="lobby-container">
                             <div className="glass-box">
-                                <div style={{ width: '64px', height: '64px', background: 'rgba(139, 92, 246, 0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>🔒</div>
-                                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px' }}>Sala Protegida</h2>
+                                <div style={{ width: '64px', height: '64px', background: 'rgba(139, 92, 246, 0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>🔒</div>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px' }}>Protegida</h2>
                                 <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>PIN</label>
-                                <input 
-                                    type="password"
-                                    value={pinInput}
-                                    onChange={e => setPinInput(e.target.value)}
-                                    onKeyPress={e => e.key === 'Enter' && (pinInput === pin ? (setPinRequired(false), setJoined(true)) : setError('PIN incorrecto'))}
-                                    placeholder="PIN"
-                                    autoFocus
-                                />
-                                <button className="btn btn-violet" onClick={() => pinInput === pin ? (setPinRequired(false), setJoined(true)) : setError('PIN incorrecto')}>Verificar</button>
-                                {error && <div className="error-toast">{error}</div>}
+                                <input type="password" value={pin_in} onChange={e => setPinIn(e.target.value)} onKeyPress={e => e.key === 'Enter' && (pin_in === pin ? (setNeedsPin(false), setJoined(true)) : setErr('PIN incorrecto'))} placeholder="PIN" autoFocus />
+                                <button className="btn btn-violet" onClick={() => pin_in === pin ? (setNeedsPin(false), setJoined(true)) : setErr('Incorrecto')}>Verificar</button>
+                                {err && <div className="error-toast">{err}</div>}
                             </div>
                         </div>
                     );
@@ -1263,16 +756,16 @@
                 return (
                     <div className="lobby-container">
                         <div className="glass-box">
-                            <div style={{ width: '64px', height: '64px', background: 'rgba(139, 92, 246, 0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>📹</div>
+                            <div style={{ width: '64px', height: '64px', background: 'rgba(139, 92, 246, 0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>📹</div>
                             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px' }}>Sala: {roomName}</h2>
                             <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Calidad</label>
-                            <select className="quality-select" value={quality} onChange={e => { setQuality(e.target.value); Storage.save('preferredQuality', e.target.value); }}>
-                                <option value="360">BAJA (360p)</option>
-                                <option value="720">MEDIA (720p)</option>
-                                <option value="1080">ALTA (1080p)</option>
+                            <select className="quality-select" value={quality} onChange={e => { setQuality(e.target.value); Storage.save('pq', e.target.value); }}>
+                                <option value="360">BAJA</option>
+                                <option value="720">MEDIA</option>
+                                <option value="1080">ALTA</option>
                             </select>
                             <button className="btn btn-violet" onClick={() => setJoined(true)}>Entrar →</button>
-                            {error && <div className="error-toast">{error}</div>}
+                            {err && <div className="error-toast">{err}</div>}
                         </div>
                     </div>
                 );
@@ -1281,89 +774,90 @@
             return (
                 <div className={`guest-layout tally-${tally}`}>
                     <div className="guest-tally-border" />
-                    <div className="big-tally-text">
-                        {tally === 'live' ? <>🔴 AL AIRE</> : <>⚠️ PREVENIDO</>}
+                    <div className="big-tally-text">{tally === 'live' ? <>🔴 AIRE</> : <>⚠️ PREV</>}</div>
+
+                    <div className={`return-pip ${has_video ? 'active' : ''}`}>
+                        <video ref={returnVideo} autoPlay playsInline muted />
+                        <div className="pip-label">📺</div>
                     </div>
 
-                    <div className={`return-pip ${receivingVideo ? 'active' : ''}`}>
-                        <video ref={returnMediaRef} autoPlay playsInline muted />
-                        <div className="pip-label">📺 Programa</div>
-                    </div>
-
-                    <video ref={localVideoRef} className="guest-video" muted autoPlay playsInline />
+                    <video ref={localVideo} className="guest-video" muted autoPlay playsInline />
 
                     <div className="guest-overlay">
-                        <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#a1a1a1', background: 'rgba(139, 92, 246, 0.1)', padding: '6px 12px', borderRadius: '20px' }}>
-                            {roomName}
-                        </div>
-                        <div className={`mic-btn ${micMuted ? 'off' : ''}`} onClick={toggleMic}>{micMuted ? '🔇' : '🎤'}</div>
-                        <div className={`mic-btn ${camOff ? 'off' : ''}`} onClick={toggleCam}>{camOff ? '📵' : '📹'}</div>
-                        <div className="mic-btn" onClick={switchCamera}>🔄</div>
-                        <div className={`mic-btn ${recordingActive ? 'off' : ''}`} onClick={() => {
-                            if (recordingActive) {
-                                RecordingService.stop();
-                                setRecordingActive(false);
-                            } else if (localStream.current) {
-                                RecordingService.start(localStream.current);
-                                setRecordingActive(true);
+                        <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#a1a1a1', background: 'rgba(139, 92, 246, 0.1)', padding: '6px 12px', borderRadius: '20px' }}>{roomName}</div>
+                        <div className={`mic-btn ${micOff ? 'off' : ''}`} onClick={() => {
+                            const at = localStream.current?.getAudioTracks();
+                            if (at && at.length > 0) {
+                                at[0].enabled = !at[0].enabled;
+                                setMicOff(!at[0].enabled);
                             }
-                        }}>{recordingActive ? '⏹' : '⏺'}</div>
+                        }}>{micOff ? '🔇' : '🎤'}</div>
+                        <div className={`mic-btn ${camOff ? 'off' : ''}`} onClick={() => {
+                            const vt = localStream.current?.getVideoTracks();
+                            if (vt && vt.length > 0) {
+                                vt[0].enabled = !vt[0].enabled;
+                                setCamOff(!vt[0].enabled);
+                            }
+                        }}>{camOff ? '📵' : '📹'}</div>
+                        <div className="mic-btn" onClick={() => { const nc = camera === 'user' ? 'environment' : 'user'; setCamera(nc); Storage.save('cm', nc); }}>🔄</div>
+                        <div className={`mic-btn ${rec ? 'off' : ''}`} onClick={() => {
+                            if (rec) { RecordingService.stop(); setRec(false); }
+                            else if (localStream.current) { RecordingService.start(localStream.current); setRec(true); }
+                        }}>{rec ? '⏹' : '⏺'}</div>
                     </div>
 
-                    {error && <div className="error-toast">{error}</div>}
+                    {err && <div className="error-toast">{err}</div>}
                 </div>
             );
         };
 
-        // APP PRINCIPAL
+        // APP
         const App = () => {
             const [mode, setMode] = useState(null);
-            const [roomName, setRoomName] = useState('');
+            const [room, setRoom] = useState('');
             const [pin, setPin] = useState('');
-            const [theme, setTheme] = useState(Storage.load('theme', 'dark'));
+            const [theme, setTheme] = useState(Storage.load('th', 'dark'));
 
             useEffect(() => {
-                const params = new URLSearchParams(window.location.search);
-                let m = params.get('mode');
-                let r = params.get('room');
-                let p = params.get('pin') || '';
+                const p = new URLSearchParams(window.location.search);
+                let m = p.get('mode');
+                let r = p.get('room');
+                let n = p.get('pin') || '';
 
                 if (m && r) {
-                    setRoomName(r);
-                    setPin(p);
+                    setRoom(r);
+                    setPin(n);
                     setMode(m);
                     if (m === 'obs') document.body.classList.add('obs-mode');
                 } else {
-                    setRoomName(Math.random().toString(36).substring(2, 6).toUpperCase());
+                    setRoom(Math.random().toString(36).substring(2, 6).toUpperCase());
                 }
 
                 if (theme === 'light') document.body.classList.add('light-theme');
             }, []);
 
-            if (mode === 'director') return <ReceiverView roomName={roomName} isObsMode={false} pin={pin} />;
-            if (mode === 'obs') return <ReceiverView roomName={roomName} isObsMode={true} pin={pin} />;
-            if (mode === 'guest') return <GuestView roomName={roomName} pin={pin} />;
+            if (mode === 'director') return <ReceiverView roomName={room} isObsMode={false} pin={pin} />;
+            if (mode === 'obs') return <ReceiverView roomName={room} isObsMode={true} pin={pin} />;
+            if (mode === 'guest') return <GuestView roomName={room} pin={pin} />;
 
             return (
                 <div className="lobby-container">
                     <div className="glass-box">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <div style={{ width: '64px', height: '64px', background: 'rgba(139, 92, 246, 0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(139, 92, 246, 0.3)' }}>📡</div>
-                            <button onClick={() => { const t = theme === 'dark' ? 'light' : 'dark'; setTheme(t); Storage.save('theme', t); document.body.classList.toggle('light-theme'); }} style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '1.5rem', cursor: 'pointer' }}>
-                                {theme === 'dark' ? '🌙' : '☀️'}
-                            </button>
+                            <div style={{ width: '64px', height: '64px', background: 'rgba(139, 92, 246, 0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📡</div>
+                            <button onClick={() => { const nt = theme === 'dark' ? 'light' : 'dark'; setTheme(nt); Storage.save('th', nt); document.body.classList.toggle('light-theme'); }} style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '1.5rem', cursor: 'pointer' }}>{theme === 'dark' ? '🌙' : '☀️'}</button>
                         </div>
 
                         <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '32px', textTransform: 'uppercase', background: 'linear-gradient(135deg, #a78bfa, #d8b4fe)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textAlign: 'center' }}>StreamCall PRO</h1>
 
-                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>ID de Sala</label>
-                        <input value={roomName} onChange={e => setRoomName(e.target.value.toUpperCase())} placeholder="SALA" maxLength="20" />
+                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>ID Sala</label>
+                        <input value={room} onChange={e => setRoom(e.target.value.toUpperCase())} placeholder="SALA" maxLength="20" />
 
-                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>PIN (Opcional)</label>
+                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>PIN</label>
                         <input value={pin} onChange={e => setPin(e.target.value)} type="password" placeholder="PIN" maxLength="6" />
 
-                        <button className="btn btn-violet" onClick={() => window.location.href = `?mode=director&room=${roomName}${pin ? `&pin=${pin}` : ''}`}>🎛 Panel Director</button>
-                        <button className="btn btn-dark" onClick={() => Logger.export()}>📥 Exportar Logs</button>
+                        <button className="btn btn-violet" onClick={() => window.location.href = `?mode=director&room=${room}${pin ? `&pin=${pin}` : ''}`}>🎛 Director</button>
+                        <button className="btn btn-dark" onClick={() => Logger.export()}>📥 Logs</button>
                     </div>
                 </div>
             );
