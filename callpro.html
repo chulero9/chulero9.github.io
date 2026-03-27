@@ -578,14 +578,11 @@
                         data,
                     };
                     this.logs.push(entry);
+                    console.log(`[${level}] ${event}:`, data);
                     
                     if (this.logs.length > 1000) {
                         this.logs = this.logs.slice(-1000);
                     }
-                    
-                    this.subscribers.forEach(cb => {
-                        try { cb(entry); } catch (e) { console.error('Subscriber error:', e); }
-                    });
                 } catch (e) {
                     console.error('Logger error:', e);
                 }
@@ -595,12 +592,6 @@
             warn(event, data) { this.log('WARN', event, data); },
             error(event, data) { this.log('ERROR', event, data); },
             critical(event, data) { this.log('CRITICAL', event, data); },
-            
-            subscribe(callback) { 
-                if (typeof callback === 'function') {
-                    this.subscribers.push(callback); 
-                }
-            },
             
             export() {
                 try {
@@ -848,7 +839,6 @@
             const [reconnectAttempts, setReconnectAttempts] = useState(0);
             const [recordingActive, setRecordingActive] = useState(false);
             const [error, setError] = useState(null);
-            const [peerId, setPeerId] = useState(null);
 
             const peer = useRef(null);
             const remoteVideoRef = useRef(null);
@@ -927,14 +917,12 @@
 
             const initializePeer = () => {
                 try {
-                    const timestamp = Date.now();
-                    const random = Math.random().toString(36).substring(2, 8);
+                    // ID fijo para que el guest pueda llamar
                     const baseId = roomName.toUpperCase();
                     const myId = isObsMode 
-                        ? `obs_${baseId}_${timestamp}_${random}`
-                        : `dir_${baseId}_${timestamp}_${random}`;
+                        ? `sc_obs_${baseId}`
+                        : `sc_director_${baseId}`;
                     
-                    setPeerId(myId);
                     Logger.info('Peer', `Inicializando con ID: ${myId}`);
                     
                     peer.current = new Peer(myId, CONFIG.PEER_CONFIG);
@@ -947,18 +935,14 @@
                     peer.current.on('call', handleIncomingCall);
 
                     peer.current.on('error', (err) => {
-                        Logger.error('PeerError', err.type);
-                        if (err.type === 'unavailable-id') {
-                            setError('ID no disponible, reintentando...');
-                        } else {
+                        Logger.error('PeerError', `${err.type}: ${err.message}`);
+                        if (err.type !== 'peer-unavailable') {
                             setError('Error Peer: ' + err.type);
                         }
-                        handleReconnect();
                     });
 
                     peer.current.on('disconnected', () => {
                         Logger.warn('Peer', 'Desconectado');
-                        handleReconnect();
                     });
                 } catch (error) {
                     Logger.error('PeerInit', error);
@@ -968,10 +952,12 @@
 
             const handleIncomingCall = (call) => {
                 try {
+                    Logger.info('IncomingCall', `Llamada recibida de: ${call.peer}`);
                     call.answer();
                     Logger.info('Call', 'Respondida');
 
                     call.on('stream', (stream) => {
+                        Logger.info('StreamReceived', `Stream de ${call.peer}`);
                         if (remoteVideoRef.current) {
                             remoteVideoRef.current.srcObject = stream;
                             remoteVideoRef.current.muted = true;
@@ -981,7 +967,7 @@
                                     setGuestConnected(true);
                                     setStatus('ONLINE');
                                     setError(null);
-                                    Logger.info('Stream', 'Recibido y reproduciendo');
+                                    Logger.info('Stream', 'Reproduciendo video');
                                     
                                     if (recordingActive && !RecordingService.isRecording) {
                                         RecordingService.start(stream);
@@ -998,44 +984,25 @@
                                 })
                                 .catch(e => {
                                     setStatus('BLOQUEO DE NAVEGADOR');
-                                    Logger.error('PlayError', e);
+                                    Logger.error('PlayError', e.message);
                                     setError('Error al reproducir: ' + e.message);
                                 });
                         }
                     });
 
                     call.on('error', (err) => {
-                        Logger.error('CallError', err);
+                        Logger.error('CallError', err.message);
                         setError('Error de llamada: ' + err.message);
                     });
 
                     call.on('close', () => {
                         Logger.info('Call', 'Cerrada');
                         setGuestConnected(false);
+                        setStatus('DESCONECTADO');
                     });
                 } catch (error) {
-                    Logger.error('IncomingCall', error);
+                    Logger.error('IncomingCall', error.message);
                     setError(error.message);
-                }
-            };
-
-            const handleReconnect = () => {
-                if (reconnectAttempts < CONFIG.MAX_RECONNECT_ATTEMPTS) {
-                    Logger.warn('Reconnect', `Intento ${reconnectAttempts + 1}/${CONFIG.MAX_RECONNECT_ATTEMPTS}`);
-                    setReconnectAttempts(prev => prev + 1);
-                    
-                    reconnectTimeoutRef.current = setTimeout(() => {
-                        try {
-                            if (peer.current) {
-                                peer.current.destroy();
-                            }
-                            initializePeer();
-                        } catch (e) {
-                            Logger.error('ReconnectError', e);
-                        }
-                    }, CONFIG.RECONNECT_DELAY);
-                } else {
-                    setError(`No se pudo conectar después de ${CONFIG.MAX_RECONNECT_ATTEMPTS} intentos`);
                 }
             };
 
@@ -1079,9 +1046,10 @@
                             video: false
                         });
                         returnStreamRef.current = s;
-                        returnCallRef.current = peer.current.call(`sc_guest_${roomName.toUpperCase()}`, s);
+                        const guestId = `sc_guest_${roomName.toUpperCase()}`;
+                        returnCallRef.current = peer.current.call(guestId, s);
                         setTalkbackActive(true);
-                        Logger.info('Talkback', 'Iniciado');
+                        Logger.info('Talkback', 'Iniciado hacia ' + guestId);
                     }
                 } catch (e) {
                     Logger.error('TalkbackToggle', e);
@@ -1388,40 +1356,35 @@
 
                     const s = await navigator.mediaDevices.getUserMedia(constraints);
                     localStream.current = s;
+                    Logger.info('MediaStream', `Obtenido stream con ${s.getVideoTracks().length} video y ${s.getAudioTracks().length} audio`);
                     
                     if (localVideoRef.current) {
                         localVideoRef.current.srcObject = s;
                         try {
                             await localVideoRef.current.play();
+                            Logger.info('LocalVideo', 'Reproduciendo');
                         } catch (e) {
                             Logger.warn('VideoPlay', e);
                         }
                     }
                     
-                    // Peer - Usar ID único del invitado
-                    const timestamp = Date.now();
-                    const random = Math.random().toString(36).substring(2, 8);
-                    const guestId = `guest_${roomName.toUpperCase()}_${timestamp}_${random}`;
-                    
+                    // Peer - ID fijo para que director lo pueda encontrar
+                    const guestId = `sc_guest_${roomName.toUpperCase()}`;
                     Logger.info('Peer', `Guest inicializando con ID: ${guestId}`);
+                    
                     peer.current = new Peer(guestId, CONFIG.PEER_CONFIG);
 
                     peer.current.on('open', (id) => {
-                        Logger.info('Peer', `Guest abierto: ${id}`);
-                        try {
-                            // Intentar conectar con director y OBS usando IDs genéricos que escuchen
-                            peer.current.call(`sc_director_${roomName.toUpperCase()}`, localStream.current);
-                            peer.current.call(`sc_obs_${roomName.toUpperCase()}`, localStream.current);
-                        } catch (e) {
-                            Logger.error('CallCreation', e);
-                            setError('Error al conectar: ' + e.message);
-                        }
+                        Logger.info('Peer', `Guest abierto y listo: ${id}`);
+                        setStatus('CONECTADO - Esperando llamada del director...');
                     });
 
                     peer.current.on('call', (c) => {
                         try {
+                            Logger.info('IncomingCall', `Llamada recibida de: ${c.peer}`);
                             c.answer(localStream.current);
                             c.on('stream', (rem) => {
+                                Logger.info('ReturnStream', `Stream recibido de ${c.peer}`);
                                 if (returnMediaRef.current) {
                                     returnMediaRef.current.srcObject = rem;
                                     try {
@@ -1438,10 +1401,8 @@
                     });
 
                     peer.current.on('error', (err) => {
-                        Logger.error('PeerError', err);
-                        if (err.type === 'unavailable-id') {
-                            setError('ID no disponible, reintentando...');
-                        } else {
+                        Logger.error('PeerError', `${err.type}: ${err.message}`);
+                        if (err.type !== 'peer-unavailable') {
                             setError('Error Peer: ' + err.type);
                         }
                     });
@@ -1456,7 +1417,7 @@
 
                     setError(null);
                 } catch (error) {
-                    Logger.error('GuestInit', error);
+                    Logger.error('GuestInit', error.message);
                     setError('Error: ' + error.message);
                 }
             };
