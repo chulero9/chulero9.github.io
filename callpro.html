@@ -35,13 +35,11 @@
             color: #1a1a1a;
         }
 
-        /* Scroll personalizado */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #18181b; }
         ::-webkit-scrollbar-thumb { background: #52525b; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #71717a; }
 
-        /* --- LOBBY --- */
         .lobby-container { 
             display: flex; 
             flex-direction: column; 
@@ -131,7 +129,6 @@
         .btn-dark { background: #27272a; color: white; margin-bottom: 12px; border: 1px solid #3f3f46; }
         .btn-dark:hover:not(:disabled) { background: #3f3f46; }
 
-        /* --- OBS --- */
         .obs-layout { 
             width: 100vw; 
             height: 100vh; 
@@ -167,7 +164,6 @@
             gap: 10px;
         }
 
-        /* --- DIRECTOR (DASHBOARD) --- */
         .director-layout { 
             display: flex; 
             height: 100vh; 
@@ -264,7 +260,6 @@
         }
         .exit-btn:hover { background: rgba(225, 29, 72, 1); }
 
-        /* --- GUEST UI --- */
         .guest-layout { 
             width: 100vw; 
             height: 100vh; 
@@ -319,7 +314,6 @@
             transition: opacity 0.3s; 
             cursor: grab; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            touch-action: none;
         }
         .return-pip.active { 
             opacity: 1; 
@@ -420,7 +414,6 @@
             color: white; 
         }
 
-        /* Stats Panel */
         .stats-panel {
             background: rgba(24, 24, 27, 0.7);
             border: 1px solid #3f3f46;
@@ -445,7 +438,6 @@
         .stat-warn { color: #f59e0b; }
         .stat-bad { color: #ef4444; }
 
-        /* Diagnostics */
         .diagnostics-overlay {
             position: fixed;
             top: 20px;
@@ -474,7 +466,6 @@
             color: #a1a1a1;
         }
 
-        /* Animaciones */
         @keyframes pulseRose { 
             0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); } 
             70% { box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); } 
@@ -489,7 +480,6 @@
             animation: spin 1s linear infinite;
         }
 
-        /* Loader */
         .loader {
             border: 4px solid rgba(139, 92, 246, 0.2);
             border-top-color: #8b5cf6;
@@ -499,7 +489,6 @@
             animation: spin 1s linear infinite;
         }
 
-        /* Error Toast */
         .error-toast {
             position: fixed;
             bottom: 20px;
@@ -519,7 +508,6 @@
             to { transform: translateX(-50%) translateY(0); opacity: 1; }
         }
 
-        /* Responsive */
         @media (max-width: 768px) {
             .director-controls {
                 width: 100% !important;
@@ -543,7 +531,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useCallback } = React;
 
-        // ============ CONFIGURACIÓN ============
         const CONFIG = {
             PEER_CONFIG: { 
                 config: { 
@@ -560,14 +547,12 @@
             MQTT_BROKER: 'wss://broker.emqx.io:8084/mqtt',
             MQTT_USER: 'streamcall',
             MQTT_PASS: 'streamcall123',
-            MAX_RECONNECT_ATTEMPTS: 5,
+            MAX_RECONNECT_ATTEMPTS: 3,
             RECONNECT_DELAY: 2000,
         };
 
-        // ============ SERVICIO DE LOGGING ============
         const Logger = {
             logs: [],
-            subscribers: [],
             
             log(level, event, data = {}) {
                 try {
@@ -591,7 +576,6 @@
             info(event, data) { this.log('INFO', event, data); },
             warn(event, data) { this.log('WARN', event, data); },
             error(event, data) { this.log('ERROR', event, data); },
-            critical(event, data) { this.log('CRITICAL', event, data); },
             
             export() {
                 try {
@@ -610,16 +594,12 @@
             }
         };
 
-        // ============ SERVICIO DE ESTADÍSTICAS ============
         const StatsCollector = {
             stats: {
                 latency: 0,
-                bitrate: 0,
                 packetLoss: 0,
                 jitter: 0,
                 videoResolution: '0x0',
-                audioLevel: 0,
-                connectionQuality: 'unknown',
             },
             
             updateStats(newStats) {
@@ -665,7 +645,6 @@
             }
         };
 
-        // ============ SERVICIO DE PERSISTENCIA ============
         const Storage = {
             save(key, value) {
                 try {
@@ -684,17 +663,8 @@
                     return defaultValue;
                 }
             },
-            
-            remove(key) {
-                try {
-                    localStorage.removeItem(key);
-                } catch (e) {
-                    Logger.warn('StorageRemove', e);
-                }
-            }
         };
 
-        // ============ SERVICIO DE GRABACIÓN ============
         const RecordingService = {
             recorder: null,
             chunks: [],
@@ -702,14 +672,17 @@
             
             start(stream) {
                 try {
+                    if (!stream || stream.getTracks().length === 0) {
+                        Logger.warn('Recording', 'Stream inválido');
+                        return;
+                    }
+                    
                     this.chunks = [];
                     
                     const mimeTypes = [
                         'video/webm;codecs=vp9,opus',
                         'video/webm;codecs=vp8,opus',
-                        'video/webm;codecs=h264,opus',
                         'video/webm',
-                        'video/mp4'
                     ];
                     
                     let selectedMime = 'video/webm';
@@ -727,18 +700,11 @@
                     });
                     
                     this.recorder.ondataavailable = (e) => {
-                        if (e.data.size > 0) {
-                            this.chunks.push(e.data);
-                        }
+                        if (e.data.size > 0) this.chunks.push(e.data);
                     };
                     
-                    this.recorder.onstop = () => {
-                        this.download();
-                    };
-                    
-                    this.recorder.onerror = (e) => {
-                        Logger.error('RecorderError', e.error);
-                    };
+                    this.recorder.onstop = () => this.download();
+                    this.recorder.onerror = (e) => Logger.error('RecorderError', e.error);
                     
                     this.recorder.start();
                     this.isRecording = true;
@@ -780,52 +746,63 @@
             }
         };
 
-        // ============ COMPONENTE: STATS PANEL ============
-        const StatsPanel = ({ stats, showDetails = false }) => {
-            const quality = StatsCollector.getConnectionQuality();
-            const qualityColor = {
-                'excellent': 'stat-good',
-                'good': 'stat-good',
-                'fair': 'stat-warn',
-                'poor': 'stat-bad',
-                'unknown': 'stat-warn',
-            }[quality] || 'stat-warn';
-            
-            return (
-                <div className="stats-panel">
-                    <div className="stat-line">
-                        <span>Latencia:</span>
-                        <span className={stats.latency < 100 ? 'stat-good' : stats.latency < 200 ? 'stat-warn' : 'stat-bad'}>
-                            {stats.latency}ms
-                        </span>
-                    </div>
-                    <div className="stat-line">
-                        <span>Pérdida Paq:</span>
-                        <span className={stats.packetLoss < 1 ? 'stat-good' : stats.packetLoss < 5 ? 'stat-warn' : 'stat-bad'}>
-                            {stats.packetLoss}%
-                        </span>
-                    </div>
-                    {showDetails && (
-                        <>
-                            <div className="stat-line">
-                                <span>Jitter:</span>
-                                <span>{stats.jitter}ms</span>
-                            </div>
-                            <div className="stat-line">
-                                <span>Resolución:</span>
-                                <span>{stats.videoResolution}</span>
-                            </div>
-                            <div className="stat-line">
-                                <span>Calidad:</span>
-                                <span className={qualityColor}>{quality.toUpperCase()}</span>
-                            </div>
-                        </>
-                    )}
+        const StatsPanel = ({ stats }) => (
+            <div className="stats-panel">
+                <div className="stat-line">
+                    <span>Latencia:</span>
+                    <span className={stats.latency < 100 ? 'stat-good' : stats.latency < 200 ? 'stat-warn' : 'stat-bad'}>
+                        {stats.latency}ms
+                    </span>
                 </div>
-            );
-        };
+                <div className="stat-line">
+                    <span>Pérdida:</span>
+                    <span className={stats.packetLoss < 1 ? 'stat-good' : stats.packetLoss < 5 ? 'stat-warn' : 'stat-bad'}>
+                        {stats.packetLoss}%
+                    </span>
+                </div>
+                <div className="stat-line">
+                    <span>Res:</span>
+                    <span>{stats.videoResolution}</span>
+                </div>
+            </div>
+        );
 
-        // ============ COMPONENTE RECEPTOR (DIRECTOR / OBS) ============
+        const DiagnosticsOverlay = ({ stats, logs, onExport }) => (
+            <div className="diagnostics-overlay">
+                <h3>🔧 DIAGNÓSTICOS</h3>
+                <div className="diagnostics-item">
+                    <span>Latencia:</span>
+                    <span>{stats.latency}ms</span>
+                </div>
+                <div className="diagnostics-item">
+                    <span>Pérdida:</span>
+                    <span>{stats.packetLoss}%</span>
+                </div>
+                <div className="diagnostics-item">
+                    <span>Logs:</span>
+                    <span>{logs.length}</span>
+                </div>
+                <button 
+                    onClick={onExport}
+                    style={{
+                        width: '100%',
+                        padding: '8px',
+                        marginTop: '10px',
+                        background: '#8b5cf6',
+                        border: 'none',
+                        borderRadius: '6px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 'bold',
+                    }}
+                >
+                    📥 Exportar Logs
+                </button>
+            </div>
+        );
+
+        // COMPONENTE DIRECTOR
         const ReceiverView = ({ roomName, isObsMode, pin = '' }) => {
             const [status, setStatus] = useState('BUSCANDO SEÑAL...');
             const [guestConnected, setGuestConnected] = useState(false);
@@ -836,7 +813,6 @@
             const [talkbackActive, setTalkbackActive] = useState(false);
             const [showDiagnostics, setShowDiagnostics] = useState(false);
             const [stats, setStats] = useState({ ...StatsCollector.stats });
-            const [reconnectAttempts, setReconnectAttempts] = useState(0);
             const [recordingActive, setRecordingActive] = useState(false);
             const [error, setError] = useState(null);
 
@@ -846,9 +822,7 @@
             const returnStreamRef = useRef(null);
             const returnCallRef = useRef(null);
             const statsIntervalRef = useRef(null);
-            const reconnectTimeoutRef = useRef(null);
 
-            // Inicialización
             useEffect(() => {
                 initializeReceiver();
                 return cleanup;
@@ -856,7 +830,7 @@
 
             const initializeReceiver = async () => {
                 try {
-                    Logger.info('ReceiverInit', `Modo: ${isObsMode ? 'OBS' : 'Director'}, Sala: ${roomName}`);
+                    Logger.info('ReceiverInit', `Modo: ${isObsMode ? 'OBS' : 'Director'}`);
 
                     if (!isObsMode) {
                         try {
@@ -864,13 +838,11 @@
                             const audios = devs.filter(d => d.kind === 'audioinput');
                             setAudioDevices(audios);
                             if (audios.length > 0) {
-                                const savedAudio = Storage.load('selectedAudio');
-                                setSelectedAudio(savedAudio || audios[0].deviceId);
+                                setSelectedAudio(Storage.load('selectedAudio') || audios[0].deviceId);
                             }
                         } catch (e) {
-                            Logger.warn('EnumerateDevices', e);
+                            Logger.warn('EnumerateDevices', e.message);
                         }
-                        
                         connectMQTT();
                     }
 
@@ -881,155 +853,115 @@
                             StatsCollector.collectFromPeerConnection(peer.current._pc);
                             setStats({ ...StatsCollector.stats });
                         }
-                    }, 1000);
-                } catch (error) {
-                    Logger.error('ReceiverInit', error);
-                    setError(error.message);
+                    }, 2000);
+                } catch (e) {
+                    Logger.error('ReceiverInit', e.message);
+                    setError(e.message);
                 }
             };
 
             const connectMQTT = () => {
                 try {
                     const options = {
-                        clientId: `sc_dir_${Date.now()}`,
+                        clientId: `dir_${Date.now()}`,
                         username: CONFIG.MQTT_USER,
                         password: CONFIG.MQTT_PASS,
                         reconnectPeriod: CONFIG.RECONNECT_DELAY,
                         clean: true,
-                        keepalive: 60,
                     };
                     
                     mqttClient.current = mqtt.connect(CONFIG.MQTT_BROKER, options);
-                    
-                    mqttClient.current.on('connect', () => {
-                        Logger.info('MQTT', 'Conectado');
-                        setReconnectAttempts(0);
-                    });
-                    
-                    mqttClient.current.on('error', (err) => {
-                        Logger.error('MQTT', err);
-                    });
-                } catch (error) {
-                    Logger.error('MQTTConnect', error);
-                    setError(error.message);
+                    mqttClient.current.on('connect', () => Logger.info('MQTT', 'Conectado'));
+                    mqttClient.current.on('error', (err) => Logger.error('MQTT', err.message));
+                } catch (e) {
+                    Logger.error('MQTTConnect', e.message);
                 }
             };
 
             const initializePeer = () => {
                 try {
-                    // ID fijo para que el guest pueda llamar
                     const baseId = roomName.toUpperCase();
-                    const myId = isObsMode 
-                        ? `sc_obs_${baseId}`
-                        : `sc_director_${baseId}`;
+                    const myId = isObsMode ? `obs_${baseId}` : `dir_${baseId}`;
                     
-                    Logger.info('Peer', `Inicializando con ID: ${myId}`);
-                    
+                    Logger.info('Peer', `Inicializando: ${myId}`);
                     peer.current = new Peer(myId, CONFIG.PEER_CONFIG);
 
                     peer.current.on('open', (id) => {
-                        setStatus('SALA LISTA - ESPERANDO...');
+                        setStatus('SALA LISTA');
                         Logger.info('Peer', `Abierto: ${id}`);
                     });
 
                     peer.current.on('call', handleIncomingCall);
-
                     peer.current.on('error', (err) => {
-                        Logger.error('PeerError', `${err.type}: ${err.message}`);
+                        Logger.error('PeerError', err.type);
                         if (err.type !== 'peer-unavailable') {
-                            setError('Error Peer: ' + err.type);
+                            setError('Error: ' + err.type);
                         }
                     });
-
-                    peer.current.on('disconnected', () => {
-                        Logger.warn('Peer', 'Desconectado');
-                    });
-                } catch (error) {
-                    Logger.error('PeerInit', error);
-                    setError(error.message);
+                } catch (e) {
+                    Logger.error('PeerInit', e.message);
+                    setError(e.message);
                 }
             };
 
             const handleIncomingCall = (call) => {
                 try {
-                    Logger.info('IncomingCall', `Llamada recibida de: ${call.peer}`);
+                    Logger.info('Call', `Entrante de: ${call.peer}`);
                     call.answer();
-                    Logger.info('Call', 'Respondida');
 
                     call.on('stream', (stream) => {
-                        Logger.info('StreamReceived', `Stream de ${call.peer}`);
+                        Logger.info('Stream', 'Recibido');
                         if (remoteVideoRef.current) {
                             remoteVideoRef.current.srcObject = stream;
-                            remoteVideoRef.current.muted = true;
-
                             remoteVideoRef.current.play()
                                 .then(() => {
                                     setGuestConnected(true);
                                     setStatus('ONLINE');
                                     setError(null);
-                                    Logger.info('Stream', 'Reproduciendo video');
+                                    Logger.info('Video', 'Reproduciendo');
                                     
                                     if (recordingActive && !RecordingService.isRecording) {
                                         RecordingService.start(stream);
                                     }
-
-                                    setTimeout(() => {
-                                        if (remoteVideoRef.current) {
-                                            remoteVideoRef.current.muted = false;
-                                            remoteVideoRef.current.play().catch(() => {
-                                                Logger.warn('Audio', 'Requiere interacción');
-                                            });
-                                        }
-                                    }, 1000);
                                 })
                                 .catch(e => {
-                                    setStatus('BLOQUEO DE NAVEGADOR');
+                                    setStatus('ERROR DE REPRODUCCIÓN');
                                     Logger.error('PlayError', e.message);
-                                    setError('Error al reproducir: ' + e.message);
                                 });
                         }
                     });
 
-                    call.on('error', (err) => {
-                        Logger.error('CallError', err.message);
-                        setError('Error de llamada: ' + err.message);
-                    });
-
+                    call.on('error', (err) => Logger.error('CallError', err.message));
                     call.on('close', () => {
-                        Logger.info('Call', 'Cerrada');
                         setGuestConnected(false);
                         setStatus('DESCONECTADO');
                     });
-                } catch (error) {
-                    Logger.error('IncomingCall', error.message);
-                    setError(error.message);
+                } catch (e) {
+                    Logger.error('IncomingCall', e.message);
                 }
             };
 
             const cleanup = () => {
                 clearInterval(statsIntervalRef.current);
-                clearTimeout(reconnectTimeoutRef.current);
                 try {
                     if (recordingActive) RecordingService.stop();
                     returnStreamRef.current?.getTracks().forEach(t => t.stop());
                     returnCallRef.current?.close();
                     if (peer.current) peer.current.destroy();
                     mqttClient.current?.end();
-                    Logger.info('Cleanup', 'Completado');
                 } catch (e) {
-                    Logger.warn('CleanupError', e);
+                    Logger.warn('Cleanup', e.message);
                 }
             };
 
             const handleTally = (s) => {
                 try {
                     setTally(s);
-                    if (mqttClient.current && mqttClient.current.connected) {
+                    if (mqttClient.current?.connected) {
                         mqttClient.current.publish(`sc_tally/${roomName}`, JSON.stringify({ state: s }), { retain: true });
                     }
-                    Logger.info('Tally', s);
                 } catch (e) {
-                    Logger.error('TallyChange', e);
+                    Logger.error('Tally', e.message);
                 }
             };
 
@@ -1037,23 +969,22 @@
                 try {
                     if (talkbackActive) {
                         returnStreamRef.current?.getTracks().forEach(t => t.stop());
-                        if (returnCallRef.current) returnCallRef.current.close();
+                        returnCallRef.current?.close();
                         setTalkbackActive(false);
-                        Logger.info('Talkback', 'Detenido');
                     } else {
                         const s = await navigator.mediaDevices.getUserMedia({
                             audio: { deviceId: selectedAudio },
                             video: false
                         });
                         returnStreamRef.current = s;
-                        const guestId = `sc_guest_${roomName.toUpperCase()}`;
+                        const guestId = `guest_${roomName.toUpperCase()}`;
                         returnCallRef.current = peer.current.call(guestId, s);
                         setTalkbackActive(true);
-                        Logger.info('Talkback', 'Iniciado hacia ' + guestId);
+                        Logger.info('Talkback', 'Iniciado');
                     }
                 } catch (e) {
-                    Logger.error('TalkbackToggle', e);
-                    setError('Error al activar retorno: ' + e.message);
+                    Logger.error('Talkback', e.message);
+                    setError('Error: ' + e.message);
                 }
             };
 
@@ -1061,42 +992,17 @@
                 try {
                     const url = `${window.location.href.split('?')[0]}?mode=${m}&room=${roomName}${pin ? `&pin=${pin}` : ''}`;
                     navigator.clipboard.writeText(url);
-                    Logger.info('LinkCopy', m);
-                    alert(`Link ${m} copiado al portapapeles`);
+                    alert(`Link copiado`);
                 } catch (e) {
-                    Logger.error('CopyLink', e);
-                }
-            };
-
-            const toggleRecording = () => {
-                try {
-                    if (recordingActive) {
-                        RecordingService.stop();
-                        setRecordingActive(false);
-                    } else {
-                        if (remoteVideoRef.current?.srcObject) {
-                            RecordingService.start(remoteVideoRef.current.srcObject);
-                            setRecordingActive(true);
-                        } else {
-                            setError('No hay stream para grabar');
-                        }
-                    }
-                } catch (e) {
-                    Logger.error('ToggleRecording', e);
-                    setError('Error en grabación: ' + e.message);
+                    Logger.error('Copy', e.message);
                 }
             };
 
             if (isObsMode) {
                 return (
                     <div className="obs-layout">
-                        <video ref={remoteVideoRef} className="obs-video" autoPlay playsInline muted></video>
-                        {!guestConnected && (
-                            <div className="obs-status">
-                                <div className="loader"></div>
-                                {status}
-                            </div>
-                        )}
+                        <video ref={remoteVideoRef} className="obs-video" autoPlay playsInline muted />
+                        {!guestConnected && <div className="obs-status"><div className="loader" />{status}</div>}
                         {showDiagnostics && <DiagnosticsOverlay stats={stats} logs={Logger.logs} onExport={() => Logger.export()} />}
                         {error && <div className="error-toast">{error}</div>}
                     </div>
@@ -1104,110 +1010,63 @@
             }
 
             return (
-                <div className={`director-layout ${cleanMode ? 'clean-mode' : ''}`} onDoubleClick={() => cleanMode && setCleanMode(false)}>
-                    {cleanMode && (
-                        <div className="exit-btn" onClick={() => setCleanMode(false)}>
-                            ✕ SALIR
-                        </div>
-                    )}
+                <div className={`director-layout ${cleanMode ? 'clean-mode' : ''}`}>
+                    {cleanMode && <div className="exit-btn" onClick={() => setCleanMode(false)}>✕ SALIR</div>}
                     
                     <div className="video-stage">
-                        <video ref={remoteVideoRef} className="remote-video relative z-10" autoPlay playsInline muted></video>
-                        {!guestConnected && (
-                            <div style={{
-                                position: 'absolute',
-                                color: '#71717a',
-                                fontWeight: 'bold',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                fontSize: '1rem'
-                            }}>
-                                📡 {status}
-                            </div>
-                        )}
+                        <video ref={remoteVideoRef} className="remote-video" autoPlay playsInline muted />
+                        {!guestConnected && <div style={{ position: 'absolute', color: '#71717a', fontWeight: 'bold' }}>📡 {status}</div>}
                     </div>
 
                     <div className="director-controls">
-                        <h2 style={{
-                            fontSize: '1.25rem',
-                            fontWeight: 800,
-                            background: 'linear-gradient(135deg, #a78bfa, #d8b4fe)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            marginBottom: '20px',
-                            marginTop: 0,
-                            textAlign: 'center',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '10px'
-                        }}>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, background: 'linear-gradient(135deg, #a78bfa, #d8b4fe)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '20px', marginTop: 0, textAlign: 'center' }}>
                             📡 StreamCall PRO
                         </h2>
 
-                        {/* Audio Retorno */}
-                        <label style={{ color: '#a78bfa', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', marginBottom: '8px', display: 'block', letterSpacing: '1px' }}>
-                            🎧 Retorno al Invitado
-                        </label>
+                        <label style={{ color: '#a78bfa', fontWeight: 'bold', fontSize: '0.75rem', marginBottom: '8px', display: 'block' }}>🎧 RETORNO</label>
                         <select value={selectedAudio} onChange={e => { setSelectedAudio(e.target.value); Storage.save('selectedAudio', e.target.value); }}>
-                            {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Micrófono'}</option>)}
+                            {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Audio'}</option>)}
                         </select>
                         
                         <button className={`btn ${talkbackActive ? 'btn-rose' : 'btn-violet'}`} onClick={toggleReturn} disabled={!guestConnected}>
-                            {talkbackActive ? <><i className="ph-fill ph-stop-circle"></i> Detener Retorno</> : <>▶ Enviar Retorno</>}
+                            {talkbackActive ? '⏹ Detener' : '▶ Activar'}
                         </button>
 
-                        <div style={{ height: '1px', background: '#3f3f46', width: '100%', margin: '15px 0' }}></div>
+                        <div style={{ height: '1px', background: '#3f3f46', margin: '15px 0' }} />
 
-                        {/* Grabación */}
-                        <button className={`btn ${recordingActive ? 'btn-rose' : 'btn-emerald'}`} onClick={toggleRecording} disabled={!guestConnected}>
-                            {recordingActive ? <>⏹ Detener Grabación</> : <>⏺ Grabar</>}
+                        <button className={`btn ${recordingActive ? 'btn-rose' : 'btn-emerald'}`} onClick={() => {
+                            if (recordingActive) {
+                                RecordingService.stop();
+                                setRecordingActive(false);
+                            } else if (remoteVideoRef.current?.srcObject) {
+                                RecordingService.start(remoteVideoRef.current.srcObject);
+                                setRecordingActive(true);
+                            } else {
+                                setError('Sin stream');
+                            }
+                        }} disabled={!guestConnected}>
+                            {recordingActive ? '⏹ Grabar' : '⏺ Grabar'}
                         </button>
 
-                        <div style={{ height: '1px', background: '#3f3f46', width: '100%', margin: '15px 0' }}></div>
+                        <div style={{ height: '1px', background: '#3f3f46', margin: '15px 0' }} />
 
-                        {/* Enlaces */}
-                        <label style={{ color: '#a1a1a1', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', marginBottom: '8px', display: 'block', letterSpacing: '1px' }}>
-                            🔗 Enlaces de Sala
-                        </label>
-                        <button className="btn btn-emerald" onClick={() => copyLink('obs')}>
-                            📋 Link OBS
-                        </button>
-                        <button className="btn btn-dark" onClick={() => copyLink('guest')}>
-                            👤 Link Invitado
-                        </button>
+                        <label style={{ color: '#a1a1a1', fontWeight: 'bold', fontSize: '0.75rem', marginBottom: '8px', display: 'block' }}>🔗 ENLACES</label>
+                        <button className="btn btn-emerald" onClick={() => copyLink('obs')}>Link OBS</button>
+                        <button className="btn btn-dark" onClick={() => copyLink('guest')}>Link Guest</button>
 
-                        <div style={{ height: '1px', background: '#3f3f46', width: '100%', margin: '15px 0' }}></div>
+                        <div style={{ height: '1px', background: '#3f3f46', margin: '15px 0' }} />
 
-                        {/* Tally */}
-                        <label style={{ color: '#a1a1a1', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', marginBottom: '8px', display: 'block', letterSpacing: '1px' }}>
-                            🚦 Control de Tally
-                        </label>
+                        <label style={{ color: '#a1a1a1', fontWeight: 'bold', fontSize: '0.75rem', marginBottom: '8px', display: 'block' }}>🚦 TALLY</label>
                         <div className="tally-grid">
                             <button className={`t-btn ${tally === 'idle' ? 'active-idle' : ''}`} onClick={() => handleTally('idle')}>OFF</button>
                             <button className={`t-btn ${tally === 'prev' ? 'active-prev' : ''}`} onClick={() => handleTally('prev')}>PREV</button>
                             <button className={`t-btn ${tally === 'live' ? 'active-live' : ''}`} onClick={() => handleTally('live')}>AIRE</button>
                         </div>
 
-                        {/* Estadísticas */}
-                        {guestConnected && <StatsPanel stats={stats} showDetails={true} />}
+                        {guestConnected && <StatsPanel stats={stats} />}
 
-                        {/* Botones inferiores */}
-                        <button 
-                            className="btn btn-dark"
-                            onClick={() => setShowDiagnostics(!showDiagnostics)}
-                        >
-                            🐛 Diagnósticos
-                        </button>
-
-                        <button className="btn btn-dark" onClick={() => setCleanMode(true)}>
-                            ⛶ Pantalla Limpia
-                        </button>
+                        <button className="btn btn-dark" onClick={() => setShowDiagnostics(!showDiagnostics)}>🐛 Diag</button>
+                        <button className="btn btn-dark" onClick={() => setCleanMode(true)}>⛶ Limpia</button>
                     </div>
 
                     {showDiagnostics && <DiagnosticsOverlay stats={stats} logs={Logger.logs} onExport={() => Logger.export()} />}
@@ -1216,66 +1075,7 @@
             );
         };
 
-        // ============ COMPONENTE DIAGNOSTICS ============
-        const DiagnosticsOverlay = ({ stats, logs, onExport }) => {
-            return (
-                <div className="diagnostics-overlay">
-                    <h3>🔧 DIAGNÓSTICOS</h3>
-                    <div className="diagnostics-item">
-                        <span>Estado:</span>
-                        <span style={{ color: '#10b981' }}>CONECTADO</span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Latencia:</span>
-                        <span>{stats.latency}ms</span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Pérdida:</span>
-                        <span>{stats.packetLoss}%</span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Jitter:</span>
-                        <span>{stats.jitter}ms</span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Resolución:</span>
-                        <span>{stats.videoResolution}</span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Calidad:</span>
-                        <span style={{ color: StatsCollector.getConnectionQuality() === 'excellent' ? '#10b981' : '#f59e0b' }}>
-                            {StatsCollector.getConnectionQuality().toUpperCase()}
-                        </span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Logs:</span>
-                        <span>{logs.length}</span>
-                    </div>
-                    <button 
-                        onClick={onExport}
-                        style={{
-                            width: '100%',
-                            padding: '8px',
-                            marginTop: '10px',
-                            background: '#8b5cf6',
-                            border: 'none',
-                            borderRadius: '6px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem',
-                            fontWeight: 'bold',
-                            transition: 'all 0.2s ease',
-                        }}
-                        onMouseEnter={e => e.target.style.background = '#a78bfa'}
-                        onMouseLeave={e => e.target.style.background = '#8b5cf6'}
-                    >
-                        📥 Exportar Logs
-                    </button>
-                </div>
-            );
-        };
-
-        // ============ COMPONENTE GUEST (INVITADO) ============
+        // COMPONENTE GUEST
         const GuestView = ({ roomName, pin = '' }) => {
             const [joined, setJoined] = useState(false);
             const [quality, setQuality] = useState(Storage.load('preferredQuality', '720'));
@@ -1289,6 +1089,7 @@
             const [cameraMode, setCameraMode] = useState(Storage.load('cameraMode', 'user'));
             const [recordingActive, setRecordingActive] = useState(false);
             const [error, setError] = useState(null);
+            const [guestStatus, setGuestStatus] = useState('Iniciando...');
 
             const localVideoRef = useRef(null);
             const returnMediaRef = useRef(null);
@@ -1305,105 +1106,78 @@
 
             const initializeGuest = async () => {
                 try {
-                    Logger.info('GuestInit', `Calidad: ${quality}, Cámara: ${cameraMode}, Sala: ${roomName}`);
+                    Logger.info('GuestInit', `Calidad: ${quality}, Cámara: ${cameraMode}`);
+                    setGuestStatus('Obteniendo media...');
 
                     // MQTT
                     const options = {
-                        clientId: `sc_guest_${Date.now()}`,
+                        clientId: `guest_${Date.now()}`,
                         username: CONFIG.MQTT_USER,
                         password: CONFIG.MQTT_PASS,
                         reconnectPeriod: CONFIG.RECONNECT_DELAY,
                     };
                     
                     mqttClient.current = mqtt.connect(CONFIG.MQTT_BROKER, options);
-                    
-                    mqttClient.current.on('connect', () => {
-                        Logger.info('MQTT', 'Guest conectado');
-                        try {
-                            mqttClient.current.subscribe(`sc_tally/${roomName}`);
-                        } catch (e) {
-                            Logger.warn('TallySubscribe', e);
-                        }
-                    });
-                    
+                    mqttClient.current.on('connect', () => Logger.info('MQTT', 'Conectado'));
                     mqttClient.current.on('message', (topic, payload) => {
                         try {
                             const data = JSON.parse(payload.toString());
-                            setTally(data.state);
+                            if (data.state) setTally(data.state);
                         } catch (e) {
-                            Logger.warn('TallyParse', e);
+                            // Ignorar errores de parse
                         }
                     });
-
-                    mqttClient.current.on('error', (err) => {
-                        Logger.error('MQTT', err);
-                    });
+                    mqttClient.current.on('error', () => {});
 
                     // getUserMedia
                     const res = { '360': [640, 360], '720': [1280, 720], '1080': [1920, 1080] };
-                    const constraints = {
-                        video: { 
-                            width: { ideal: res[quality][0] }, 
-                            height: { ideal: res[quality][1] }, 
-                            facingMode: cameraMode
-                        },
-                        audio: { 
-                            echoCancellation: true, 
-                            noiseSuppression: true, 
-                            autoGainControl: true 
-                        }
-                    };
-
-                    const s = await navigator.mediaDevices.getUserMedia(constraints);
+                    const [w, h] = res[quality] || res['720'];
+                    
+                    const s = await navigator.mediaDevices.getUserMedia({
+                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: cameraMode },
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                    });
+                    
                     localStream.current = s;
-                    Logger.info('MediaStream', `Obtenido stream con ${s.getVideoTracks().length} video y ${s.getAudioTracks().length} audio`);
+                    setGuestStatus('Stream obtenido');
                     
                     if (localVideoRef.current) {
                         localVideoRef.current.srcObject = s;
-                        try {
-                            await localVideoRef.current.play();
-                            Logger.info('LocalVideo', 'Reproduciendo');
-                        } catch (e) {
-                            Logger.warn('VideoPlay', e);
-                        }
+                        await localVideoRef.current.play();
                     }
-                    
-                    // Peer - ID fijo para que director lo pueda encontrar
-                    const guestId = `sc_guest_${roomName.toUpperCase()}`;
-                    Logger.info('Peer', `Guest inicializando con ID: ${guestId}`);
+
+                    // Peer
+                    const guestId = `guest_${roomName.toUpperCase()}`;
+                    Logger.info('Peer', `ID: ${guestId}`);
+                    setGuestStatus('Conectando a Peer...');
                     
                     peer.current = new Peer(guestId, CONFIG.PEER_CONFIG);
 
                     peer.current.on('open', (id) => {
-                        Logger.info('Peer', `Guest abierto y listo: ${id}`);
-                        setStatus('CONECTADO - Esperando llamada del director...');
+                        Logger.info('Peer', `Abierto: ${id}`);
+                        setGuestStatus('Esperando director...');
                     });
 
                     peer.current.on('call', (c) => {
                         try {
-                            Logger.info('IncomingCall', `Llamada recibida de: ${c.peer}`);
+                            Logger.info('Call', `De: ${c.peer}`);
                             c.answer(localStream.current);
                             c.on('stream', (rem) => {
-                                Logger.info('ReturnStream', `Stream recibido de ${c.peer}`);
                                 if (returnMediaRef.current) {
                                     returnMediaRef.current.srcObject = rem;
-                                    try {
-                                        returnMediaRef.current.play().catch(e => Logger.warn('ReturnPlay', e));
-                                    } catch (e) {
-                                        Logger.warn('ReturnPlayError', e);
-                                    }
+                                    returnMediaRef.current.play().catch(() => {});
                                 }
-                                setReceivingVideo(rem.getVideoTracks().length > 0);
+                                setReceivingVideo(true);
                             });
                         } catch (e) {
-                            Logger.error('IncomingCall', e);
+                            Logger.error('CallAnswer', e.message);
                         }
                     });
 
                     peer.current.on('error', (err) => {
-                        Logger.error('PeerError', `${err.type}: ${err.message}`);
+                        Logger.error('PeerError', err.type);
                         if (err.type !== 'peer-unavailable') {
-                            setError('Error Peer: ' + err.type);
+                            setError('Error: ' + err.type);
                         }
                     });
 
@@ -1413,12 +1187,19 @@
                             StatsCollector.collectFromPeerConnection(peer.current._pc);
                             setStats({ ...StatsCollector.stats });
                         }
-                    }, 1000);
+                    }, 2000);
+
+                    // Subscribe MQTT
+                    if (mqttClient.current?.connected) {
+                        mqttClient.current.subscribe(`sc_tally/${roomName}`);
+                    }
 
                     setError(null);
-                } catch (error) {
-                    Logger.error('GuestInit', error.message);
-                    setError('Error: ' + error.message);
+                    setGuestStatus('Conectado';
+                } catch (e) {
+                    Logger.error('GuestInit', e.message);
+                    setError('Error: ' + e.message);
+                    setGuestStatus('Error: ' + e.message);
                 }
             };
 
@@ -1429,85 +1210,31 @@
                     localStream.current?.getTracks().forEach(t => t.stop());
                     if (peer.current) peer.current.destroy();
                     mqttClient.current?.end();
-                    Logger.info('Cleanup', 'Guest completado');
                 } catch (e) {
-                    Logger.warn('CleanupError', e);
+                    Logger.warn('Cleanup', e.message);
                 }
             };
 
             const toggleMic = () => {
-                try {
-                    if (localStream.current) {
-                        const tracks = localStream.current.getAudioTracks();
-                        if (tracks.length > 0) {
-                            const t = tracks[0];
-                            t.enabled = !t.enabled;
-                            setMicMuted(!t.enabled);
-                            Logger.info('Mic', t.enabled ? 'Encendido' : 'Apagado');
-                        }
-                    }
-                } catch (e) {
-                    Logger.error('ToggleMic', e);
+                if (localStream.current?.getAudioTracks()[0]) {
+                    const t = localStream.current.getAudioTracks()[0];
+                    t.enabled = !t.enabled;
+                    setMicMuted(!t.enabled);
                 }
             };
 
             const toggleCam = () => {
-                try {
-                    if (localStream.current) {
-                        const tracks = localStream.current.getVideoTracks();
-                        if (tracks.length > 0) {
-                            const t = tracks[0];
-                            t.enabled = !t.enabled;
-                            setCamOff(!t.enabled);
-                            Logger.info('Cam', t.enabled ? 'Encendida' : 'Apagada');
-                        }
-                    }
-                } catch (e) {
-                    Logger.error('ToggleCam', e);
+                if (localStream.current?.getVideoTracks()[0]) {
+                    const t = localStream.current.getVideoTracks()[0];
+                    t.enabled = !t.enabled;
+                    setCamOff(!t.enabled);
                 }
             };
 
             const switchCamera = () => {
-                try {
-                    const newMode = cameraMode === 'user' ? 'environment' : 'user';
-                    setCameraMode(newMode);
-                    Storage.save('cameraMode', newMode);
-                    Logger.info('Camera', `Cambio a ${newMode}`);
-                } catch (e) {
-                    Logger.error('SwitchCamera', e);
-                    setError('Error al cambiar cámara: ' + e.message);
-                }
-            };
-
-            const toggleRecording = () => {
-                try {
-                    if (recordingActive) {
-                        RecordingService.stop();
-                        setRecordingActive(false);
-                    } else {
-                        if (localStream.current) {
-                            RecordingService.start(localStream.current);
-                            setRecordingActive(true);
-                        } else {
-                            setError('No hay stream para grabar');
-                        }
-                    }
-                } catch (e) {
-                    Logger.error('ToggleRecording', e);
-                    setError('Error: ' + e.message);
-                }
-            };
-
-            const verifyPin = () => {
-                if (pinInput === pin) {
-                    setPinRequired(false);
-                    setJoined(true);
-                    Logger.info('Pin', 'Verificado correctamente');
-                } else {
-                    setError('PIN incorrecto');
-                    Logger.warn('Pin', 'PIN incorrecto');
-                    setPinInput('');
-                }
+                const newMode = cameraMode === 'user' ? 'environment' : 'user';
+                setCameraMode(newMode);
+                Storage.save('cameraMode', newMode);
             };
 
             if (!joined) {
@@ -1515,36 +1242,18 @@
                     return (
                         <div className="lobby-container">
                             <div className="glass-box">
-                                <div style={{
-                                    width: '64px',
-                                    height: '64px',
-                                    background: 'rgba(139, 92, 246, 0.2)',
-                                    borderRadius: '16px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    margin: '0 auto 16px',
-                                    border: '1px solid rgba(139, 92, 246, 0.3)'
-                                }}>
-                                    🔒
-                                </div>
-                                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                    Sala Protegida
-                                </h2>
-                                <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', textAlign: 'left', marginBottom: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                    PIN de Acceso
-                                </label>
+                                <div style={{ width: '64px', height: '64px', background: 'rgba(139, 92, 246, 0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>🔒</div>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px' }}>Sala Protegida</h2>
+                                <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>PIN</label>
                                 <input 
                                     type="password"
                                     value={pinInput}
                                     onChange={e => setPinInput(e.target.value)}
-                                    onKeyPress={e => e.key === 'Enter' && verifyPin()}
-                                    placeholder="Ingresa el PIN"
+                                    onKeyPress={e => e.key === 'Enter' && (pinInput === pin ? (setPinRequired(false), setJoined(true)) : setError('PIN incorrecto'))}
+                                    placeholder="PIN"
                                     autoFocus
                                 />
-                                <button className="btn btn-violet" onClick={verifyPin}>
-                                    Verificar PIN →
-                                </button>
+                                <button className="btn btn-violet" onClick={() => pinInput === pin ? (setPinRequired(false), setJoined(true)) : setError('PIN incorrecto')}>Verificar</button>
                                 {error && <div className="error-toast">{error}</div>}
                             </div>
                         </div>
@@ -1554,33 +1263,15 @@
                 return (
                     <div className="lobby-container">
                         <div className="glass-box">
-                            <div style={{
-                                width: '64px',
-                                height: '64px',
-                                background: 'rgba(139, 92, 246, 0.2)',
-                                borderRadius: '16px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                margin: '0 auto 16px',
-                                border: '1px solid rgba(139, 92, 246, 0.3)'
-                            }}>
-                                📹
-                            </div>
-                            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                Sala: {roomName}
-                            </h2>
-                            <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', textAlign: 'left', marginBottom: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                Calidad de Envío
-                            </label>
+                            <div style={{ width: '64px', height: '64px', background: 'rgba(139, 92, 246, 0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>📹</div>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px' }}>Sala: {roomName}</h2>
+                            <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Calidad</label>
                             <select className="quality-select" value={quality} onChange={e => { setQuality(e.target.value); Storage.save('preferredQuality', e.target.value); }}>
                                 <option value="360">BAJA (360p)</option>
                                 <option value="720">MEDIA (720p)</option>
                                 <option value="1080">ALTA (1080p)</option>
                             </select>
-                            <button className="btn btn-violet" onClick={() => setJoined(true)}>
-                                Entrar a la Sala →
-                            </button>
+                            <button className="btn btn-violet" onClick={() => setJoined(true)}>Entrar →</button>
                             {error && <div className="error-toast">{error}</div>}
                         </div>
                     </div>
@@ -1589,55 +1280,34 @@
 
             return (
                 <div className={`guest-layout tally-${tally}`}>
-                    <div className="guest-tally-border"></div>
+                    <div className="guest-tally-border" />
                     <div className="big-tally-text">
-                        {tally === 'live' ? (
-                            <><span style={{ fontSize: '0.9rem' }}>🔴</span> AL AIRE</>
-                        ) : (
-                            <><span style={{ fontSize: '0.9rem' }}>⚠️</span> PREVENIDO</>
-                        )}
+                        {tally === 'live' ? <>🔴 AL AIRE</> : <>⚠️ PREVENIDO</>}
                     </div>
 
                     <div className={`return-pip ${receivingVideo ? 'active' : ''}`}>
-                        <video ref={returnMediaRef} autoPlay playsInline muted></video>
+                        <video ref={returnMediaRef} autoPlay playsInline muted />
                         <div className="pip-label">📺 Programa</div>
                     </div>
 
-                    <video
-                        ref={localVideoRef}
-                        className="guest-video"
-                        muted
-                        autoPlay
-                        playsInline
-                    ></video>
+                    <video ref={localVideoRef} className="guest-video" muted autoPlay playsInline />
 
                     <div className="guest-overlay">
-                        <div style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 'bold',
-                            color: '#a1a1a1',
-                            textTransform: 'uppercase',
-                            marginRight: '16px',
-                            background: 'rgba(139, 92, 246, 0.1)',
-                            padding: '6px 12px',
-                            borderRadius: '20px',
-                            border: '1px solid rgba(139, 92, 246, 0.3)',
-                            letterSpacing: '1px'
-                        }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#a1a1a1', background: 'rgba(139, 92, 246, 0.1)', padding: '6px 12px', borderRadius: '20px' }}>
                             {roomName}
                         </div>
-                        <div className={`mic-btn ${micMuted ? 'off' : ''}`} onClick={toggleMic} title={micMuted ? 'Encender micrófono' : 'Apagar micrófono'}>
-                            {micMuted ? '🔇' : '🎤'}
-                        </div>
-                        <div className={`mic-btn ${camOff ? 'off' : ''}`} onClick={toggleCam} title={camOff ? 'Encender cámara' : 'Apagar cámara'}>
-                            {camOff ? '📵' : '📹'}
-                        </div>
-                        <div className="mic-btn" onClick={switchCamera} title="Cambiar a cámara trasera/delantera">
-                            🔄
-                        </div>
-                        <div className={`mic-btn ${recordingActive ? 'off' : ''}`} onClick={toggleRecording} title={recordingActive ? 'Detener grabación' : 'Iniciar grabación'}>
-                            {recordingActive ? '⏹' : '⏺'}
-                        </div>
+                        <div className={`mic-btn ${micMuted ? 'off' : ''}`} onClick={toggleMic}>{micMuted ? '🔇' : '🎤'}</div>
+                        <div className={`mic-btn ${camOff ? 'off' : ''}`} onClick={toggleCam}>{camOff ? '📵' : '📹'}</div>
+                        <div className="mic-btn" onClick={switchCamera}>🔄</div>
+                        <div className={`mic-btn ${recordingActive ? 'off' : ''}`} onClick={() => {
+                            if (recordingActive) {
+                                RecordingService.stop();
+                                setRecordingActive(false);
+                            } else if (localStream.current) {
+                                RecordingService.start(localStream.current);
+                                setRecordingActive(true);
+                            }
+                        }}>{recordingActive ? '⏹' : '⏺'}</div>
                     </div>
 
                     {error && <div className="error-toast">{error}</div>}
@@ -1645,7 +1315,7 @@
             );
         };
 
-        // ============ COMPONENTE PRINCIPAL ============
+        // APP PRINCIPAL
         const App = () => {
             const [mode, setMode] = useState(null);
             const [roomName, setRoomName] = useState('');
@@ -1658,22 +1328,16 @@
                 let r = params.get('room');
                 let p = params.get('pin') || '';
 
-                const isBroadcast = window.obsstudio || /vMix|OBS/i.test(navigator.userAgent);
-                if (isBroadcast && r) m = 'obs';
-
                 if (m && r) {
                     setRoomName(r);
                     setPin(p);
                     setMode(m);
                     if (m === 'obs') document.body.classList.add('obs-mode');
-                    Logger.info('App', `Modo: ${m}, Sala: ${r}`);
                 } else {
                     setRoomName(Math.random().toString(36).substring(2, 6).toUpperCase());
                 }
 
-                if (theme === 'light') {
-                    document.body.classList.add('light-theme');
-                }
+                if (theme === 'light') document.body.classList.add('light-theme');
             }, []);
 
             if (mode === 'director') return <ReceiverView roomName={roomName} isObsMode={false} pin={pin} />;
@@ -1684,94 +1348,22 @@
                 <div className="lobby-container">
                     <div className="glass-box">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <div style={{
-                                width: '64px',
-                                height: '64px',
-                                background: 'rgba(139, 92, 246, 0.2)',
-                                borderRadius: '16px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                border: '1px solid rgba(139, 92, 246, 0.3)'
-                            }}>
-                                📡
-                            </div>
-                            <button 
-                                onClick={() => {
-                                    const newTheme = theme === 'dark' ? 'light' : 'dark';
-                                    setTheme(newTheme);
-                                    Storage.save('theme', newTheme);
-                                    if (newTheme === 'light') {
-                                        document.body.classList.add('light-theme');
-                                    } else {
-                                        document.body.classList.remove('light-theme');
-                                    }
-                                }}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#8b5cf6',
-                                    fontSize: '1.5rem',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease'
-                                }}
-                                onMouseEnter={e => e.target.style.transform = 'scale(1.1)'}
-                                onMouseLeave={e => e.target.style.transform = 'scale(1)'}
-                            >
+                            <div style={{ width: '64px', height: '64px', background: 'rgba(139, 92, 246, 0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(139, 92, 246, 0.3)' }}>📡</div>
+                            <button onClick={() => { const t = theme === 'dark' ? 'light' : 'dark'; setTheme(t); Storage.save('theme', t); document.body.classList.toggle('light-theme'); }} style={{ background: 'none', border: 'none', color: '#8b5cf6', fontSize: '1.5rem', cursor: 'pointer' }}>
                                 {theme === 'dark' ? '🌙' : '☀️'}
                             </button>
                         </div>
 
-                        <h1 style={{
-                            fontSize: '2rem',
-                            fontWeight: 800,
-                            marginBottom: '32px',
-                            textTransform: 'uppercase',
-                            background: 'linear-gradient(135deg, #a78bfa, #d8b4fe)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            letterSpacing: '1px',
-                            textAlign: 'center'
-                        }}>
-                            StreamCall PRO
-                        </h1>
+                        <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '32px', textTransform: 'uppercase', background: 'linear-gradient(135deg, #a78bfa, #d8b4fe)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textAlign: 'center' }}>StreamCall PRO</h1>
 
-                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', textAlign: 'left', marginBottom: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            ID de la Sala
-                        </label>
-                        <input
-                            value={roomName}
-                            onChange={e => setRoomName(e.target.value.toUpperCase())}
-                            placeholder="SALA"
-                            maxLength="20"
-                        />
+                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>ID de Sala</label>
+                        <input value={roomName} onChange={e => setRoomName(e.target.value.toUpperCase())} placeholder="SALA" maxLength="20" />
 
-                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', textAlign: 'left', marginBottom: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                            PIN (Opcional)
-                        </label>
-                        <input
-                            value={pin}
-                            onChange={e => setPin(e.target.value)}
-                            type="password"
-                            placeholder="PIN"
-                            maxLength="6"
-                        />
+                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>PIN (Opcional)</label>
+                        <input value={pin} onChange={e => setPin(e.target.value)} type="password" placeholder="PIN" maxLength="6" />
 
-                        <button
-                            className="btn btn-violet"
-                            onClick={() => {
-                                window.location.href = `?mode=director&room=${roomName}${pin ? `&pin=${pin}` : ''}`;
-                            }}
-                        >
-                            🎛 Panel Director
-                        </button>
-
-                        <button
-                            className="btn btn-dark"
-                            onClick={() => Logger.export()}
-                        >
-                            📥 Exportar Logs
-                        </button>
+                        <button className="btn btn-violet" onClick={() => window.location.href = `?mode=director&room=${roomName}${pin ? `&pin=${pin}` : ''}`}>🎛 Panel Director</button>
+                        <button className="btn btn-dark" onClick={() => Logger.export()}>📥 Exportar Logs</button>
                     </div>
                 </div>
             );
