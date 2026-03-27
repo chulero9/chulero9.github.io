@@ -420,20 +420,6 @@
             color: white; 
         }
 
-        /* Audio Visualizer */
-        .audio-visualizer {
-            width: 100%;
-            height: 40px;
-            background: rgba(24, 24, 27, 0.5);
-            border-radius: 8px;
-            margin: 10px 0;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            gap: 3px;
-            padding: 5px;
-        }
-
         /* Stats Panel */
         .stats-panel {
             background: rgba(24, 24, 27, 0.7);
@@ -662,12 +648,10 @@
                     if (!peerConnection) return;
                     
                     const stats = await peerConnection.getStats();
-                    let foundVideoStats = false;
                     
                     stats.forEach(report => {
                         try {
                             if (report.type === 'inbound-rtp' && report.kind === 'video') {
-                                foundVideoStats = true;
                                 const latency = (report.currentRoundTripTime || 0) * 1000;
                                 const packetLoss = report.packetsLost && report.packetsReceived 
                                     ? (report.packetsLost / (report.packetsReceived + report.packetsLost)) * 100 
@@ -864,6 +848,7 @@
             const [reconnectAttempts, setReconnectAttempts] = useState(0);
             const [recordingActive, setRecordingActive] = useState(false);
             const [error, setError] = useState(null);
+            const [peerId, setPeerId] = useState(null);
 
             const peer = useRef(null);
             const remoteVideoRef = useRef(null);
@@ -929,16 +914,10 @@
                     mqttClient.current.on('connect', () => {
                         Logger.info('MQTT', 'Conectado');
                         setReconnectAttempts(0);
-                        setError(null);
-                    });
-                    
-                    mqttClient.current.on('disconnect', () => {
-                        Logger.warn('MQTT', 'Desconectado');
                     });
                     
                     mqttClient.current.on('error', (err) => {
                         Logger.error('MQTT', err);
-                        setError('Error MQTT: ' + err.message);
                     });
                 } catch (error) {
                     Logger.error('MQTTConnect', error);
@@ -948,8 +927,15 @@
 
             const initializePeer = () => {
                 try {
+                    const timestamp = Date.now();
+                    const random = Math.random().toString(36).substring(2, 8);
                     const baseId = roomName.toUpperCase();
-                    const myId = isObsMode ? `sc_obs_${baseId}` : `sc_dir_${baseId}`;
+                    const myId = isObsMode 
+                        ? `obs_${baseId}_${timestamp}_${random}`
+                        : `dir_${baseId}_${timestamp}_${random}`;
+                    
+                    setPeerId(myId);
+                    Logger.info('Peer', `Inicializando con ID: ${myId}`);
                     
                     peer.current = new Peer(myId, CONFIG.PEER_CONFIG);
 
@@ -961,8 +947,12 @@
                     peer.current.on('call', handleIncomingCall);
 
                     peer.current.on('error', (err) => {
-                        Logger.error('PeerError', err);
-                        setError('Error Peer: ' + err.type);
+                        Logger.error('PeerError', err.type);
+                        if (err.type === 'unavailable-id') {
+                            setError('ID no disponible, reintentando...');
+                        } else {
+                            setError('Error Peer: ' + err.type);
+                        }
                         handleReconnect();
                     });
 
@@ -1036,7 +1026,9 @@
                     
                     reconnectTimeoutRef.current = setTimeout(() => {
                         try {
-                            peer.current?.destroy();
+                            if (peer.current) {
+                                peer.current.destroy();
+                            }
                             initializePeer();
                         } catch (e) {
                             Logger.error('ReconnectError', e);
@@ -1054,7 +1046,7 @@
                     if (recordingActive) RecordingService.stop();
                     returnStreamRef.current?.getTracks().forEach(t => t.stop());
                     returnCallRef.current?.close();
-                    peer.current?.destroy();
+                    if (peer.current) peer.current.destroy();
                     mqttClient.current?.end();
                     Logger.info('Cleanup', 'Completado');
                 } catch (e) {
@@ -1406,15 +1398,20 @@
                         }
                     }
                     
-                    // Peer
-                    const baseId = roomName.toUpperCase();
-                    peer.current = new Peer(`sc_guest_${baseId}`, CONFIG.PEER_CONFIG);
+                    // Peer - Usar ID único del invitado
+                    const timestamp = Date.now();
+                    const random = Math.random().toString(36).substring(2, 8);
+                    const guestId = `guest_${roomName.toUpperCase()}_${timestamp}_${random}`;
+                    
+                    Logger.info('Peer', `Guest inicializando con ID: ${guestId}`);
+                    peer.current = new Peer(guestId, CONFIG.PEER_CONFIG);
 
                     peer.current.on('open', (id) => {
                         Logger.info('Peer', `Guest abierto: ${id}`);
                         try {
-                            peer.current.call(`sc_dir_${baseId}`, localStream.current);
-                            peer.current.call(`sc_obs_${baseId}`, localStream.current);
+                            // Intentar conectar con director y OBS usando IDs genéricos que escuchen
+                            peer.current.call(`sc_director_${roomName.toUpperCase()}`, localStream.current);
+                            peer.current.call(`sc_obs_${roomName.toUpperCase()}`, localStream.current);
                         } catch (e) {
                             Logger.error('CallCreation', e);
                             setError('Error al conectar: ' + e.message);
@@ -1442,7 +1439,11 @@
 
                     peer.current.on('error', (err) => {
                         Logger.error('PeerError', err);
-                        setError('Error Peer: ' + err.type);
+                        if (err.type === 'unavailable-id') {
+                            setError('ID no disponible, reintentando...');
+                        } else {
+                            setError('Error Peer: ' + err.type);
+                        }
                     });
 
                     // Stats
@@ -1465,7 +1466,7 @@
                 try {
                     if (recordingActive) RecordingService.stop();
                     localStream.current?.getTracks().forEach(t => t.stop());
-                    peer.current?.destroy();
+                    if (peer.current) peer.current.destroy();
                     mqttClient.current?.end();
                     Logger.info('Cleanup', 'Guest completado');
                 } catch (e) {
@@ -1511,11 +1512,6 @@
                     setCameraMode(newMode);
                     Storage.save('cameraMode', newMode);
                     Logger.info('Camera', `Cambio a ${newMode}`);
-                    
-                    // Parar stream actual y reiniciar
-                    if (localStream.current) {
-                        localStream.current.getTracks().forEach(t => t.stop());
-                    }
                 } catch (e) {
                     Logger.error('SwitchCamera', e);
                     setError('Error al cambiar cámara: ' + e.message);
