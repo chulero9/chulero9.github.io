@@ -1,0 +1,2051 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StreamCall V10 PRO (Neon Edition)</title>
+    
+    <!-- Librerías Esenciales -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        
+        * { box-sizing: border-box; }
+        
+        body { 
+            background-color: #09090b;
+            color: white; 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            height: 100vh; 
+            overflow: hidden; 
+            transition: background-color 0.3s ease;
+        }
+        body.obs-mode { background-color: transparent !important; }
+        body.light-theme { 
+            background-color: #f8f9fa;
+            color: #1a1a1a;
+        }
+
+        /* Scroll personalizado */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #18181b; }
+        ::-webkit-scrollbar-thumb { background: #52525b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #71717a; }
+
+        /* --- LOBBY --- */
+        .lobby-container { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100%; 
+            background: radial-gradient(circle at center, #18181b 0%, #09090b 100%); 
+            padding: 20px; 
+            text-align: center; 
+        }
+        body.light-theme .lobby-container {
+            background: radial-gradient(circle at center, #e5e7eb 0%, #f3f4f6 100%);
+        }
+
+        .glass-box { 
+            background: rgba(24, 24, 27, 0.6); 
+            backdrop-filter: blur(12px);
+            padding: 40px; 
+            border-radius: 24px; 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); 
+            max-width: 400px; 
+            width: 100%; 
+        }
+        body.light-theme .glass-box {
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1);
+        }
+
+        input, select { 
+            width: 100%; 
+            background: #121214; 
+            border: 1px solid #3f3f46; 
+            color: white; 
+            padding: 16px; 
+            border-radius: 12px; 
+            font-size: 1.2rem; 
+            text-align: center; 
+            font-weight: bold; 
+            margin-bottom: 20px; 
+            outline: none; 
+            text-transform: uppercase; 
+            transition: all 0.3s ease;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        body.light-theme input, 
+        body.light-theme select {
+            background: #f0f0f0;
+            border: 1px solid #d1d5db;
+            color: #1a1a1a;
+        }
+
+        input:focus, select:focus { 
+            border-color: #8b5cf6; 
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2); 
+        }
+        
+        .quality-select { 
+            font-size: 1rem; 
+            text-align: center; 
+        }
+
+        .btn { 
+            width: 100%; 
+            padding: 14px; 
+            font-weight: 800; 
+            font-size: 0.95rem; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            border: none; 
+            transition: all 0.2s ease; 
+            text-transform: uppercase; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            gap: 8px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); }
+        .btn:active:not(:disabled) { transform: translateY(1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .btn-violet { background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3); }
+        .btn-emerald { background: linear-gradient(135deg, #10b981, #059669); color: white; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2); }
+        .btn-rose { background: linear-gradient(135deg, #f43f5e, #be123c); color: white; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(244, 63, 94, 0.3); }
+        .btn-dark { background: #27272a; color: white; margin-bottom: 12px; border: 1px solid #3f3f46; }
+        .btn-dark:hover:not(:disabled) { background: #3f3f46; }
+
+        /* --- OBS --- */
+        .obs-layout { 
+            width: 100vw; 
+            height: 100vh; 
+            position: relative; 
+            overflow: hidden; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: #000; 
+        }
+        .obs-video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            z-index: 1; 
+        }
+        .obs-status { 
+            position: relative; 
+            z-index: 9999; 
+            background: rgba(0,0,0,0.85); 
+            color: #a78bfa; 
+            padding: 20px 30px; 
+            border-radius: 12px; 
+            font-family: 'Courier New', monospace; 
+            font-size: 16px; 
+            border: 2px solid #a78bfa; 
+            text-align: center; 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* --- DIRECTOR (DASHBOARD) --- */
+        .director-layout { 
+            display: flex; 
+            height: 100vh; 
+            position: relative; 
+        }
+        .video-stage { 
+            flex: 1; 
+            background: #000; 
+            position: relative; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden; 
+        }
+        .remote-video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+        }
+        
+        .director-controls { 
+            width: 380px; 
+            background: #0f0f11; 
+            border-left: 1px solid #27272a; 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 10; 
+            flex-shrink: 0; 
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+            overflow-y: auto;
+            padding: 20px;
+        }
+        body.light-theme .director-controls {
+            background: #f8f9fa;
+            border-left-color: #e5e7eb;
+        }
+
+        .tally-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr; 
+            gap: 10px; 
+            margin-bottom: 25px; 
+        }
+        .t-btn { 
+            padding: 16px 5px; 
+            font-size: 0.8rem; 
+            font-weight: 800; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            border: 2px solid transparent; 
+            background: #18181b; 
+            color: #71717a; 
+            transition: all 0.2s;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .t-btn.active-idle { 
+            border-color: #52525b; 
+            color: white; 
+            background: #27272a; 
+        }
+        .t-btn.active-prev { 
+            background: rgba(16, 185, 129, 0.15); 
+            border-color: #10b981; 
+            color: #34d399; 
+        }
+        .t-btn.active-live { 
+            background: rgba(244, 63, 94, 0.15); 
+            border-color: #f43f5e; 
+            color: #fb7185; 
+            animation: pulseRose 2s infinite; 
+        }
+        
+        .clean-mode .director-controls { display: none !important; }
+        .clean-mode .video-stage { width: 100vw; }
+
+        .exit-btn { 
+            position: absolute; 
+            top: 15px; 
+            right: 15px; 
+            z-index: 100; 
+            background: rgba(225, 29, 72, 0.9); 
+            color: white; 
+            padding: 10px 20px; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            border: 1px solid rgba(255,255,255,0.2); 
+            font-size: 12px; 
+            display: flex; 
+            align-items: center; 
+            gap: 6px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: all 0.2s ease;
+        }
+        .exit-btn:hover { background: rgba(225, 29, 72, 1); }
+
+        /* --- GUEST UI --- */
+        .guest-layout { 
+            width: 100vw; 
+            height: 100vh; 
+            position: relative; 
+            background: #000; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        .guest-video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            transform: scaleX(-1); 
+        }
+        
+        .guest-tally-border { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            border: 12px solid transparent; 
+            pointer-events: none; 
+            transition: all 0.3s ease; 
+            z-index: 50; 
+            box-sizing: border-box; 
+        }
+        .guest-layout.tally-live .guest-tally-border { 
+            border-color: #f43f5e; 
+            box-shadow: inset 0 0 60px rgba(244, 63, 94, 0.6); 
+        }
+        .guest-layout.tally-prev .guest-tally-border { 
+            border-color: #10b981; 
+            box-shadow: inset 0 0 60px rgba(16, 185, 129, 0.6); 
+        }
+        
+        .return-pip { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            width: 280px; 
+            aspect-ratio: 16/9; 
+            background: #000; 
+            border: 2px solid #52525b; 
+            border-radius: 16px; 
+            overflow: hidden; 
+            z-index: 80; 
+            opacity: 0; 
+            pointer-events: none; 
+            transition: opacity 0.3s; 
+            cursor: grab; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            touch-action: none;
+        }
+        .return-pip.active { 
+            opacity: 1; 
+            pointer-events: auto; 
+        }
+        .return-pip video { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+        }
+        .pip-label { 
+            position: absolute; 
+            bottom: 8px; 
+            left: 8px; 
+            background: rgba(0,0,0,0.7); 
+            backdrop-filter: blur(4px); 
+            color: white; 
+            font-size: 10px; 
+            padding: 4px 10px; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            display: flex; 
+            align-items: center; 
+            gap: 4px;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .guest-overlay { 
+            position: absolute; 
+            bottom: 60px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: rgba(24, 24, 27, 0.85); 
+            backdrop-filter: blur(10px); 
+            padding: 12px 25px; 
+            border-radius: 50px; 
+            display: flex; 
+            align-items: center; 
+            gap: 15px; 
+            z-index: 100; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8); 
+        }
+        
+        .mic-btn { 
+            width: 50px; 
+            height: 50px; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            cursor: pointer; 
+            font-size: 1.4rem; 
+            transition: all 0.2s ease; 
+            background: #27272a; 
+            color: white; 
+            border: 1px solid #3f3f46;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .mic-btn:hover:not(.off) { 
+            background: #3f3f46; 
+            transform: scale(1.05); 
+        }
+        .mic-btn.off { 
+            background: #e11d48; 
+            color: white; 
+            border-color: #f43f5e; 
+        }
+
+        .big-tally-text { 
+            position: absolute; 
+            top: 40px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            font-size: 1.5rem; 
+            font-weight: 800; 
+            padding: 8px 24px; 
+            border-radius: 12px; 
+            z-index: 100; 
+            text-transform: uppercase; 
+            display: none; 
+            letter-spacing: 2px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .guest-layout.tally-live .big-tally-text { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            background: #e11d48; 
+            color: white; 
+        }
+        .guest-layout.tally-prev .big-tally-text { 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            background: #10b981; 
+            color: white; 
+        }
+
+        /* Audio Visualizer */
+        .audio-visualizer {
+            width: 100%;
+            height: 40px;
+            background: rgba(24, 24, 27, 0.5);
+            border-radius: 8px;
+            margin: 10px 0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 3px;
+            padding: 5px;
+        }
+
+        /* Stats Panel */
+        .stats-panel {
+            background: rgba(24, 24, 27, 0.7);
+            border: 1px solid #3f3f46;
+            border-radius: 12px;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 0.8rem;
+            color: #a1a1a1;
+            font-family: 'Courier New', monospace;
+        }
+        body.light-theme .stats-panel {
+            background: rgba(243, 244, 246, 0.7);
+            border-color: #d1d5db;
+            color: #6b7280;
+        }
+        .stat-line {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+        }
+        .stat-good { color: #10b981; }
+        .stat-warn { color: #f59e0b; }
+        .stat-bad { color: #ef4444; }
+
+        /* Chat */
+        .chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            height: 400px;
+            background: rgba(24, 24, 27, 0.9);
+            border: 1px solid #3f3f46;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
+        }
+        body.light-theme .chat-container {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: #d1d5db;
+        }
+        .chat-container.collapsed {
+            height: 40px;
+        }
+        .chat-header {
+            padding: 12px;
+            border-bottom: 1px solid #3f3f46;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            user-select: none;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .chat-message {
+            margin: 8px 0;
+            padding: 8px;
+            background: rgba(139, 92, 246, 0.1);
+            border-left: 3px solid #8b5cf6;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            word-break: break-word;
+        }
+        .chat-message.system {
+            background: rgba(16, 185, 129, 0.1);
+            border-left-color: #10b981;
+        }
+        .chat-input-box {
+            padding: 10px;
+            border-top: 1px solid #3f3f46;
+            display: flex;
+            gap: 5px;
+        }
+        .chat-input-box input {
+            flex: 1;
+            padding: 8px;
+            background: #18181b;
+            border: 1px solid #3f3f46;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.85rem;
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .chat-input-box button {
+            padding: 8px 12px;
+            background: #8b5cf6;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+        .chat-input-box button:hover {
+            background: #a78bfa;
+        }
+
+        /* Diagnostics */
+        .diagnostics-overlay {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(24, 24, 27, 0.95);
+            border: 2px solid #8b5cf6;
+            border-radius: 12px;
+            padding: 15px;
+            max-width: 300px;
+            z-index: 999;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .diagnostics-overlay h3 {
+            color: #8b5cf6;
+            margin-top: 0;
+            border-bottom: 1px solid #3f3f46;
+            padding-bottom: 8px;
+        }
+        .diagnostics-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+            color: #a1a1a1;
+        }
+
+        /* Filters Panel */
+        .filters-panel {
+            position: fixed;
+            bottom: 120px;
+            right: 20px;
+            background: rgba(24, 24, 27, 0.9);
+            border: 1px solid #3f3f46;
+            border-radius: 12px;
+            padding: 15px;
+            width: 280px;
+            z-index: 99;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .filters-panel h4 {
+            margin-top: 0;
+            color: #8b5cf6;
+            font-size: 0.9rem;
+        }
+        .filter-row {
+            margin-bottom: 10px;
+        }
+        .filter-row label {
+            font-size: 0.8rem;
+            color: #a1a1a1;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .filter-row input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Animaciones */
+        @keyframes pulseRose { 
+            0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); } 
+            70% { box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); } 
+            100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); } 
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+
+        /* Loader */
+        .loader {
+            border: 4px solid rgba(139, 92, 246, 0.2);
+            border-top-color: #8b5cf6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Error Toast */
+        .error-toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 1px solid #dc2626;
+            z-index: 10000;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .director-controls {
+                width: 100% !important;
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                max-height: 50vh;
+                border-left: none;
+                border-top: 1px solid #27272a;
+            }
+            .video-stage {
+                height: 50%;
+            }
+            .chat-container {
+                width: 100%;
+                height: 300px;
+                bottom: 0;
+                right: 0;
+                border-radius: 12px 12px 0 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // ============ CONFIGURACIÓN ============
+        const CONFIG = {
+            PEER_CONFIG: { 
+                config: { 
+                    'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' },
+                        { urls: 'stun:stun4.l.google.com:19302' },
+                    ],
+                    'iceTransportPolicy': 'all'
+                } 
+            },
+            MQTT_BROKER: 'wss://broker.emqx.io:8084/mqtt',
+            MQTT_USER: 'streamcall',
+            MQTT_PASS: 'streamcall123',
+            MAX_RECONNECT_ATTEMPTS: 5,
+            RECONNECT_DELAY: 2000,
+        };
+
+        // ============ SERVICIO DE LOGGING ============
+        const Logger = {
+            logs: [],
+            subscribers: [],
+            
+            log(level, event, data = {}) {
+                try {
+                    const entry = {
+                        timestamp: new Date().toISOString(),
+                        level,
+                        event,
+                        data,
+                    };
+                    this.logs.push(entry);
+                    
+                    if (this.logs.length > 1000) {
+                        this.logs = this.logs.slice(-1000);
+                    }
+                    
+                    this.subscribers.forEach(cb => {
+                        try { cb(entry); } catch (e) { console.error('Subscriber error:', e); }
+                    });
+                } catch (e) {
+                    console.error('Logger error:', e);
+                }
+            },
+            
+            info(event, data) { this.log('INFO', event, data); },
+            warn(event, data) { this.log('WARN', event, data); },
+            error(event, data) { this.log('ERROR', event, data); },
+            critical(event, data) { this.log('CRITICAL', event, data); },
+            
+            subscribe(callback) { 
+                if (typeof callback === 'function') {
+                    this.subscribers.push(callback); 
+                }
+            },
+            
+            export() {
+                try {
+                    const data = JSON.stringify(this.logs, null, 2);
+                    const blob = new Blob([data], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `streamcall-logs-${Date.now()}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    Logger.info('Export', 'Logs exportados');
+                } catch (e) {
+                    Logger.error('Export', e);
+                }
+            }
+        };
+
+        // ============ SERVICIO DE ESTADÍSTICAS ============
+        const StatsCollector = {
+            stats: {
+                latency: 0,
+                bitrate: 0,
+                packetLoss: 0,
+                jitter: 0,
+                videoResolution: '0x0',
+                audioLevel: 0,
+                connectionQuality: 'unknown',
+            },
+            
+            updateStats(newStats) {
+                this.stats = { ...this.stats, ...newStats };
+            },
+            
+            getConnectionQuality() {
+                const { latency, packetLoss } = this.stats;
+                if (latency < 50 && packetLoss < 1) return 'excellent';
+                if (latency < 100 && packetLoss < 2) return 'good';
+                if (latency < 200 && packetLoss < 5) return 'fair';
+                return 'poor';
+            },
+            
+            async collectFromPeerConnection(peerConnection) {
+                try {
+                    if (!peerConnection) return;
+                    
+                    const stats = await peerConnection.getStats();
+                    let foundVideoStats = false;
+                    
+                    stats.forEach(report => {
+                        try {
+                            if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                                foundVideoStats = true;
+                                const latency = (report.currentRoundTripTime || 0) * 1000;
+                                const packetLoss = report.packetsLost && report.packetsReceived 
+                                    ? (report.packetsLost / (report.packetsReceived + report.packetsLost)) * 100 
+                                    : 0;
+                                
+                                this.updateStats({
+                                    latency: latency.toFixed(2),
+                                    packetLoss: Math.max(0, packetLoss.toFixed(2)),
+                                    jitter: ((report.jitter || 0) * 1000).toFixed(2),
+                                    videoResolution: `${report.frameWidth || 0}x${report.frameHeight || 0}`,
+                                });
+                            }
+                        } catch (e) {
+                            Logger.warn('StatsItem', e);
+                        }
+                    });
+                } catch (e) {
+                    Logger.warn('StatsCollection', e);
+                }
+            }
+        };
+
+        // ============ SERVICIO DE PERSISTENCIA ============
+        const Storage = {
+            save(key, value) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } catch (e) {
+                    Logger.warn('StorageSave', e);
+                }
+            },
+            
+            load(key, defaultValue = null) {
+                try {
+                    const item = localStorage.getItem(key);
+                    return item ? JSON.parse(item) : defaultValue;
+                } catch (e) {
+                    Logger.warn('StorageLoad', e);
+                    return defaultValue;
+                }
+            },
+            
+            remove(key) {
+                try {
+                    localStorage.removeItem(key);
+                } catch (e) {
+                    Logger.warn('StorageRemove', e);
+                }
+            }
+        };
+
+        // ============ SERVICIO DE GRABACIÓN ============
+        const RecordingService = {
+            recorder: null,
+            chunks: [],
+            isRecording: false,
+            
+            start(stream) {
+                try {
+                    this.chunks = [];
+                    
+                    const mimeTypes = [
+                        'video/webm;codecs=vp9,opus',
+                        'video/webm;codecs=vp8,opus',
+                        'video/webm;codecs=h264,opus',
+                        'video/webm',
+                        'video/mp4'
+                    ];
+                    
+                    let selectedMime = 'video/webm';
+                    for (let mime of mimeTypes) {
+                        if (MediaRecorder.isTypeSupported(mime)) {
+                            selectedMime = mime;
+                            break;
+                        }
+                    }
+                    
+                    this.recorder = new MediaRecorder(stream, {
+                        mimeType: selectedMime,
+                        audioBitsPerSecond: 128000,
+                        videoBitsPerSecond: 2500000,
+                    });
+                    
+                    this.recorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) {
+                            this.chunks.push(e.data);
+                        }
+                    };
+                    
+                    this.recorder.onstop = () => {
+                        this.download();
+                    };
+                    
+                    this.recorder.onerror = (e) => {
+                        Logger.error('RecorderError', e.error);
+                    };
+                    
+                    this.recorder.start();
+                    this.isRecording = true;
+                    Logger.info('Recording', 'iniciado');
+                } catch (e) {
+                    Logger.error('RecordingStart', e);
+                }
+            },
+            
+            stop() {
+                try {
+                    if (this.recorder && this.isRecording) {
+                        this.recorder.stop();
+                        this.isRecording = false;
+                        Logger.info('Recording', 'detenido');
+                    }
+                } catch (e) {
+                    Logger.error('RecordingStop', e);
+                }
+            },
+            
+            download() {
+                try {
+                    if (this.chunks.length === 0) return;
+                    
+                    const blob = new Blob(this.chunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `streamcall-${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    Logger.info('Recording', 'descargado');
+                } catch (e) {
+                    Logger.error('RecordingDownload', e);
+                }
+            }
+        };
+
+        // ============ COMPONENTE: STATS PANEL ============
+        const StatsPanel = ({ stats, showDetails = false }) => {
+            const quality = StatsCollector.getConnectionQuality();
+            const qualityColor = {
+                'excellent': 'stat-good',
+                'good': 'stat-good',
+                'fair': 'stat-warn',
+                'poor': 'stat-bad',
+                'unknown': 'stat-warn',
+            }[quality] || 'stat-warn';
+            
+            return (
+                <div className="stats-panel">
+                    <div className="stat-line">
+                        <span>Latencia:</span>
+                        <span className={stats.latency < 100 ? 'stat-good' : stats.latency < 200 ? 'stat-warn' : 'stat-bad'}>
+                            {stats.latency}ms
+                        </span>
+                    </div>
+                    <div className="stat-line">
+                        <span>Pérdida Paq:</span>
+                        <span className={stats.packetLoss < 1 ? 'stat-good' : stats.packetLoss < 5 ? 'stat-warn' : 'stat-bad'}>
+                            {stats.packetLoss}%
+                        </span>
+                    </div>
+                    {showDetails && (
+                        <>
+                            <div className="stat-line">
+                                <span>Jitter:</span>
+                                <span>{stats.jitter}ms</span>
+                            </div>
+                            <div className="stat-line">
+                                <span>Resolución:</span>
+                                <span>{stats.videoResolution}</span>
+                            </div>
+                            <div className="stat-line">
+                                <span>Calidad:</span>
+                                <span className={qualityColor}>{quality.toUpperCase()}</span>
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        // ============ COMPONENTE: CHAT PANEL ============
+        const ChatPanel = ({ roomName, mqttClient }) => {
+            const [collapsed, setCollapsed] = useState(false);
+            const [messages, setMessages] = useState([]);
+            const [input, setInput] = useState('');
+            const messagesEndRef = useRef(null);
+            
+            const sendMessage = () => {
+                if (input.trim()) {
+                    const msg = {
+                        user: 'You',
+                        text: input.trim(),
+                        timestamp: new Date().toLocaleTimeString(),
+                    };
+                    setMessages(prev => [...prev, msg]);
+                    
+                    if (mqttClient && mqttClient.connected) {
+                        try {
+                            mqttClient.publish(
+                                `sc_chat/${roomName}`,
+                                JSON.stringify(msg),
+                                { qos: 1 }
+                            );
+                        } catch (e) {
+                            Logger.warn('ChatPublish', e);
+                        }
+                    }
+                    setInput('');
+                }
+            };
+            
+            useEffect(() => {
+                if (messagesEndRef.current) {
+                    messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, [messages]);
+            
+            useEffect(() => {
+                if (!mqttClient) return;
+                
+                const handler = (topic, payload) => {
+                    try {
+                        const msg = JSON.parse(payload.toString());
+                        setMessages(prev => [...prev, { ...msg, system: false }]);
+                    } catch (e) {
+                        Logger.warn('ChatParse', e);
+                    }
+                };
+                
+                try {
+                    mqttClient.subscribe(`sc_chat/${roomName}`);
+                    mqttClient.on('message', handler);
+                    
+                    return () => {
+                        mqttClient.off('message', handler);
+                    };
+                } catch (e) {
+                    Logger.warn('ChatSetup', e);
+                }
+            }, [mqttClient, roomName]);
+            
+            return (
+                <div className={`chat-container ${collapsed ? 'collapsed' : ''}`}>
+                    <div className="chat-header" onClick={() => setCollapsed(!collapsed)}>
+                        <span>💬 Chat ({messages.length})</span>
+                        <span>{collapsed ? '▼' : '▲'}</span>
+                    </div>
+                    {!collapsed && (
+                        <>
+                            <div className="chat-messages">
+                                {messages.map((msg, i) => (
+                                    <div key={i} className={`chat-message ${msg.system ? 'system' : ''}`}>
+                                        <strong>{msg.user}:</strong> {msg.text}
+                                    </div>
+                                ))}
+                                <div ref={messagesEndRef} />
+                            </div>
+                            <div className="chat-input-box">
+                                <input
+                                    value={input}
+                                    onChange={e => setInput(e.target.value)}
+                                    onKeyPress={e => e.key === 'Enter' && sendMessage()}
+                                    placeholder="Mensaje..."
+                                    maxLength={140}
+                                />
+                                <button onClick={sendMessage}>📤</button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        // ============ COMPONENTE: DIAGNOSTICS ============
+        const DiagnosticsOverlay = ({ stats, logs, onExport }) => {
+            return (
+                <div className="diagnostics-overlay">
+                    <h3>🔧 DIAGNÓSTICOS</h3>
+                    <div className="diagnostics-item">
+                        <span>Estado:</span>
+                        <span style={{ color: '#10b981' }}>CONECTADO</span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Latencia:</span>
+                        <span>{stats.latency}ms</span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Pérdida:</span>
+                        <span>{stats.packetLoss}%</span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Jitter:</span>
+                        <span>{stats.jitter}ms</span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Resolución:</span>
+                        <span>{stats.videoResolution}</span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Calidad:</span>
+                        <span style={{ color: StatsCollector.getConnectionQuality() === 'excellent' ? '#10b981' : '#f59e0b' }}>
+                            {StatsCollector.getConnectionQuality().toUpperCase()}
+                        </span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Logs:</span>
+                        <span>{logs.length}</span>
+                    </div>
+                    <button 
+                        onClick={onExport}
+                        style={{
+                            width: '100%',
+                            padding: '8px',
+                            marginTop: '10px',
+                            background: '#8b5cf6',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={e => e.target.style.background = '#a78bfa'}
+                        onMouseLeave={e => e.target.style.background = '#8b5cf6'}
+                    >
+                        📥 Exportar Logs
+                    </button>
+                </div>
+            );
+        };
+
+        // ============ COMPONENTE RECEPTOR (DIRECTOR / OBS) ============
+        const ReceiverView = ({ roomName, isObsMode, pin = '' }) => {
+            const [status, setStatus] = useState('BUSCANDO SEÑAL...');
+            const [guestConnected, setGuestConnected] = useState(false);
+            const [tally, setTally] = useState('idle');
+            const [cleanMode, setCleanMode] = useState(false);
+            const [audioDevices, setAudioDevices] = useState([]);
+            const [selectedAudio, setSelectedAudio] = useState('');
+            const [talkbackActive, setTalkbackActive] = useState(false);
+            const [showDiagnostics, setShowDiagnostics] = useState(false);
+            const [stats, setStats] = useState({ ...StatsCollector.stats });
+            const [reconnectAttempts, setReconnectAttempts] = useState(0);
+            const [recordingActive, setRecordingActive] = useState(false);
+            const [error, setError] = useState(null);
+
+            const peer = useRef(null);
+            const remoteVideoRef = useRef(null);
+            const mqttClient = useRef(null);
+            const returnStreamRef = useRef(null);
+            const returnCallRef = useRef(null);
+            const statsIntervalRef = useRef(null);
+            const reconnectTimeoutRef = useRef(null);
+
+            // Inicialización
+            useEffect(() => {
+                initializeReceiver();
+                return cleanup;
+            }, [roomName, isObsMode]);
+
+            const initializeReceiver = async () => {
+                try {
+                    Logger.info('ReceiverInit', `Modo: ${isObsMode ? 'OBS' : 'Director'}, Sala: ${roomName}`);
+
+                    if (!isObsMode) {
+                        try {
+                            const devs = await navigator.mediaDevices.enumerateDevices();
+                            const audios = devs.filter(d => d.kind === 'audioinput');
+                            setAudioDevices(audios);
+                            if (audios.length > 0) {
+                                const savedAudio = Storage.load('selectedAudio');
+                                setSelectedAudio(savedAudio || audios[0].deviceId);
+                            }
+                        } catch (e) {
+                            Logger.warn('EnumerateDevices', e);
+                        }
+                        
+                        connectMQTT();
+                    }
+
+                    initializePeer();
+                    
+                    statsIntervalRef.current = setInterval(() => {
+                        if (peer.current?._pc) {
+                            StatsCollector.collectFromPeerConnection(peer.current._pc);
+                            setStats({ ...StatsCollector.stats });
+                        }
+                    }, 1000);
+                } catch (error) {
+                    Logger.error('ReceiverInit', error);
+                    setError(error.message);
+                }
+            };
+
+            const connectMQTT = () => {
+                try {
+                    const options = {
+                        clientId: `sc_dir_${Date.now()}`,
+                        username: CONFIG.MQTT_USER,
+                        password: CONFIG.MQTT_PASS,
+                        reconnectPeriod: CONFIG.RECONNECT_DELAY,
+                        clean: true,
+                        keepalive: 60,
+                    };
+                    
+                    mqttClient.current = mqtt.connect(CONFIG.MQTT_BROKER, options);
+                    
+                    mqttClient.current.on('connect', () => {
+                        Logger.info('MQTT', 'Conectado');
+                        setReconnectAttempts(0);
+                        setError(null);
+                    });
+                    
+                    mqttClient.current.on('disconnect', () => {
+                        Logger.warn('MQTT', 'Desconectado');
+                    });
+                    
+                    mqttClient.current.on('error', (err) => {
+                        Logger.error('MQTT', err);
+                        setError('Error MQTT: ' + err.message);
+                    });
+                } catch (error) {
+                    Logger.error('MQTTConnect', error);
+                    setError(error.message);
+                }
+            };
+
+            const initializePeer = () => {
+                try {
+                    const baseId = roomName.toUpperCase();
+                    const myId = isObsMode ? `sc_obs_${baseId}` : `sc_dir_${baseId}`;
+                    
+                    peer.current = new Peer(myId, CONFIG.PEER_CONFIG);
+
+                    peer.current.on('open', (id) => {
+                        setStatus('SALA LISTA - ESPERANDO...');
+                        Logger.info('Peer', `Abierto: ${id}`);
+                    });
+
+                    peer.current.on('call', handleIncomingCall);
+
+                    peer.current.on('error', (err) => {
+                        Logger.error('PeerError', err);
+                        setError('Error Peer: ' + err.type);
+                        handleReconnect();
+                    });
+
+                    peer.current.on('disconnected', () => {
+                        Logger.warn('Peer', 'Desconectado');
+                        handleReconnect();
+                    });
+                } catch (error) {
+                    Logger.error('PeerInit', error);
+                    setError(error.message);
+                }
+            };
+
+            const handleIncomingCall = (call) => {
+                try {
+                    call.answer();
+                    Logger.info('Call', 'Respondida');
+
+                    call.on('stream', (stream) => {
+                        if (remoteVideoRef.current) {
+                            remoteVideoRef.current.srcObject = stream;
+                            remoteVideoRef.current.muted = true;
+
+                            remoteVideoRef.current.play()
+                                .then(() => {
+                                    setGuestConnected(true);
+                                    setStatus('ONLINE');
+                                    setError(null);
+                                    Logger.info('Stream', 'Recibido y reproduciendo');
+                                    
+                                    if (recordingActive && !RecordingService.isRecording) {
+                                        RecordingService.start(stream);
+                                    }
+
+                                    setTimeout(() => {
+                                        if (remoteVideoRef.current) {
+                                            remoteVideoRef.current.muted = false;
+                                            remoteVideoRef.current.play().catch(() => {
+                                                Logger.warn('Audio', 'Requiere interacción');
+                                            });
+                                        }
+                                    }, 1000);
+                                })
+                                .catch(e => {
+                                    setStatus('BLOQUEO DE NAVEGADOR');
+                                    Logger.error('PlayError', e);
+                                    setError('Error al reproducir: ' + e.message);
+                                });
+                        }
+                    });
+
+                    call.on('error', (err) => {
+                        Logger.error('CallError', err);
+                        setError('Error de llamada: ' + err.message);
+                    });
+
+                    call.on('close', () => {
+                        Logger.info('Call', 'Cerrada');
+                        setGuestConnected(false);
+                    });
+                } catch (error) {
+                    Logger.error('IncomingCall', error);
+                    setError(error.message);
+                }
+            };
+
+            const handleReconnect = () => {
+                if (reconnectAttempts < CONFIG.MAX_RECONNECT_ATTEMPTS) {
+                    Logger.warn('Reconnect', `Intento ${reconnectAttempts + 1}/${CONFIG.MAX_RECONNECT_ATTEMPTS}`);
+                    setReconnectAttempts(prev => prev + 1);
+                    
+                    reconnectTimeoutRef.current = setTimeout(() => {
+                        try {
+                            peer.current?.destroy();
+                            initializePeer();
+                        } catch (e) {
+                            Logger.error('ReconnectError', e);
+                        }
+                    }, CONFIG.RECONNECT_DELAY);
+                } else {
+                    setError(`No se pudo conectar después de ${CONFIG.MAX_RECONNECT_ATTEMPTS} intentos`);
+                }
+            };
+
+            const cleanup = () => {
+                clearInterval(statsIntervalRef.current);
+                clearTimeout(reconnectTimeoutRef.current);
+                try {
+                    if (recordingActive) RecordingService.stop();
+                    returnStreamRef.current?.getTracks().forEach(t => t.stop());
+                    returnCallRef.current?.close();
+                    peer.current?.destroy();
+                    mqttClient.current?.end();
+                    Logger.info('Cleanup', 'Completado');
+                } catch (e) {
+                    Logger.warn('CleanupError', e);
+                }
+            };
+
+            const handleTally = (s) => {
+                try {
+                    setTally(s);
+                    if (mqttClient.current && mqttClient.current.connected) {
+                        mqttClient.current.publish(`sc_tally/${roomName}`, JSON.stringify({ state: s }), { retain: true });
+                    }
+                    Logger.info('Tally', s);
+                } catch (e) {
+                    Logger.error('TallyChange', e);
+                }
+            };
+
+            const toggleReturn = async () => {
+                try {
+                    if (talkbackActive) {
+                        returnStreamRef.current?.getTracks().forEach(t => t.stop());
+                        if (returnCallRef.current) returnCallRef.current.close();
+                        setTalkbackActive(false);
+                        Logger.info('Talkback', 'Detenido');
+                    } else {
+                        const s = await navigator.mediaDevices.getUserMedia({
+                            audio: { deviceId: selectedAudio },
+                            video: false
+                        });
+                        returnStreamRef.current = s;
+                        returnCallRef.current = peer.current.call(`sc_guest_${roomName.toUpperCase()}`, s);
+                        setTalkbackActive(true);
+                        Logger.info('Talkback', 'Iniciado');
+                    }
+                } catch (e) {
+                    Logger.error('TalkbackToggle', e);
+                    setError('Error al activar retorno: ' + e.message);
+                }
+            };
+
+            const copyLink = (m) => {
+                try {
+                    const url = `${window.location.href.split('?')[0]}?mode=${m}&room=${roomName}${pin ? `&pin=${pin}` : ''}`;
+                    navigator.clipboard.writeText(url);
+                    Logger.info('LinkCopy', m);
+                    alert(`Link ${m} copiado al portapapeles`);
+                } catch (e) {
+                    Logger.error('CopyLink', e);
+                }
+            };
+
+            const toggleRecording = () => {
+                try {
+                    if (recordingActive) {
+                        RecordingService.stop();
+                        setRecordingActive(false);
+                    } else {
+                        if (remoteVideoRef.current?.srcObject) {
+                            RecordingService.start(remoteVideoRef.current.srcObject);
+                            setRecordingActive(true);
+                        } else {
+                            setError('No hay stream para grabar');
+                        }
+                    }
+                } catch (e) {
+                    Logger.error('ToggleRecording', e);
+                    setError('Error en grabación: ' + e.message);
+                }
+            };
+
+            if (isObsMode) {
+                return (
+                    <div className="obs-layout">
+                        <video ref={remoteVideoRef} className="obs-video" autoPlay playsInline muted></video>
+                        {!guestConnected && (
+                            <div className="obs-status">
+                                <div className="loader"></div>
+                                {status}
+                            </div>
+                        )}
+                        {showDiagnostics && <DiagnosticsOverlay stats={stats} logs={Logger.logs} onExport={() => Logger.export()} />}
+                        {error && <div className="error-toast">{error}</div>}
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`director-layout ${cleanMode ? 'clean-mode' : ''}`} onDoubleClick={() => cleanMode && setCleanMode(false)}>
+                    {cleanMode && (
+                        <div className="exit-btn" onClick={() => setCleanMode(false)}>
+                            ✕ SALIR
+                        </div>
+                    )}
+                    
+                    <div className="video-stage">
+                        <video ref={remoteVideoRef} className="remote-video relative z-10" autoPlay playsInline muted></video>
+                        {!guestConnected && (
+                            <div style={{
+                                position: 'absolute',
+                                color: '#71717a',
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                fontSize: '1rem'
+                            }}>
+                                📡 {status}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="director-controls">
+                        <h2 style={{
+                            fontSize: '1.25rem',
+                            fontWeight: 800,
+                            background: 'linear-gradient(135deg, #a78bfa, #d8b4fe)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            marginBottom: '20px',
+                            marginTop: 0,
+                            textAlign: 'center',
+                            textTransform: 'uppercase',
+                            letterSpacing: '1px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '10px'
+                        }}>
+                            📡 StreamCall PRO
+                        </h2>
+
+                        {/* Audio Retorno */}
+                        <label style={{ color: '#a78bfa', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', marginBottom: '8px', display: 'block', letterSpacing: '1px' }}>
+                            🎧 Retorno al Invitado
+                        </label>
+                        <select value={selectedAudio} onChange={e => { setSelectedAudio(e.target.value); Storage.save('selectedAudio', e.target.value); }}>
+                            {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Micrófono'}</option>)}
+                        </select>
+                        
+                        <button className={`btn ${talkbackActive ? 'btn-rose' : 'btn-violet'}`} onClick={toggleReturn} disabled={!guestConnected}>
+                            {talkbackActive ? <><i className="ph-fill ph-stop-circle"></i> Detener Retorno</> : <>▶ Enviar Retorno</>}
+                        </button>
+
+                        <div style={{ height: '1px', background: '#3f3f46', width: '100%', margin: '15px 0' }}></div>
+
+                        {/* Grabación */}
+                        <button className={`btn ${recordingActive ? 'btn-rose' : 'btn-emerald'}`} onClick={toggleRecording} disabled={!guestConnected}>
+                            {recordingActive ? <>⏹ Detener Grabación</> : <>⏺ Grabar</>}
+                        </button>
+
+                        <div style={{ height: '1px', background: '#3f3f46', width: '100%', margin: '15px 0' }}></div>
+
+                        {/* Enlaces */}
+                        <label style={{ color: '#a1a1a1', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', marginBottom: '8px', display: 'block', letterSpacing: '1px' }}>
+                            🔗 Enlaces de Sala
+                        </label>
+                        <button className="btn btn-emerald" onClick={() => copyLink('obs')}>
+                            📋 Link OBS
+                        </button>
+                        <button className="btn btn-dark" onClick={() => copyLink('guest')}>
+                            👤 Link Invitado
+                        </button>
+
+                        <div style={{ height: '1px', background: '#3f3f46', width: '100%', margin: '15px 0' }}></div>
+
+                        {/* Tally */}
+                        <label style={{ color: '#a1a1a1', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', marginBottom: '8px', display: 'block', letterSpacing: '1px' }}>
+                            🚦 Control de Tally
+                        </label>
+                        <div className="tally-grid">
+                            <button className={`t-btn ${tally === 'idle' ? 'active-idle' : ''}`} onClick={() => handleTally('idle')}>OFF</button>
+                            <button className={`t-btn ${tally === 'prev' ? 'active-prev' : ''}`} onClick={() => handleTally('prev')}>PREV</button>
+                            <button className={`t-btn ${tally === 'live' ? 'active-live' : ''}`} onClick={() => handleTally('live')}>AIRE</button>
+                        </div>
+
+                        {/* Estadísticas */}
+                        {guestConnected && <StatsPanel stats={stats} showDetails={true} />}
+
+                        {/* Botones inferiores */}
+                        <button 
+                            className="btn btn-dark"
+                            onClick={() => setShowDiagnostics(!showDiagnostics)}
+                        >
+                            🐛 Diagnósticos
+                        </button>
+
+                        <button className="btn btn-dark" onClick={() => setCleanMode(true)}>
+                            ⛶ Pantalla Limpia
+                        </button>
+                    </div>
+
+                    {showDiagnostics && <DiagnosticsOverlay stats={stats} logs={Logger.logs} onExport={() => Logger.export()} />}
+                    <ChatPanel roomName={roomName} mqttClient={mqttClient.current} />
+                    {error && <div className="error-toast">{error}</div>}
+                </div>
+            );
+        };
+
+        // ============ COMPONENTE GUEST (INVITADO) ============
+        const GuestView = ({ roomName, pin = '' }) => {
+            const [joined, setJoined] = useState(false);
+            const [quality, setQuality] = useState(Storage.load('preferredQuality', '720'));
+            const [tally, setTally] = useState('idle');
+            const [micMuted, setMicMuted] = useState(false);
+            const [camOff, setCamOff] = useState(false);
+            const [receivingVideo, setReceivingVideo] = useState(false);
+            const [pinInput, setPinInput] = useState('');
+            const [pinRequired, setPinRequired] = useState(!!pin);
+            const [stats, setStats] = useState({ ...StatsCollector.stats });
+            const [showFilters, setShowFilters] = useState(false);
+            const [filterBrightness, setFilterBrightness] = useState(1);
+            const [filterContrast, setFilterContrast] = useState(1);
+            const [filterSaturation, setFilterSaturation] = useState(1);
+            const [recordingActive, setRecordingActive] = useState(false);
+            const [error, setError] = useState(null);
+
+            const localVideoRef = useRef(null);
+            const returnMediaRef = useRef(null);
+            const peer = useRef(null);
+            const mqttClient = useRef(null);
+            const localStream = useRef(null);
+            const statsIntervalRef = useRef(null);
+
+            useEffect(() => {
+                if (!joined) return;
+                initializeGuest();
+                return cleanup;
+            }, [joined, quality]);
+
+            const initializeGuest = async () => {
+                try {
+                    Logger.info('GuestInit', `Calidad: ${quality}, Sala: ${roomName}`);
+
+                    // MQTT
+                    const options = {
+                        clientId: `sc_guest_${Date.now()}`,
+                        username: CONFIG.MQTT_USER,
+                        password: CONFIG.MQTT_PASS,
+                        reconnectPeriod: CONFIG.RECONNECT_DELAY,
+                    };
+                    
+                    mqttClient.current = mqtt.connect(CONFIG.MQTT_BROKER, options);
+                    
+                    mqttClient.current.on('connect', () => {
+                        Logger.info('MQTT', 'Guest conectado');
+                        try {
+                            mqttClient.current.subscribe(`sc_tally/${roomName}`);
+                        } catch (e) {
+                            Logger.warn('TallySubscribe', e);
+                        }
+                    });
+                    
+                    mqttClient.current.on('message', (topic, payload) => {
+                        try {
+                            const data = JSON.parse(payload.toString());
+                            setTally(data.state);
+                        } catch (e) {
+                            Logger.warn('TallyParse', e);
+                        }
+                    });
+
+                    mqttClient.current.on('error', (err) => {
+                        Logger.error('MQTT', err);
+                    });
+
+                    // getUserMedia
+                    const res = { '360': [640, 360], '720': [1280, 720], '1080': [1920, 1080] };
+                    const constraints = {
+                        video: { 
+                            width: { ideal: res[quality][0] }, 
+                            height: { ideal: res[quality][1] }, 
+                            facingMode: "user" 
+                        },
+                        audio: { 
+                            echoCancellation: true, 
+                            noiseSuppression: true, 
+                            autoGainControl: true 
+                        }
+                    };
+
+                    const s = await navigator.mediaDevices.getUserMedia(constraints);
+                    localStream.current = s;
+                    
+                    if (localVideoRef.current) {
+                        localVideoRef.current.srcObject = s;
+                        try {
+                            await localVideoRef.current.play();
+                        } catch (e) {
+                            Logger.warn('VideoPlay', e);
+                        }
+                    }
+                    
+                    // Peer
+                    const baseId = roomName.toUpperCase();
+                    peer.current = new Peer(`sc_guest_${baseId}`, CONFIG.PEER_CONFIG);
+
+                    peer.current.on('open', (id) => {
+                        Logger.info('Peer', `Guest abierto: ${id}`);
+                        try {
+                            peer.current.call(`sc_dir_${baseId}`, localStream.current);
+                            peer.current.call(`sc_obs_${baseId}`, localStream.current);
+                        } catch (e) {
+                            Logger.error('CallCreation', e);
+                            setError('Error al conectar: ' + e.message);
+                        }
+                    });
+
+                    peer.current.on('call', (c) => {
+                        try {
+                            c.answer(localStream.current);
+                            c.on('stream', (rem) => {
+                                if (returnMediaRef.current) {
+                                    returnMediaRef.current.srcObject = rem;
+                                    try {
+                                        returnMediaRef.current.play().catch(e => Logger.warn('ReturnPlay', e));
+                                    } catch (e) {
+                                        Logger.warn('ReturnPlayError', e);
+                                    }
+                                }
+                                setReceivingVideo(rem.getVideoTracks().length > 0);
+                            });
+                        } catch (e) {
+                            Logger.error('IncomingCall', e);
+                        }
+                    });
+
+                    peer.current.on('error', (err) => {
+                        Logger.error('PeerError', err);
+                        setError('Error Peer: ' + err.type);
+                    });
+
+                    // Stats
+                    statsIntervalRef.current = setInterval(() => {
+                        if (peer.current?._pc) {
+                            StatsCollector.collectFromPeerConnection(peer.current._pc);
+                            setStats({ ...StatsCollector.stats });
+                        }
+                    }, 1000);
+
+                    setError(null);
+                } catch (error) {
+                    Logger.error('GuestInit', error);
+                    setError('Error: ' + error.message);
+                }
+            };
+
+            const cleanup = () => {
+                clearInterval(statsIntervalRef.current);
+                try {
+                    if (recordingActive) RecordingService.stop();
+                    localStream.current?.getTracks().forEach(t => t.stop());
+                    peer.current?.destroy();
+                    mqttClient.current?.end();
+                    Logger.info('Cleanup', 'Guest completado');
+                } catch (e) {
+                    Logger.warn('CleanupError', e);
+                }
+            };
+
+            const toggleMic = () => {
+                try {
+                    if (localStream.current) {
+                        const tracks = localStream.current.getAudioTracks();
+                        if (tracks.length > 0) {
+                            const t = tracks[0];
+                            t.enabled = !t.enabled;
+                            setMicMuted(!t.enabled);
+                            Logger.info('Mic', t.enabled ? 'Encendido' : 'Apagado');
+                        }
+                    }
+                } catch (e) {
+                    Logger.error('ToggleMic', e);
+                }
+            };
+
+            const toggleCam = () => {
+                try {
+                    if (localStream.current) {
+                        const tracks = localStream.current.getVideoTracks();
+                        if (tracks.length > 0) {
+                            const t = tracks[0];
+                            t.enabled = !t.enabled;
+                            setCamOff(!t.enabled);
+                            Logger.info('Cam', t.enabled ? 'Encendida' : 'Apagada');
+                        }
+                    }
+                } catch (e) {
+                    Logger.error('ToggleCam', e);
+                }
+            };
+
+            const toggleRecording = () => {
+                try {
+                    if (recordingActive) {
+                        RecordingService.stop();
+                        setRecordingActive(false);
+                    } else {
+                        if (localStream.current) {
+                            RecordingService.start(localStream.current);
+                            setRecordingActive(true);
+                        } else {
+                            setError('No hay stream para grabar');
+                        }
+                    }
+                } catch (e) {
+                    Logger.error('ToggleRecording', e);
+                    setError('Error: ' + e.message);
+                }
+            };
+
+            const verifyPin = () => {
+                if (pinInput === pin) {
+                    setPinRequired(false);
+                    setJoined(true);
+                    Logger.info('Pin', 'Verificado correctamente');
+                } else {
+                    setError('PIN incorrecto');
+                    Logger.warn('Pin', 'PIN incorrecto');
+                    setPinInput('');
+                }
+            };
+
+            if (!joined) {
+                if (pinRequired) {
+                    return (
+                        <div className="lobby-container">
+                            <div className="glass-box">
+                                <div style={{
+                                    width: '64px',
+                                    height: '64px',
+                                    background: 'rgba(139, 92, 246, 0.2)',
+                                    borderRadius: '16px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    margin: '0 auto 16px',
+                                    border: '1px solid rgba(139, 92, 246, 0.3)'
+                                }}>
+                                    🔒
+                                </div>
+                                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    Sala Protegida
+                                </h2>
+                                <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', textAlign: 'left', marginBottom: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    PIN de Acceso
+                                </label>
+                                <input 
+                                    type="password"
+                                    value={pinInput}
+                                    onChange={e => setPinInput(e.target.value)}
+                                    onKeyPress={e => e.key === 'Enter' && verifyPin()}
+                                    placeholder="Ingresa el PIN"
+                                    autoFocus
+                                />
+                                <button className="btn btn-violet" onClick={verifyPin}>
+                                    Verificar PIN →
+                                </button>
+                                {error && <div className="error-toast">{error}</div>}
+                            </div>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="lobby-container">
+                        <div className="glass-box">
+                            <div style={{
+                                width: '64px',
+                                height: '64px',
+                                background: 'rgba(139, 92, 246, 0.2)',
+                                borderRadius: '16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto 16px',
+                                border: '1px solid rgba(139, 92, 246, 0.3)'
+                            }}>
+                                📹
+                            </div>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '24px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Sala: {roomName}
+                            </h2>
+                            <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', textAlign: 'left', marginBottom: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                Calidad de Envío
+                            </label>
+                            <select className="quality-select" value={quality} onChange={e => { setQuality(e.target.value); Storage.save('preferredQuality', e.target.value); }}>
+                                <option value="360">BAJA (360p)</option>
+                                <option value="720">MEDIA (720p)</option>
+                                <option value="1080">ALTA (1080p)</option>
+                            </select>
+                            <button className="btn btn-violet" onClick={() => setJoined(true)}>
+                                Entrar a la Sala →
+                            </button>
+                            {error && <div className="error-toast">{error}</div>}
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`guest-layout tally-${tally}`}>
+                    <div className="guest-tally-border"></div>
+                    <div className="big-tally-text">
+                        {tally === 'live' ? (
+                            <><span style={{ fontSize: '0.9rem' }}>🔴</span> AL AIRE</>
+                        ) : (
+                            <><span style={{ fontSize: '0.9rem' }}>⚠️</span> PREVENIDO</>
+                        )}
+                    </div>
+
+                    <div className={`return-pip ${receivingVideo ? 'active' : ''}`}>
+                        <video ref={returnMediaRef} autoPlay playsInline muted></video>
+                        <div className="pip-label">📺 Programa</div>
+                    </div>
+
+                    <video
+                        ref={localVideoRef}
+                        className="guest-video"
+                        muted
+                        autoPlay
+                        playsInline
+                        style={{
+                            filter: `brightness(${filterBrightness}) contrast(${filterContrast}) saturate(${filterSaturation})`
+                        }}
+                    ></video>
+
+                    <div className="guest-overlay">
+                        <div style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            color: '#a1a1a1',
+                            textTransform: 'uppercase',
+                            marginRight: '16px',
+                            background: 'rgba(139, 92, 246, 0.1)',
+                            padding: '6px 12px',
+                            borderRadius: '20px',
+                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                            letterSpacing: '1px'
+                        }}>
+                            {roomName}
+                        </div>
+                        <div className={`mic-btn ${micMuted ? 'off' : ''}`} onClick={toggleMic} title={micMuted ? 'Encender micrófono' : 'Apagar micrófono'}>
+                            {micMuted ? '🔇' : '🎤'}
+                        </div>
+                        <div className={`mic-btn ${camOff ? 'off' : ''}`} onClick={toggleCam} title={camOff ? 'Encender cámara' : 'Apagar cámara'}>
+                            {camOff ? '📵' : '📹'}
+                        </div>
+                        <div className={`mic-btn ${recordingActive ? 'off' : ''}`} onClick={toggleRecording} title={recordingActive ? 'Detener grabación' : 'Iniciar grabación'}>
+                            {recordingActive ? '⏹' : '⏺'}
+                        </div>
+                        <div className="mic-btn" onClick={() => setShowFilters(!showFilters)} title="Filtros de video">
+                            🎨
+                        </div>
+                    </div>
+
+                    {/* Filtros */}
+                    {showFilters && (
+                        <div className="filters-panel">
+                            <h4>🎨 Filtros</h4>
+                            <div className="filter-row">
+                                <label>Brillo: {filterBrightness.toFixed(1)}</label>
+                                <input type="range" min="0.5" max="1.5" step="0.1" value={filterBrightness} onChange={e => setFilterBrightness(parseFloat(e.target.value))} />
+                            </div>
+                            <div className="filter-row">
+                                <label>Contraste: {filterContrast.toFixed(1)}</label>
+                                <input type="range" min="0.5" max="1.5" step="0.1" value={filterContrast} onChange={e => setFilterContrast(parseFloat(e.target.value))} />
+                            </div>
+                            <div className="filter-row">
+                                <label>Saturación: {filterSaturation.toFixed(1)}</label>
+                                <input type="range" min="0" max="2" step="0.1" value={filterSaturation} onChange={e => setFilterSaturation(parseFloat(e.target.value))} />
+                            </div>
+                        </div>
+                    )}
+
+                    <ChatPanel roomName={roomName} mqttClient={mqttClient.current} />
+                    {error && <div className="error-toast">{error}</div>}
+                </div>
+            );
+        };
+
+        // ============ COMPONENTE PRINCIPAL ============
+        const App = () => {
+            const [mode, setMode] = useState(null);
+            const [roomName, setRoomName] = useState('');
+            const [pin, setPin] = useState('');
+            const [theme, setTheme] = useState(Storage.load('theme', 'dark'));
+
+            useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                let m = params.get('mode');
+                let r = params.get('room');
+                let p = params.get('pin') || '';
+
+                const isBroadcast = window.obsstudio || /vMix|OBS/i.test(navigator.userAgent);
+                if (isBroadcast && r) m = 'obs';
+
+                if (m && r) {
+                    setRoomName(r);
+                    setPin(p);
+                    setMode(m);
+                    if (m === 'obs') document.body.classList.add('obs-mode');
+                    Logger.info('App', `Modo: ${m}, Sala: ${r}`);
+                } else {
+                    setRoomName(Math.random().toString(36).substring(2, 6).toUpperCase());
+                }
+
+                if (theme === 'light') {
+                    document.body.classList.add('light-theme');
+                }
+            }, []);
+
+            if (mode === 'director') return <ReceiverView roomName={roomName} isObsMode={false} pin={pin} />;
+            if (mode === 'obs') return <ReceiverView roomName={roomName} isObsMode={true} pin={pin} />;
+            if (mode === 'guest') return <GuestView roomName={roomName} pin={pin} />;
+
+            return (
+                <div className="lobby-container">
+                    <div className="glass-box">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <div style={{
+                                width: '64px',
+                                height: '64px',
+                                background: 'rgba(139, 92, 246, 0.2)',
+                                borderRadius: '16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px solid rgba(139, 92, 246, 0.3)'
+                            }}>
+                                📡
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    const newTheme = theme === 'dark' ? 'light' : 'dark';
+                                    setTheme(newTheme);
+                                    Storage.save('theme', newTheme);
+                                    if (newTheme === 'light') {
+                                        document.body.classList.add('light-theme');
+                                    } else {
+                                        document.body.classList.remove('light-theme');
+                                    }
+                                }}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#8b5cf6',
+                                    fontSize: '1.5rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onMouseEnter={e => e.target.style.transform = 'scale(1.1)'}
+                                onMouseLeave={e => e.target.style.transform = 'scale(1)'}
+                            >
+                                {theme === 'dark' ? '🌙' : '☀️'}
+                            </button>
+                        </div>
+
+                        <h1 style={{
+                            fontSize: '2rem',
+                            fontWeight: 800,
+                            marginBottom: '32px',
+                            textTransform: 'uppercase',
+                            background: 'linear-gradient(135deg, #a78bfa, #d8b4fe)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            letterSpacing: '1px',
+                            textAlign: 'center'
+                        }}>
+                            StreamCall PRO
+                        </h1>
+
+                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', textAlign: 'left', marginBottom: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            ID de la Sala
+                        </label>
+                        <input
+                            value={roomName}
+                            onChange={e => setRoomName(e.target.value.toUpperCase())}
+                            placeholder="SALA"
+                            maxLength="20"
+                        />
+
+                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', textAlign: 'left', marginBottom: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            PIN (Opcional)
+                        </label>
+                        <input
+                            value={pin}
+                            onChange={e => setPin(e.target.value)}
+                            type="password"
+                            placeholder="PIN"
+                            maxLength="6"
+                        />
+
+                        <button
+                            className="btn btn-violet"
+                            onClick={() => {
+                                window.location.href = `?mode=director&room=${roomName}${pin ? `&pin=${pin}` : ''}`;
+                            }}
+                        >
+                            🎛 Panel Director
+                        </button>
+
+                        <button
+                            className="btn btn-dark"
+                            onClick={() => Logger.export()}
+                        >
+                            📥 Exportar Logs
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
