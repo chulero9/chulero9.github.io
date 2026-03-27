@@ -459,89 +459,6 @@
         .stat-warn { color: #f59e0b; }
         .stat-bad { color: #ef4444; }
 
-        /* Chat */
-        .chat-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 300px;
-            height: 400px;
-            background: rgba(24, 24, 27, 0.9);
-            border: 1px solid #3f3f46;
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            z-index: 1000;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            transition: all 0.3s ease;
-        }
-        body.light-theme .chat-container {
-            background: rgba(255, 255, 255, 0.9);
-            border-color: #d1d5db;
-        }
-        .chat-container.collapsed {
-            height: 40px;
-        }
-        .chat-header {
-            padding: 12px;
-            border-bottom: 1px solid #3f3f46;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 0.9rem;
-            user-select: none;
-        }
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-        }
-        .chat-message {
-            margin: 8px 0;
-            padding: 8px;
-            background: rgba(139, 92, 246, 0.1);
-            border-left: 3px solid #8b5cf6;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            word-break: break-word;
-        }
-        .chat-message.system {
-            background: rgba(16, 185, 129, 0.1);
-            border-left-color: #10b981;
-        }
-        .chat-input-box {
-            padding: 10px;
-            border-top: 1px solid #3f3f46;
-            display: flex;
-            gap: 5px;
-        }
-        .chat-input-box input {
-            flex: 1;
-            padding: 8px;
-            background: #18181b;
-            border: 1px solid #3f3f46;
-            border-radius: 6px;
-            color: white;
-            font-size: 0.85rem;
-            margin: 0;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-        .chat-input-box button {
-            padding: 8px 12px;
-            background: #8b5cf6;
-            border: none;
-            border-radius: 6px;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.2s ease;
-        }
-        .chat-input-box button:hover {
-            background: #a78bfa;
-        }
-
         /* Diagnostics */
         .diagnostics-overlay {
             position: fixed;
@@ -569,38 +486,6 @@
             justify-content: space-between;
             margin: 4px 0;
             color: #a1a1a1;
-        }
-
-        /* Filters Panel */
-        .filters-panel {
-            position: fixed;
-            bottom: 120px;
-            right: 20px;
-            background: rgba(24, 24, 27, 0.9);
-            border: 1px solid #3f3f46;
-            border-radius: 12px;
-            padding: 15px;
-            width: 280px;
-            z-index: 99;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-        .filters-panel h4 {
-            margin-top: 0;
-            color: #8b5cf6;
-            font-size: 0.9rem;
-        }
-        .filter-row {
-            margin-bottom: 10px;
-        }
-        .filter-row label {
-            font-size: 0.8rem;
-            color: #a1a1a1;
-            display: block;
-            margin-bottom: 4px;
-        }
-        .filter-row input[type="range"] {
-            width: 100%;
-            cursor: pointer;
         }
 
         /* Animaciones */
@@ -662,13 +547,6 @@
             }
             .video-stage {
                 height: 50%;
-            }
-            .chat-container {
-                width: 100%;
-                height: 300px;
-                bottom: 0;
-                right: 0;
-                border-radius: 12px 12px 0 0;
             }
         }
     </style>
@@ -968,158 +846,6 @@
                             </div>
                         </>
                     )}
-                </div>
-            );
-        };
-
-        // ============ COMPONENTE: CHAT PANEL ============
-        const ChatPanel = ({ roomName, mqttClient }) => {
-            const [collapsed, setCollapsed] = useState(false);
-            const [messages, setMessages] = useState([]);
-            const [input, setInput] = useState('');
-            const messagesEndRef = useRef(null);
-            
-            const sendMessage = () => {
-                if (input.trim()) {
-                    const msg = {
-                        user: 'You',
-                        text: input.trim(),
-                        timestamp: new Date().toLocaleTimeString(),
-                    };
-                    setMessages(prev => [...prev, msg]);
-                    
-                    if (mqttClient && mqttClient.connected) {
-                        try {
-                            mqttClient.publish(
-                                `sc_chat/${roomName}`,
-                                JSON.stringify(msg),
-                                { qos: 1 }
-                            );
-                        } catch (e) {
-                            Logger.warn('ChatPublish', e);
-                        }
-                    }
-                    setInput('');
-                }
-            };
-            
-            useEffect(() => {
-                if (messagesEndRef.current) {
-                    messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-                }
-            }, [messages]);
-            
-            useEffect(() => {
-                if (!mqttClient) return;
-                
-                const handler = (topic, payload) => {
-                    try {
-                        const msg = JSON.parse(payload.toString());
-                        setMessages(prev => [...prev, { ...msg, system: false }]);
-                    } catch (e) {
-                        Logger.warn('ChatParse', e);
-                    }
-                };
-                
-                try {
-                    mqttClient.subscribe(`sc_chat/${roomName}`);
-                    mqttClient.on('message', handler);
-                    
-                    return () => {
-                        mqttClient.off('message', handler);
-                    };
-                } catch (e) {
-                    Logger.warn('ChatSetup', e);
-                }
-            }, [mqttClient, roomName]);
-            
-            return (
-                <div className={`chat-container ${collapsed ? 'collapsed' : ''}`}>
-                    <div className="chat-header" onClick={() => setCollapsed(!collapsed)}>
-                        <span>💬 Chat ({messages.length})</span>
-                        <span>{collapsed ? '▼' : '▲'}</span>
-                    </div>
-                    {!collapsed && (
-                        <>
-                            <div className="chat-messages">
-                                {messages.map((msg, i) => (
-                                    <div key={i} className={`chat-message ${msg.system ? 'system' : ''}`}>
-                                        <strong>{msg.user}:</strong> {msg.text}
-                                    </div>
-                                ))}
-                                <div ref={messagesEndRef} />
-                            </div>
-                            <div className="chat-input-box">
-                                <input
-                                    value={input}
-                                    onChange={e => setInput(e.target.value)}
-                                    onKeyPress={e => e.key === 'Enter' && sendMessage()}
-                                    placeholder="Mensaje..."
-                                    maxLength={140}
-                                />
-                                <button onClick={sendMessage}>📤</button>
-                            </div>
-                        </>
-                    )}
-                </div>
-            );
-        };
-
-        // ============ COMPONENTE: DIAGNOSTICS ============
-        const DiagnosticsOverlay = ({ stats, logs, onExport }) => {
-            return (
-                <div className="diagnostics-overlay">
-                    <h3>🔧 DIAGNÓSTICOS</h3>
-                    <div className="diagnostics-item">
-                        <span>Estado:</span>
-                        <span style={{ color: '#10b981' }}>CONECTADO</span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Latencia:</span>
-                        <span>{stats.latency}ms</span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Pérdida:</span>
-                        <span>{stats.packetLoss}%</span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Jitter:</span>
-                        <span>{stats.jitter}ms</span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Resolución:</span>
-                        <span>{stats.videoResolution}</span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Calidad:</span>
-                        <span style={{ color: StatsCollector.getConnectionQuality() === 'excellent' ? '#10b981' : '#f59e0b' }}>
-                            {StatsCollector.getConnectionQuality().toUpperCase()}
-                        </span>
-                    </div>
-                    <div className="diagnostics-item">
-                        <span>Logs:</span>
-                        <span>{logs.length}</span>
-                    </div>
-                    <button 
-                        onClick={onExport}
-                        style={{
-                            width: '100%',
-                            padding: '8px',
-                            marginTop: '10px',
-                            background: '#8b5cf6',
-                            border: 'none',
-                            borderRadius: '6px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '0.8rem',
-                            fontWeight: 'bold',
-                            transition: 'all 0.2s ease',
-                        }}
-                        onMouseEnter={e => e.target.style.background = '#a78bfa'}
-                        onMouseLeave={e => e.target.style.background = '#8b5cf6'}
-                    >
-                        📥 Exportar Logs
-                    </button>
                 </div>
             );
         };
@@ -1525,8 +1251,66 @@
                     </div>
 
                     {showDiagnostics && <DiagnosticsOverlay stats={stats} logs={Logger.logs} onExport={() => Logger.export()} />}
-                    <ChatPanel roomName={roomName} mqttClient={mqttClient.current} />
                     {error && <div className="error-toast">{error}</div>}
+                </div>
+            );
+        };
+
+        // ============ COMPONENTE DIAGNOSTICS ============
+        const DiagnosticsOverlay = ({ stats, logs, onExport }) => {
+            return (
+                <div className="diagnostics-overlay">
+                    <h3>🔧 DIAGNÓSTICOS</h3>
+                    <div className="diagnostics-item">
+                        <span>Estado:</span>
+                        <span style={{ color: '#10b981' }}>CONECTADO</span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Latencia:</span>
+                        <span>{stats.latency}ms</span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Pérdida:</span>
+                        <span>{stats.packetLoss}%</span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Jitter:</span>
+                        <span>{stats.jitter}ms</span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Resolución:</span>
+                        <span>{stats.videoResolution}</span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Calidad:</span>
+                        <span style={{ color: StatsCollector.getConnectionQuality() === 'excellent' ? '#10b981' : '#f59e0b' }}>
+                            {StatsCollector.getConnectionQuality().toUpperCase()}
+                        </span>
+                    </div>
+                    <div className="diagnostics-item">
+                        <span>Logs:</span>
+                        <span>{logs.length}</span>
+                    </div>
+                    <button 
+                        onClick={onExport}
+                        style={{
+                            width: '100%',
+                            padding: '8px',
+                            marginTop: '10px',
+                            background: '#8b5cf6',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={e => e.target.style.background = '#a78bfa'}
+                        onMouseLeave={e => e.target.style.background = '#8b5cf6'}
+                    >
+                        📥 Exportar Logs
+                    </button>
                 </div>
             );
         };
@@ -1542,10 +1326,7 @@
             const [pinInput, setPinInput] = useState('');
             const [pinRequired, setPinRequired] = useState(!!pin);
             const [stats, setStats] = useState({ ...StatsCollector.stats });
-            const [showFilters, setShowFilters] = useState(false);
-            const [filterBrightness, setFilterBrightness] = useState(1);
-            const [filterContrast, setFilterContrast] = useState(1);
-            const [filterSaturation, setFilterSaturation] = useState(1);
+            const [cameraMode, setCameraMode] = useState(Storage.load('cameraMode', 'user'));
             const [recordingActive, setRecordingActive] = useState(false);
             const [error, setError] = useState(null);
 
@@ -1560,11 +1341,11 @@
                 if (!joined) return;
                 initializeGuest();
                 return cleanup;
-            }, [joined, quality]);
+            }, [joined, quality, cameraMode]);
 
             const initializeGuest = async () => {
                 try {
-                    Logger.info('GuestInit', `Calidad: ${quality}, Sala: ${roomName}`);
+                    Logger.info('GuestInit', `Calidad: ${quality}, Cámara: ${cameraMode}, Sala: ${roomName}`);
 
                     // MQTT
                     const options = {
@@ -1604,7 +1385,7 @@
                         video: { 
                             width: { ideal: res[quality][0] }, 
                             height: { ideal: res[quality][1] }, 
-                            facingMode: "user" 
+                            facingMode: cameraMode
                         },
                         audio: { 
                             echoCancellation: true, 
@@ -1721,6 +1502,23 @@
                     }
                 } catch (e) {
                     Logger.error('ToggleCam', e);
+                }
+            };
+
+            const switchCamera = () => {
+                try {
+                    const newMode = cameraMode === 'user' ? 'environment' : 'user';
+                    setCameraMode(newMode);
+                    Storage.save('cameraMode', newMode);
+                    Logger.info('Camera', `Cambio a ${newMode}`);
+                    
+                    // Parar stream actual y reiniciar
+                    if (localStream.current) {
+                        localStream.current.getTracks().forEach(t => t.stop());
+                    }
+                } catch (e) {
+                    Logger.error('SwitchCamera', e);
+                    setError('Error al cambiar cámara: ' + e.message);
                 }
             };
 
@@ -1854,9 +1652,6 @@
                         muted
                         autoPlay
                         playsInline
-                        style={{
-                            filter: `brightness(${filterBrightness}) contrast(${filterContrast}) saturate(${filterSaturation})`
-                        }}
                     ></video>
 
                     <div className="guest-overlay">
@@ -1880,34 +1675,14 @@
                         <div className={`mic-btn ${camOff ? 'off' : ''}`} onClick={toggleCam} title={camOff ? 'Encender cámara' : 'Apagar cámara'}>
                             {camOff ? '📵' : '📹'}
                         </div>
+                        <div className="mic-btn" onClick={switchCamera} title="Cambiar a cámara trasera/delantera">
+                            🔄
+                        </div>
                         <div className={`mic-btn ${recordingActive ? 'off' : ''}`} onClick={toggleRecording} title={recordingActive ? 'Detener grabación' : 'Iniciar grabación'}>
                             {recordingActive ? '⏹' : '⏺'}
                         </div>
-                        <div className="mic-btn" onClick={() => setShowFilters(!showFilters)} title="Filtros de video">
-                            🎨
-                        </div>
                     </div>
 
-                    {/* Filtros */}
-                    {showFilters && (
-                        <div className="filters-panel">
-                            <h4>🎨 Filtros</h4>
-                            <div className="filter-row">
-                                <label>Brillo: {filterBrightness.toFixed(1)}</label>
-                                <input type="range" min="0.5" max="1.5" step="0.1" value={filterBrightness} onChange={e => setFilterBrightness(parseFloat(e.target.value))} />
-                            </div>
-                            <div className="filter-row">
-                                <label>Contraste: {filterContrast.toFixed(1)}</label>
-                                <input type="range" min="0.5" max="1.5" step="0.1" value={filterContrast} onChange={e => setFilterContrast(parseFloat(e.target.value))} />
-                            </div>
-                            <div className="filter-row">
-                                <label>Saturación: {filterSaturation.toFixed(1)}</label>
-                                <input type="range" min="0" max="2" step="0.1" value={filterSaturation} onChange={e => setFilterSaturation(parseFloat(e.target.value))} />
-                            </div>
-                        </div>
-                    )}
-
-                    <ChatPanel roomName={roomName} mqttClient={mqttClient.current} />
                     {error && <div className="error-toast">{error}</div>}
                 </div>
             );
