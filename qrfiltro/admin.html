@@ -101,7 +101,7 @@ async function sendWhatsApp(phone, message) {
     }
 }
         // ✅ URL CORREGIDA PARA LANDING.AR
-        const API_URL = 'https://landing.ar/qrtv/api.php';
+        const API_URL = 'https://chulero9.github.io/qrfiltro/api.php';
         let isSaving = false;
         
         function showNotif(text, isError) {
@@ -207,7 +207,7 @@ async function sendWhatsApp(phone, message) {
     loadData();
 
     // 📲 WhatsApp automático al activar/desactivar
-    const phone = "51983783592"; // <-- número destino
+    const phone = "51961763299"; // <-- número destino
     const message = "📺 Tu mensaje cambió de estado en el ticker";
 
     sendWhatsApp(phone, message);
@@ -238,7 +238,7 @@ if (result.status === 'ok') {
     showNotif('Mensaje eliminado');
 
     // 📲 WhatsApp al eliminar
-    const phone = "519XXXXXXXX";
+    const phone = "51961763299";
     sendWhatsApp(phone, "🗑️ Tu mensaje fue eliminado del sistema");
 }
             } catch (err) {
@@ -261,7 +261,7 @@ if (result.status === 'ok') {
     showNotif('Todos los mensajes borrados');
 
     // 📲 WhatsApp masivo (ejemplo simple)
-    sendWhatsApp("51983783592", "⚠️ Todos los mensajes fueron eliminados");
+    sendWhatsApp("51961763299", "⚠️ Todos los mensajes fueron eliminados");
 }
             } catch (err) {
                 showNotif('Error', true);
