@@ -1,0 +1,306 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Ticker</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+        .card { background: #333; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+        .msg { 
+            background: #444; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 8px;
+            border-left: 5px solid #28a745;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .msg.inactive { 
+            border-left-color: #ffc107; 
+            background: #3a3a3a;
+            opacity: 0.7;
+        }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .switch { position: relative; display: inline-block; width: 60px; height: 34px; margin-right: 15px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #dc3545; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #28a745; }
+        input:checked + .slider:before { transform: translateX(26px); }
+        .status-label { font-size: 12px; font-weight: bold; margin-right: 10px; min-width: 80px; text-align: right; }
+        .active-text { color: #28a745; }
+        .pending-text { color: #ffc107; }
+        #notif { position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; display: none; font-weight: bold; z-index: 1000; }
+        .notif-ok { background: #28a745; color: white; }
+        .notif-error { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="notif"></div>
+
+    <h1>🎛️ Control del Ticker</h1>
+
+    <div class="card">
+        <h3>⚙️ Ajustes</h3>
+        <div style="margin: 15px 0;">
+            <label style="display: inline-block; width: 300px;">Color del ticker:</label>
+            <input type="color" id="colorPicker" value="#ff0000">
+        </div>
+        <div style="margin: 15px 0;">
+            <label style="display: inline-block; width: 300px;">Aprobar mensajes automáticamente:</label>
+            <label class="switch">
+                <input type="checkbox" id="autoApprove" checked>
+                <span class="slider"></span>
+            </label>
+            <span id="approveStatus" style="margin-left: 10px; font-size: 14px; color: #28a745;">ON - Rotan directo</span>
+        </div>
+        <div style="margin: 15px 0;">
+            <label style="display: inline-block; width: 300px;">Auto-borrar mensajes +24hs:</label>
+            <input type="checkbox" id="autoDelete">
+        </div>
+        <button class="btn btn-success" onclick="saveSettings()" style="margin-top: 10px;">💾 Guardar Ajustes</button>
+    </div>
+
+    <div class="card">
+        <h3 style="display: flex; justify-content: space-between; align-items: center;">
+            <span>📝 Mensajes <span id="msgCount" style="color: #aaa; font-size: 14px;">(0)</span></span>
+            <button class="btn btn-warning" onclick="deleteAll()">🗑️ Borrar Todo</button>
+        </h3>
+        <div style="color: #aaa; margin-bottom: 15px; font-size: 14px;" id="stats"></div>
+        <div id="messages"></div>
+    </div>
+
+    <script>
+        // 📲 ENVÍO DE WHATSAPP
+async function sendWhatsApp(phone, message) {
+    const instanceId = "instance167646"; // <-- reemplazar
+    const token = "ag9aaqenvjo1aanx"; // <-- reemplazar
+
+    try {
+        await fetch(`https://api.ultramsg.com/${instanceId}/messages/chat`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                token: token,
+                to: phone,
+                body: message
+            })
+        });
+
+        console.log("✅ WhatsApp enviado a " + phone);
+    } catch (err) {
+        console.error("❌ Error enviando WhatsApp", err);
+    }
+}
+        // ✅ URL CORREGIDA PARA LANDING.AR
+        const API_URL = 'https://landing.ar/qrtv/api.php';
+        let isSaving = false;
+        
+        function showNotif(text, isError) {
+            const n = document.getElementById('notif');
+            n.textContent = text;
+            n.className = isError ? 'notif-error' : 'notif-ok';
+            n.style.display = 'block';
+            setTimeout(() => n.style.display = 'none', 3000);
+        }
+
+        function updateApproveLabel() {
+            const isOn = document.getElementById('autoApprove').checked;
+            const label = document.getElementById('approveStatus');
+            if (isOn) {
+                label.textContent = 'ON - Rotan directo';
+                label.style.color = '#28a745';
+            } else {
+                label.textContent = 'OFF - Moderación manual';
+                label.style.color = '#ffc107';
+            }
+        }
+
+        document.getElementById('autoApprove').addEventListener('change', function() {
+            updateApproveLabel();
+            setTimeout(() => saveSettings(true), 100);
+        });
+
+        async function loadData() {
+            if (isSaving) return;
+            
+            try {
+                const timestamp = new Date().getTime();
+                const res = await fetch(`${API_URL}?action=get&_=${timestamp}`);
+                const data = await res.json();
+                
+                document.getElementById('colorPicker').value = data.settings?.color || '#ff0000';
+                document.getElementById('autoDelete').checked = data.settings?.auto_delete || false;
+                const currentApprove = document.getElementById('autoApprove').checked;
+                const serverApprove = data.settings?.auto_approve !== false;
+                if (currentApprove !== serverApprove) {
+                    document.getElementById('autoApprove').checked = serverApprove;
+                    updateApproveLabel();
+                }
+                
+                renderMessages(data.messages || []);
+                document.getElementById('msgCount').textContent = `(${data.messages?.length || 0})`;
+                
+            } catch (err) {
+                console.error('Error cargando:', err);
+            }
+        }
+
+        function renderMessages(messages) {
+            const container = document.getElementById('messages');
+            const stats = document.getElementById('stats');
+            
+            const active = messages.filter(m => m.active === true).length;
+            const pending = messages.filter(m => m.active === false).length;
+            
+            let statsText = `<strong>${active}</strong> activos`;
+            if (pending > 0) statsText += ` | <strong style="color: #ffc107;">${pending}</strong> pendientes`;
+            statsText += ` de ${messages.length} totales`;
+            stats.innerHTML = statsText;
+            
+            if (messages.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center; padding: 40px;">No hay mensajes</p>';
+                return;
+            }
+
+            container.innerHTML = messages.map(msg => {
+                const isActive = msg.active === true;
+                return `
+                    <div class="msg ${!isActive ? 'inactive' : ''}">
+                        <span style="flex: 1; font-size: 16px;">${msg.text}</span>
+                        <div style="display: flex; align-items: center;">
+                            <span class="status-label ${isActive ? 'active-text' : 'pending-text'}">
+                                ${isActive ? '✓ ACTIVO' : '⏸ PENDIENTE'}
+                            </span>
+                            <label class="switch">
+                                <input type="checkbox" ${isActive ? 'checked' : ''} 
+                                    onchange="toggleMessage('${msg.id}')">
+                                <span class="slider"></span>
+                            </label>
+                            <button class="btn btn-danger" onclick="deleteMessage('${msg.id}')">Borrar</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function toggleMessage(id) {
+            try {
+                const formData = new FormData();
+                formData.append('id', id);
+                
+                const res = await fetch(`${API_URL}?action=toggle&_=${Date.now()}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await res.json();
+                if (result.status === 'ok') {
+    loadData();
+
+    // 📲 WhatsApp automático al activar/desactivar
+    const phone = "51983783592"; // <-- número destino
+    const message = "📺 Tu mensaje cambió de estado en el ticker";
+
+    sendWhatsApp(phone, message);
+} else {
+                    showNotif('Error al cambiar estado', true);
+                }
+            } catch (err) {
+                showNotif('Error de conexión', true);
+            }
+        }
+
+        async function deleteMessage(id) {
+            if (!confirm('¿Eliminar este mensaje permanentemente?')) return;
+            
+            try {
+                const formData = new FormData();
+                formData.append('id', id);
+                
+                const res = await fetch(`${API_URL}?action=delete&_=${Date.now()}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await res.json();
+
+if (result.status === 'ok') {
+    loadData();
+    showNotif('Mensaje eliminado');
+
+    // 📲 WhatsApp al eliminar
+    const phone = "519XXXXXXXX";
+    sendWhatsApp(phone, "🗑️ Tu mensaje fue eliminado del sistema");
+}
+            } catch (err) {
+                showNotif('Error al borrar', true);
+            }
+        }
+
+        async function deleteAll() {
+            if (!confirm('¿Borrar TODOS los mensajes?')) return;
+            
+            try {
+                const res = await fetch(`${API_URL}?action=delete_all&_=${Date.now()}`, {
+                    method: 'POST'
+                });
+                
+                const result = await res.json();
+
+if (result.status === 'ok') {
+    loadData();
+    showNotif('Todos los mensajes borrados');
+
+    // 📲 WhatsApp masivo (ejemplo simple)
+    sendWhatsApp("51983783592", "⚠️ Todos los mensajes fueron eliminados");
+}
+            } catch (err) {
+                showNotif('Error', true);
+            }
+        }
+
+        async function saveSettings(silent = false) {
+            isSaving = true;
+            
+            const color = document.getElementById('colorPicker').value;
+            const autoDelete = document.getElementById('autoDelete').checked;
+            const autoApprove = document.getElementById('autoApprove').checked;
+            
+            try {
+                const formData = new FormData();
+                formData.append('color', color);
+                if (autoDelete) formData.append('auto_delete', 'true');
+                if (autoApprove) formData.append('auto_approve', 'true');
+                
+                const res = await fetch(`${API_URL}?action=settings&_=${Date.now()}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await res.json();
+                if (result.status === 'ok') {
+                    if (!silent) showNotif('✅ Ajustes guardados');
+                } else {
+                    showNotif('Error al guardar', true);
+                }
+            } catch (err) {
+                showNotif('Error de conexión', true);
+            } finally {
+                isSaving = false;
+            }
+        }
+
+        loadData();
+        setInterval(loadData, 3000);
+    </script>
+</body>
+</html>
