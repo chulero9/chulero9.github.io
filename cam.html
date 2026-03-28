@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>StreamCall V10 PRO (Fixed)</title>
+    <title>StreamCall V10 PRO - Cámara Corregida</title>
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -63,6 +62,7 @@
         .btn-rose    { background: linear-gradient(135deg, #f43f5e, #be123c); color: white; }
         .btn-dark    { background: #27272a; color: white; border: 1px solid #3f3f46; }
         .btn-dark:hover:not(:disabled) { background: #3f3f46; }
+        .btn-blue    { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; }
 
         .obs-layout {
             width: 100vw; height: 100vh; position: relative; overflow: hidden;
@@ -89,6 +89,25 @@
             overflow-y: auto; padding: 20px;
         }
         body.light-theme .director-controls { background: #f8f9fa; border-left-color: #e5e7eb; }
+
+        /* NUEVO: Preview de cámara del Director */
+        .director-self-preview {
+            width: 100%; aspect-ratio: 16/9;
+            background: #18181b; border-radius: 12px;
+            overflow: hidden; margin-bottom: 15px;
+            border: 2px solid #3f3f46;
+            position: relative;
+        }
+        .director-self-preview video {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .director-self-preview .preview-label {
+            position: absolute; bottom: 8px; left: 8px;
+            background: rgba(139,92,246,0.9);
+            color: white; font-size: 0.7rem;
+            padding: 4px 10px; border-radius: 6px;
+            font-weight: bold;
+        }
 
         .tally-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 25px; }
         .t-btn {
@@ -188,7 +207,6 @@
         .stat-bad  { color: #ef4444; }
         .divider   { height: 1px; background: #3f3f46; margin: 15px 0; }
 
-        /* NUEVO: Indicador de estado de conexión */
         .connection-status {
             position: absolute; top: 15px; left: 15px; z-index: 100;
             padding: 8px 16px; border-radius: 8px; font-size: 0.75rem;
@@ -227,8 +245,10 @@
                 border-left: none; border-top: 1px solid #27272a;
             }
             .video-stage { height: 50%; }
+            .return-pip { width: 150px; }
         }
     </style>
+<base target="_blank">
 </head>
 <body>
 <div id="root"></div>
@@ -301,7 +321,7 @@
                 const blob = new Blob(this.chunks,{type:'video/webm'});
                 const url = URL.createObjectURL(blob);
                 Object.assign(document.createElement('a'),{href:url,download:`sc-${Date.now()}.webm`}).click();
-                setTimeout(() => URL.revokeObjectURL(url), 60000); // Cleanup después de 1 min
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
             };
             this.recorder.start(); this.isRecording=true;
         },
@@ -316,7 +336,6 @@
         </div>
     );
 
-    /* NUEVO: Componente de estado de conexión */
     const ConnectionStatus = ({ state }) => {
         const labels = {
             connecting: 'Conectando...',
@@ -333,7 +352,7 @@
     };
 
     /* ════════════════════════════════════════════════════════════
-       DIRECTOR / OBS VIEW (CORREGIDO)
+       DIRECTOR / OBS VIEW - CON RETORNO DE CÁMARA
        ════════════════════════════════════════════════════════════ */
     const ReceiverView = ({ roomName, isObsMode, pin }) => {
         const [status,        setStatus]       = useState('BUSCANDO...');
@@ -342,8 +361,12 @@
         const [tally,         setTally]         = useState('idle');
         const [cleanMode,     setCleanMode]     = useState(false);
         const [audioDevices,  setAudioDevices]  = useState([]);
+        const [videoDevices,  setVideoDevices]  = useState([]);
         const [selectedAudio, setSelectedAudio] = useState('');
+        const [selectedVideo, setSelectedVideo] = useState('');
         const [micMuted,      setMicMuted]      = useState(false);
+        const [camMuted,      setCamMuted]      = useState(false);
+        const [returnEnabled, setReturnEnabled] = useState(true);
         const [stats,         setStats]         = useState({...StatsCollector.stats});
         const [rec,           setRec]           = useState(false);
         const [err,           setErr]           = useState(null);
@@ -351,65 +374,96 @@
         const peerRef         = useRef(null);
         const videoRef        = useRef(null);
         const audioRef        = useRef(null);
+        const selfVideoRef    = useRef(null);
         const mqttRef         = useRef(null);
-        const dirMicStreamRef = useRef(null);
+        const dirStreamRef    = useRef(null);  // Stream del Director (audio + video)
         const recRef          = useRef(false);
         const timerStats      = useRef(null);
         const selectedARef    = useRef('');
+        const selectedVRef    = useRef('');
         const activeCallRef   = useRef(null);
 
-        useEffect(() => { recRef.current    = rec;           }, [rec]);
+        useEffect(() => { recRef.current = rec; }, [rec]);
         useEffect(() => { selectedARef.current = selectedAudio; }, [selectedAudio]);
+        useEffect(() => { selectedVRef.current = selectedVideo; }, [selectedVideo]);
 
         useEffect(() => {
             init();
-            
-            // NUEVO: Manejo de beforeunload
             const handleBeforeUnload = () => {
                 if (recRef.current) RecordingService.stop();
-                dirMicStreamRef.current?.getTracks().forEach(t=>t.stop());
+                dirStreamRef.current?.getTracks().forEach(t=>t.stop());
                 peerRef.current?.destroy();
                 mqttRef.current?.end();
             };
             window.addEventListener('beforeunload', handleBeforeUnload);
-            
             return () => {
                 window.removeEventListener('beforeunload', handleBeforeUnload);
                 clearInterval(timerStats.current);
                 try {
                     if (recRef.current) RecordingService.stop();
-                    dirMicStreamRef.current?.getTracks().forEach(t=>t.stop());
+                    dirStreamRef.current?.getTracks().forEach(t=>t.stop());
                     peerRef.current?.destroy();
                     mqttRef.current?.end();
                 } catch(e) {}
             };
         }, [roomName, isObsMode]);
 
-        const acquireDirectorMic = async () => {
+        // NUEVO: Adquirir stream del Director (AUDIO + VIDEO para retorno)
+        const acquireDirectorStream = async () => {
             try {
-                dirMicStreamRef.current?.getTracks().forEach(t=>t.stop());
-                const constraints = selectedARef.current
-                    ? { audio:{ deviceId:{exact:selectedARef.current}, echoCancellation:true, noiseSuppression:true } }
-                    : { audio:{ echoCancellation:true, noiseSuppression:true } };
-                dirMicStreamRef.current = await navigator.mediaDevices.getUserMedia(constraints);
-                Logger.info('DirMic','adquirido');
+                // Detener stream anterior
+                dirStreamRef.current?.getTracks().forEach(t=>t.stop());
+                
+                const constraints = {
+                    audio: selectedARef.current
+                        ? { deviceId: { exact: selectedARef.current }, echoCancellation: true, noiseSuppression: true }
+                        : { echoCancellation: true, noiseSuppression: true },
+                    video: selectedVRef.current
+                        ? { deviceId: { exact: selectedVRef.current }, width: { ideal: 640 }, height: { ideal: 360 } }
+                        : { width: { ideal: 640 }, height: { ideal: 360 } }
+                };
+                
+                dirStreamRef.current = await navigator.mediaDevices.getUserMedia(constraints);
+                
+                // Mostrar preview propio
+                if (selfVideoRef.current) {
+                    selfVideoRef.current.srcObject = dirStreamRef.current;
+                    selfVideoRef.current.play().catch(()=>{});
+                }
+                
+                Logger.info('DirStream', 'adquirido - audio:' + dirStreamRef.current.getAudioTracks().length + ' video:' + dirStreamRef.current.getVideoTracks().length);
             } catch(e) {
-                Logger.warn('DirMic', e.message);
-                dirMicStreamRef.current = null;
+                Logger.warn('DirStream', e.message);
+                // Fallback: solo audio
+                try {
+                    dirStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
+                        audio: { echoCancellation: true, noiseSuppression: true } 
+                    });
+                    Logger.info('DirStream', 'fallback a solo audio');
+                } catch(e2) {
+                    dirStreamRef.current = null;
+                }
             }
         };
 
         const init = async () => {
             try {
                 if (!isObsMode) {
-                    const devs  = await navigator.mediaDevices.enumerateDevices();
+                    const devs = await navigator.mediaDevices.enumerateDevices();
                     const aDevs = devs.filter(d=>d.kind==='audioinput');
+                    const vDevs = devs.filter(d=>d.kind==='videoinput');
                     setAudioDevices(aDevs);
-                    const saved = Storage.load('sa', aDevs[0]?.deviceId||'');
-                    setSelectedAudio(saved);
-                    selectedARef.current = saved;
+                    setVideoDevices(vDevs);
+                    
+                    const savedA = Storage.load('sa', aDevs[0]?.deviceId||'');
+                    const savedV = Storage.load('sv', vDevs[0]?.deviceId||'');
+                    setSelectedAudio(savedA);
+                    setSelectedVideo(savedV);
+                    selectedARef.current = savedA;
+                    selectedVRef.current = savedV;
 
-                    await acquireDirectorMic();
+                    // Adquirir stream del Director (audio + video)
+                    await acquireDirectorStream();
 
                     mqttRef.current = window.mqtt.connect(CONFIG.MQTT_BROKER, {
                         clientId: `dir_${Date.now()}`,
@@ -426,23 +480,17 @@
 
                 peerRef.current = new Peer(myId, CONFIG.PEER_CONFIG);
                 
-                peerRef.current.on('open',  () => {
+                peerRef.current.on('open', () => {
                     setStatus('LISTO');
                     setConnState('connected');
                 });
                 
-                peerRef.current.on('call',  handleCall);
+                peerRef.current.on('call', handleCall);
                 
                 peerRef.current.on('error', e => {
                     Logger.error('Peer-dir', e.type);
                     setConnState('failed');
                     if (e.type !== 'peer-unavailable') setErr(e.type);
-                });
-                
-                // NUEVO: Monitorear estado de conexión ICE
-                peerRef.current.on('connection', conn => {
-                    conn.on('open', () => setConnState('connected'));
-                    conn.on('close', () => setConnState('disconnected'));
                 });
 
                 timerStats.current = setInterval(() => {
@@ -451,7 +499,6 @@
                     if (pc) { 
                         StatsCollector.collect(pc); 
                         setStats({...StatsCollector.stats}); 
-                        // NUEVO: Monitorear estado ICE
                         if (pc.iceConnectionState) {
                             setConnState(pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed' ? 'connected' : pc.iceConnectionState);
                         }
@@ -469,9 +516,10 @@
             try {
                 activeCallRef.current = call;
                 
-                // CORREGIDO: Si no hay mic, creamos un stream con pista de audio silenciosa
-                let answerStream = dirMicStreamRef.current;
+                // NUEVO: Responder con el stream del Director (audio + video)
+                let answerStream = dirStreamRef.current;
                 if (!answerStream) {
+                    // Fallback: stream vacío con pista de audio silenciosa
                     const ctx = new (window.AudioContext || window.webkitAudioContext)();
                     const dest = ctx.createMediaStreamDestination();
                     answerStream = dest.stream;
@@ -511,17 +559,42 @@
             }
         };
 
+        // NUEVO: Cambiar dispositivo de video
+        const changeVideo = async () => {
+            await acquireDirectorStream();
+            
+            // Reemplazar tracks en conexiones activas
+            const newStream = dirStreamRef.current;
+            if (!newStream) return;
+            
+            const conns = Object.values(peerRef.current?.connections||{}).flat();
+            for (const conn of conns) {
+                const pc = conn.peerConnection;
+                if (!pc) continue;
+                
+                // Reemplazar video
+                const newVideoTrack = newStream.getVideoTracks()[0];
+                const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
+                if (videoSender && newVideoTrack) {
+                    videoSender.replaceTrack(newVideoTrack).catch(e => Logger.warn('replaceVideo', e.message));
+                }
+                
+                // Reemplazar audio
+                const newAudioTrack = newStream.getAudioTracks()[0];
+                const audioSender = pc.getSenders().find(s => s.track?.kind === 'audio');
+                if (audioSender && newAudioTrack) {
+                    audioSender.replaceTrack(newAudioTrack).catch(e => Logger.warn('replaceAudio', e.message));
+                }
+            }
+        };
+
         const changeMic = async () => {
-            await acquireDirectorMic();
-            const newTrack = dirMicStreamRef.current?.getAudioTracks()[0];
+            await acquireDirectorStream();
+            const newTrack = dirStreamRef.current?.getAudioTracks()[0];
             if (!newTrack) return;
             
-            // CORREGIDO: Verificar que hay conexiones activas
             const conns = Object.values(peerRef.current?.connections||{}).flat();
-            if (conns.length === 0) {
-                Logger.warn('changeMic', 'No hay conexiones activas');
-                return;
-            }
+            if (conns.length === 0) return;
             
             for (const conn of conns) {
                 const sender = conn.peerConnection?.getSenders().find(s=>s.track?.kind==='audio');
@@ -532,10 +605,17 @@
         };
 
         const toggleMicMute = () => {
-            const tracks = dirMicStreamRef.current?.getAudioTracks()||[];
+            const tracks = dirStreamRef.current?.getAudioTracks()||[];
             if (!tracks.length) return;
             tracks[0].enabled = !tracks[0].enabled;
             setMicMuted(!tracks[0].enabled);
+        };
+        
+        const toggleCamMute = () => {
+            const tracks = dirStreamRef.current?.getVideoTracks()||[];
+            if (!tracks.length) return;
+            tracks[0].enabled = !tracks[0].enabled;
+            setCamMuted(!tracks[0].enabled);
         };
 
         const tally_set = s => {
@@ -544,7 +624,6 @@
         };
 
         const copy_link = m => {
-            // CORREGIDO: Sanitizar roomName
             const safeRoom = roomName.replace(/[^a-zA-Z0-9]/g, '');
             const u = `${window.location.href.split('?')[0]}?mode=${m}&room=${safeRoom}${pin?`&pin=${pin}`:''}`;
             navigator.clipboard.writeText(u).then(()=>alert('✓ Copiado:\n'+u));
@@ -574,7 +653,13 @@
                         📡 StreamCall PRO
                     </h2>
 
-                    <label style={{color:'#a78bfa',fontSize:'0.75rem',marginBottom:'8px',display:'block',fontWeight:'bold'}}>🎙 Mic Retorno → Guest</label>
+                    {/* NUEVO: Preview de cámara del Director */}
+                    <div className="director-self-preview">
+                        <video ref={selfVideoRef} autoPlay playsInline muted />
+                        <div className="preview-label">🎥 TU CÁMARA (Retorno)</div>
+                    </div>
+
+                    <label style={{color:'#a78bfa',fontSize:'0.75rem',marginBottom:'8px',display:'block',fontWeight:'bold'}}>🎙 Micrófono Retorno</label>
                     <select value={selectedAudio} onChange={e=>{
                         setSelectedAudio(e.target.value);
                         Storage.save('sa',e.target.value);
@@ -586,9 +671,29 @@
                             <option key={d.deviceId} value={d.deviceId}>{d.label||'Micrófono'}</option>
                         ))}
                     </select>
-                    <button className={`btn ${micMuted?'btn-rose':'btn-dark'}`} onClick={toggleMicMute} disabled={!connected}>
-                        {micMuted ? '🔇 Retorno silenciado' : '🔊 Retorno activo'}
-                    </button>
+                    
+                    {/* NUEVO: Selector de cámara */}
+                    <label style={{color:'#a78bfa',fontSize:'0.75rem',marginBottom:'8px',display:'block',fontWeight:'bold'}}>📷 Cámara Retorno</label>
+                    <select value={selectedVideo} onChange={e=>{
+                        setSelectedVideo(e.target.value);
+                        Storage.save('sv',e.target.value);
+                        selectedVRef.current=e.target.value;
+                        if(connected) changeVideo();
+                    }}>
+                        <option value="">-- Seleccionar cámara --</option>
+                        {videoDevices.map(d=>(
+                            <option key={d.deviceId} value={d.deviceId}>{d.label||'Cámara'}</option>
+                        ))}
+                    </select>
+                    
+                    <div style={{display:'flex',gap:'10px'}}>
+                        <button className={`btn ${micMuted?'btn-rose':'btn-dark'}`} onClick={toggleMicMute} disabled={!connected} style={{flex:1}}>
+                            {micMuted ? '🔇' : '🎤'}
+                        </button>
+                        <button className={`btn ${camMuted?'btn-rose':'btn-blue'}`} onClick={toggleCamMute} disabled={!connected} style={{flex:1}}>
+                            {camMuted ? '📵' : '📹'}
+                        </button>
+                    </div>
 
                     <div className="divider"/>
 
@@ -627,7 +732,7 @@
     };
 
     /* ════════════════════════════════════════════════════════════
-       GUEST VIEW (CORREGIDO)
+       GUEST VIEW - CON CAMBIO DE CÁMARA CORREGIDO
        ════════════════════════════════════════════════════════════ */
     const GuestView = ({ roomName, pin }) => {
         const [joined,    setJoined]    = useState(false);
@@ -642,6 +747,7 @@
         const [rec,       setRec]       = useState(false);
         const [err,       setErr]       = useState(null);
         const [connState, setConnState] = useState('connecting');
+        const [cameras,   setCameras]   = useState([]);
 
         const localVideoRef  = useRef(null);
         const returnVideoRef = useRef(null);
@@ -656,7 +762,6 @@
 
         useEffect(()=>{ recRef.current=rec; },[rec]);
 
-        // CORREGIDO: Separar efectos para evitar recreación innecesaria
         useEffect(()=>{
             if(!joined) return;
             abortRef.current=false;
@@ -682,54 +787,107 @@
                 } catch(e){}
             };
         },[joined]);
-        
-        // CORREGIDO: Efecto separado para cambios de calidad/cámara
-        useEffect(()=>{
-            if(!joined || !localStreamRef.current) return;
-            // Solo reiniciar el stream local, no todo el peer
-            restartLocalStream();
-        },[quality, camera]);
 
-        const restartLocalStream = async () => {
+        // CORREGIDO: Función para obtener stream con facingMode específico
+        const getStreamWithFacingMode = async (facingMode) => {
+            const res = {'360':[640,360],'720':[1280,720],'1080':[1920,1080]};
+            const [w,h] = res[quality] || res['720'];
+            
+            // Primero intentar con facingMode exacto
             try {
-                const oldStream = localStreamRef.current;
-                const res={'360':[640,360],'720':[1280,720],'1080':[1920,1080]};
-                const [w,h]=res[quality]||res['720'];
-                const newStream = await navigator.mediaDevices.getUserMedia({
-                    video:{width:{ideal:w},height:{ideal:h},facingMode:camera},
-                    audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        width: { ideal: w }, 
+                        height: { ideal: h }, 
+                        facingMode: { exact: facingMode }
+                    },
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                 });
+                return stream;
+            } catch (e) {
+                // Si falla (ej: no hay cámara trasera), intentar con ideal
+                Logger.warn('getStream', `facingMode exact ${facingMode} falló, intentando ideal`);
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        width: { ideal: w }, 
+                        height: { ideal: h }, 
+                        facingMode: { ideal: facingMode }
+                    },
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                });
+                return stream;
+            }
+        };
+
+        // CORREGIDO: Cambiar cámara reiniciando todo el stream
+        const switchCamera = async () => {
+            try {
+                const newFacingMode = camera === 'user' ? 'environment' : 'user';
                 
-                if(abortRef.current){ newStream.getTracks().forEach(t=>t.stop()); return; }
+                // Detener stream actual
+                localStreamRef.current?.getTracks().forEach(t => t.stop());
                 
-                // Reemplazar tracks en la conexión existente
-                const conns = Object.values(peerRef.current?.connections||{}).flat();
-                for (const conn of conns) {
-                    const senders = conn.peerConnection?.getSenders() || [];
-                    newStream.getTracks().forEach(track => {
-                        const sender = senders.find(s => s.track?.kind === track.kind);
-                        if (sender) {
-                            sender.replaceTrack(track).catch(e => Logger.warn('replaceTrack', e.message));
-                        }
-                    });
+                // Obtener nuevo stream con facingMode
+                const newStream = await getStreamWithFacingMode(newFacingMode);
+                
+                if (abortRef.current) {
+                    newStream.getTracks().forEach(t => t.stop());
+                    return;
                 }
                 
+                localStreamRef.current = newStream;
+                
                 // Actualizar video local
-                if(localVideoRef.current) {
+                if (localVideoRef.current) {
                     localVideoRef.current.srcObject = newStream;
                 }
                 
-                // Detener tracks antiguos
-                oldStream?.getTracks().forEach(t=>t.stop());
-                localStreamRef.current = newStream;
+                // CORREGIDO: Reemplazar tracks en TODAS las conexiones activas
+                if (peerRef.current) {
+                    const allConnections = Object.values(peerRef.current.connections || {}).flat();
+                    
+                    for (const conn of allConnections) {
+                        const pc = conn.peerConnection;
+                        if (!pc) continue;
+                        
+                        const senders = pc.getSenders();
+                        
+                        // Reemplazar video
+                        const videoTrack = newStream.getVideoTracks()[0];
+                        const videoSender = senders.find(s => s.track?.kind === 'video');
+                        if (videoSender && videoTrack) {
+                            await videoSender.replaceTrack(videoTrack);
+                            Logger.info('switchCamera', 'video track reemplazado');
+                        }
+                        
+                        // Reemplazar audio
+                        const audioTrack = newStream.getAudioTracks()[0];
+                        const audioSender = senders.find(s => s.track?.kind === 'audio');
+                        if (audioSender && audioTrack) {
+                            await audioSender.replaceTrack(audioTrack);
+                        }
+                    }
+                }
                 
-            } catch(e) {
-                Logger.error('restartLocalStream', e.message);
+                // Guardar y actualizar estado
+                setCamera(newFacingMode);
+                Storage.save('cm', newFacingMode);
+                Logger.info('switchCamera', `cambiado a ${newFacingMode}`);
+                
+            } catch (e) {
+                Logger.error('switchCamera', e.message);
+                setErr('Error al cambiar cámara: ' + e.message);
             }
         };
 
         const init_guest = async ()=>{
             try {
+                // Obtener lista de cámaras disponibles
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevs = devices.filter(d => d.kind === 'videoinput');
+                setCameras(videoDevs);
+                Logger.info('Guest-cameras', `encontradas ${videoDevs.length} cámaras`);
+
                 mqttRef.current = window.mqtt.connect(CONFIG.MQTT_BROKER,{
                     clientId:`guest_${Date.now()}`,
                     username:CONFIG.MQTT_USER, password:CONFIG.MQTT_PASS
@@ -744,16 +902,8 @@
                 });
                 mqttRef.current.on('error',e=>Logger.warn('MQTT-guest',e.message));
 
-                const res={'360':[640,360],'720':[1280,720],'1080':[1920,1080]};
-                const [w,h]=res[quality]||res['720'];
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video:{width:{ideal:w},height:{ideal:h},facingMode:camera, frameRate:{max:30}},
-                    audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
-                }).catch(e=>{
-                    if(e.name==='NotAllowedError') throw new Error('Permiso de cámara/micrófono denegado');
-                    if(e.name==='NotFoundError')   throw new Error('Cámara o micrófono no encontrado');
-                    throw e;
-                });
+                // CORREGIDO: Usar getStreamWithFacingMode
+                const stream = await getStreamWithFacingMode(camera);
 
                 if(abortRef.current){ stream.getTracks().forEach(t=>t.stop()); return; }
 
@@ -763,7 +913,6 @@
                     localVideoRef.current.play().catch(()=>{});
                 }
 
-                // CORREGIDO: Sanitizar roomName para el ID
                 const safeRoom = roomName.replace(/[^a-zA-Z0-9]/g, '');
                 peerRef.current=new Peer(`guest_${safeRoom}_${Date.now().toString(36)}`,CONFIG.PEER_CONFIG);
 
@@ -772,7 +921,6 @@
                     Logger.info('Guest-peer',`Conectado como guest`);
                     setConnState('connected');
 
-                    // Llamada al Director
                     const outCall = peerRef.current.call(
                         `dir_${safeRoom}`,
                         localStreamRef.current
@@ -803,7 +951,6 @@
                         Logger.warn('OutCall','closed'); 
                     });
 
-                    // Llamada al OBS
                     const obsCall=peerRef.current.call(`obs_${safeRoom}`,localStreamRef.current);
                     obsCall?.on('error',()=>{});
                 });
@@ -820,7 +967,6 @@
                     }
                 });
                 
-                // NUEVO: Monitorear conexión
                 peerRef.current.on('disconnected', () => setConnState('disconnected'));
 
                 timerStats.current=setInterval(()=>{
@@ -873,6 +1019,14 @@
                         <option value="720">720p — Media</option>
                         <option value="1080">1080p — Alta</option>
                     </select>
+                    
+                    {/* NUEVO: Mostrar cámaras disponibles */}
+                    <label style={{fontSize:'0.75rem',color:'#a1a1a1',display:'block',marginBottom:8,fontWeight:'bold'}}>Cámara inicial</label>
+                    <select value={camera} onChange={e=>{setCamera(e.target.value);Storage.save('cm',e.target.value);}}>
+                        <option value="user">Frontal (Selfie)</option>
+                        <option value="environment">Trasera</option>
+                    </select>
+                    
                     <button className="btn btn-violet" onClick={()=>setJoined(true)}>Entrar →</button>
                     {err&&<div className="error-toast">{err}</div>}
                 </div>
@@ -916,10 +1070,13 @@
                         }}>
                         {camOff?'📵':'📹'}
                     </div>
-                    <div className="mic-btn" title="Cambiar cámara"
-                        onClick={()=>{const nc=camera==='user'?'environment':'user';setCamera(nc);Storage.save('cm',nc);}}>
+                    
+                    {/* CORREGIDO: Botón de cambiar cámara usa switchCamera */}
+                    <div className="mic-btn" title={`Cambiar a cámara ${camera==='user'?'trasera':'frontal'}`}
+                        onClick={switchCamera}>
                         🔄
                     </div>
+                    
                     <div className={`mic-btn ${rec?'off':''}`} title={rec?'Parar grabación':'Grabar local'}
                         onClick={()=>{
                             if(rec){RecordingService.stop();recRef.current=false;setRec(false);}
@@ -944,7 +1101,6 @@
             const p=new URLSearchParams(window.location.search);
             const m=p.get('mode'),r=p.get('room'),n=p.get('pin')||'';
             if(m&&r){ 
-                // CORREGIDO: Sanitizar roomName
                 const safeRoom = r.replace(/[^a-zA-Z0-9]/g, '');
                 setRoom(safeRoom); 
                 setPin(n); 
@@ -955,7 +1111,6 @@
             if(theme==='light') document.body.classList.add('light-theme');
         },[]);
 
-        // CORREGIDO: Error de sintaxis en template literal
         const goTo=m=>{ 
             if(!room.trim()) return; 
             const safeRoom = room.replace(/[^a-zA-Z0-9]/g, '');
@@ -979,7 +1134,7 @@
                     <h1 style={{fontSize:'2rem',fontWeight:800,marginBottom:4,textTransform:'uppercase',background:'linear-gradient(135deg,#a78bfa,#d8b4fe)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',textAlign:'center'}}>
                         StreamCall PRO
                     </h1>
-                    <p style={{color:'#52525b',textAlign:'center',marginBottom:28,fontSize:'0.8rem'}}>v10.1 — WebRTC + MQTT Tally</p>
+                    <p style={{color:'#52525b',textAlign:'center',marginBottom:28,fontSize:'0.8rem'}}>v10.2 — Cámara Retorno + Switch</p>
                     <label style={{fontSize:'0.75rem',color:'#a1a1a1',display:'block',marginBottom:8,fontWeight:'bold'}}>ID de Sala</label>
                     <input value={room} onChange={e=>setRoom(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} placeholder="SALA" maxLength="20"/>
                     <label style={{fontSize:'0.75rem',color:'#a1a1a1',display:'block',marginBottom:8,fontWeight:'bold'}}>PIN (opcional)</label>
