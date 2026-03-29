@@ -1421,6 +1421,7 @@
             const [dirCamMuted, setDirCamMuted] = useState(true);
             const [dirMicMuted, setDirMicMuted] = useState(true);
             const [camera, setCamera] = useState(Storage.load('cm', 'user'));
+            const [recording, setRecording] = useState(false);
             const [prompterText, setPrompterText] = useState('');
             const [idle, setIdle] = useState(false);
             const [pipPos, setPipPos] = useState({ x: 20, y: 20 });
@@ -1437,9 +1438,14 @@
             const localStreamRef = useRef(null);
             const timerStats = useRef(null);
             const idleTimer = useRef(null);
+            const recorderRef = useRef(null);
             const abortRef = useRef(false);
             const outCallRef = useRef(null);
             const dragInfo = useRef({ isDragging: false, startX: 0, startY: 0, initX: 0, initY: 0 });
+
+            useEffect(() => {
+                if (!recorderRef.current) recorderRef.current = createVideoRecorder();
+            }, []);
 
             useEffect(() => {
                 const resetIdle = () => {
@@ -1463,6 +1469,7 @@
                 init_guest();
 
                 const handleBeforeUnload = () => {
+                    if (recording && recorderRef.current) recorderRef.current.stop();
                     localStreamRef.current?.getTracks().forEach(t => t.stop());
                     peerRef.current?.destroy();
                     mqttRef.current?.end();
@@ -1474,6 +1481,7 @@
                     abortRef.current = true;
                     clearInterval(timerStats.current);
                     try {
+                        if (recording && recorderRef.current) recorderRef.current.stop();
                         localStreamRef.current?.getTracks().forEach(t => t.stop());
                         peerRef.current?.destroy();
                         mqttRef.current?.end();
@@ -1558,6 +1566,20 @@
                 } catch (e) {
                     Logger.error('switchCamera', e.message);
                     setErr('Error de stream: ' + e.message);
+                }
+            };
+
+            const toggleRec = () => {
+                if (!recorderRef.current) return;
+                if (!recording) {
+                    if (!localStreamRef.current || !localStreamRef.current.getTracks().length) return;
+                    recorderRef.current.start(localStreamRef.current, `guest_${roomName}_local`);
+                    setRecording(true);
+                    toast('Grabación local iniciada ⏺', 'success');
+                } else {
+                    recorderRef.current.stop();
+                    setRecording(false);
+                    toast('Grabación guardada correctamente ✓', 'success');
                 }
             };
 
@@ -1809,7 +1831,9 @@
                             <div className="mic-btn" title={`Cambiar a cámara ${camera === 'user' ? 'trasera' : 'frontal'}`} onClick={() => switchCamera()}>
                                 🔄
                             </div>
-                            {/* Eliminado Botón de grabación local (Guest ya no graba localmente para ahorrar CPU, todo se descarga del lado del Dir) */}
+                            <div className="mic-btn" title={recording ? 'Detener y Guardar' : 'Grabar Locálmente'} onClick={toggleRec} style={recording ? { background: '#e11d48', animation: 'pulseRose 2s infinite', border: 'none', color: 'white' } : {}}>
+                                {recording ? '⏹' : '⏺'}
+                            </div>
                         </div>
                     </div>
                     {err && <div className="error-toast">{err}</div>}
