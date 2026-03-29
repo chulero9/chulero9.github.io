@@ -851,7 +851,7 @@
         /* ════════════════════════════════════════════════════════════
            DIRECTOR / OBS VIEW - CON RETORNO DE CÁMARA
            ════════════════════════════════════════════════════════════ */
-        const ReceiverView = ({ roomName, isObsMode, pin }) => {
+        const ReceiverView = ({ roomName, isObsMode }) => {
             const [status, setStatus] = useState('BUSCANDO...');
             const [connected, setConnected] = useState(false);
             const [connState, setConnState] = useState('connecting');
@@ -862,7 +862,7 @@
             const [selectedAudio, setSelectedAudio] = useState('');
             const [selectedVideo, setSelectedVideo] = useState('');
             const [micMuted, setMicMuted] = useState(false);
-            const [camMuted, setCamMuted] = useState(false);
+            const [camMuted, setCamMuted] = useState(true);
             const [returnEnabled, setReturnEnabled] = useState(true);
             const [rec, setRec] = useState(false);
             const [remoteRec, setRemoteRec] = useState(false);
@@ -997,7 +997,7 @@
                         mqttRef.current.on('connect', () => {
                             mqttRef.current.subscribe(`sc_rec_guest/${roomName}`);
                             // Enviar estado inicial de retorno
-                            mqttRef.current.publish(`sc_return/${roomName}`, JSON.stringify({ camMuted: false, micMuted: false }), { retain: true });
+                            mqttRef.current.publish(`sc_return/${roomName}`, JSON.stringify({ camMuted: true, micMuted: false }), { retain: true });
                         });
                         mqttRef.current.on('message', (_, payload) => {
                             try {
@@ -1161,7 +1161,7 @@
 
             const copy_link = m => {
                 const safeRoom = roomName.replace(/[^a-zA-Z0-9]/g, '');
-                const u = `${window.location.href.split('?')[0]}?mode=${m}&room=${safeRoom}${pin ? `&pin=${pin}` : ''}`;
+                const u = `${window.location.href.split('?')[0]}?mode=${m}&room=${safeRoom}`;
                 navigator.clipboard.writeText(u).then(() => toast('✓ Enlace copiado al portapapeles'));
             };
 
@@ -1269,7 +1269,6 @@
                         </div>
 
                         {connected && <StatsPanel peerRef={peerRef} />}
-                        <button className="btn btn-dark" onClick={Logger.export}>📥 Exportar Logs</button>
                         <button className="btn btn-dark" onClick={() => setCleanMode(true)}>⛶ Modo Limpio</button>
                     </div>
                     {err && <div className="error-toast">{err}</div>}
@@ -1280,7 +1279,7 @@
         /* ════════════════════════════════════════════════════════════
            GUEST VIEW - CON CAMBIO DE CÁMARA CORREGIDO
            ════════════════════════════════════════════════════════════ */
-        const GuestView = ({ roomName, pin }) => {
+        const GuestView = ({ roomName }) => {
             const [joined, setJoined] = useState(false);
             const [quality, setQuality] = useState(Storage.load('pq', '720'));
             const [tally, setTally] = useState('idle');
@@ -1289,8 +1288,6 @@
             const [hasReturn, setHasReturn] = useState(false);
             const [dirCamMuted, setDirCamMuted] = useState(false);
             const [dirMicMuted, setDirMicMuted] = useState(false);
-            const [pinIn, setPinIn] = useState('');
-            const [needsPin, setNeedsPin] = useState(!!pin);
             const [camera, setCamera] = useState(Storage.load('cm', 'user'));
             const [rec, setRec] = useState(false);
             const [remoteRec, setRemoteRec] = useState(false);
@@ -1580,25 +1577,6 @@
                 }
             };
 
-            if (!joined && needsPin) return (
-                <div className="lobby-container">
-                    <div className="glass-box">
-                        <div style={{ width: 64, height: 64, background: 'rgba(139,92,246,0.2)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 28 }}>🔒</div>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: 24, textAlign: 'center' }}>Sala protegida</h2>
-                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: 8, fontWeight: 'bold' }}>PIN</label>
-                        <input type="password" value={pinIn} placeholder="••••" autoFocus
-                            onChange={e => setPinIn(e.target.value)}
-                            onKeyPress={e => e.key === 'Enter' && (pinIn === pin ? (setNeedsPin(false), setJoined(true)) : setErr('PIN incorrecto'))}
-                        />
-                        <button className="btn btn-violet"
-                            onClick={() => pinIn === pin ? (setNeedsPin(false), setJoined(true)) : setErr('PIN incorrecto')}>
-                            Verificar
-                        </button>
-                        {err && <div className="error-toast">{err}</div>}
-                    </div>
-                </div>
-            );
-
             if (!joined) return (
                 <div className="lobby-container">
                     <div className="glass-box">
@@ -1702,16 +1680,14 @@
         const App = () => {
             const [mode, setMode] = useState(null);
             const [room, setRoom] = useState('');
-            const [pin, setPin] = useState('');
             const [theme, setTheme] = useState(Storage.load('th', 'dark'));
 
             useEffect(() => {
                 const p = new URLSearchParams(window.location.search);
-                const m = p.get('mode'), r = p.get('room'), n = p.get('pin') || '';
+                const m = p.get('mode'), r = p.get('room');
                 if (m && r) {
                     const safeRoom = r.replace(/[^a-zA-Z0-9]/g, '');
                     setRoom(safeRoom);
-                    setPin(n);
                     setMode(m);
                     if (m === 'obs') document.body.classList.add('obs-mode');
                 }
@@ -1722,12 +1698,12 @@
             const goTo = m => {
                 if (!room.trim()) return;
                 const safeRoom = room.replace(/[^a-zA-Z0-9]/g, '');
-                window.location.href = `?mode=${m}&room=${safeRoom}${pin ? `&pin=${pin}` : ''}`;
+                window.location.href = `?mode=${m}&room=${safeRoom}`;
             };
 
-            if (mode === 'director') return <><Toaster /><ReceiverView roomName={room} isObsMode={false} pin={pin} /></>;
-            if (mode === 'obs') return <><Toaster /><ReceiverView roomName={room} isObsMode={true} pin={pin} /></>;
-            if (mode === 'guest') return <><Toaster /><GuestView roomName={room} pin={pin} /></>;
+            if (mode === 'director') return <><Toaster /><ReceiverView roomName={room} isObsMode={false} /></>;
+            if (mode === 'obs') return <><Toaster /><ReceiverView roomName={room} isObsMode={true} /></>;
+            if (mode === 'guest') return <><Toaster /><GuestView roomName={room} /></>;
 
             return (
                 <>
@@ -1747,11 +1723,8 @@
                             <p style={{ color: '#52525b', textAlign: 'center', marginBottom: 28, fontSize: '0.8rem' }}>v10.2 — Cámara Retorno + Switch</p>
                             <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: 8, fontWeight: 'bold' }}>ID de Sala</label>
                             <input value={room} onChange={e => setRoom(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} placeholder="SALA" maxLength="20" />
-                            <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: 8, fontWeight: 'bold' }}>PIN (opcional)</label>
-                            <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ''))} type="password" placeholder="PIN" maxLength="6" />
                             <button className="btn btn-violet" onClick={() => goTo('director')}>🎛 Entrar como Director</button>
                             <button className="btn btn-emerald" onClick={() => goTo('guest')}>👤 Entrar como Guest</button>
-                            <button className="btn btn-dark" onClick={Logger.export}>📥 Exportar Logs</button>
                         </div>
                     </div>
                 </>
