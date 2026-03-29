@@ -1139,19 +1139,19 @@
             const toggleMicMute = () => {
                 const tracks = dirStreamRef.current?.getAudioTracks() || [];
                 if (!tracks.length) return;
-                const newState = !tracks[0].enabled;
-                tracks[0].enabled = !newState;
-                setMicMuted(newState);
-                mqttRef.current?.publish(`sc_return/${roomName}`, JSON.stringify({ micMuted: newState }), { retain: true });
+                tracks[0].enabled = !tracks[0].enabled;
+                const isMuted = !tracks[0].enabled;
+                setMicMuted(isMuted);
+                mqttRef.current?.publish(`sc_return/${roomName}`, JSON.stringify({ micMuted: isMuted }), { retain: true });
             };
 
             const toggleCamMute = () => {
                 const tracks = dirStreamRef.current?.getVideoTracks() || [];
                 if (!tracks.length) return;
-                const newState = !tracks[0].enabled;
-                tracks[0].enabled = !newState;
-                setCamMuted(newState);
-                mqttRef.current?.publish(`sc_return/${roomName}`, JSON.stringify({ camMuted: newState }), { retain: true });
+                tracks[0].enabled = !tracks[0].enabled;
+                const isMuted = !tracks[0].enabled;
+                setCamMuted(isMuted);
+                mqttRef.current?.publish(`sc_return/${roomName}`, JSON.stringify({ camMuted: isMuted }), { retain: true });
             };
 
             const tally_set = s => {
