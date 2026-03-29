@@ -1286,8 +1286,8 @@
             const [micOff, setMicOff] = useState(false);
             const [camOff, setCamOff] = useState(false);
             const [hasReturn, setHasReturn] = useState(false);
-            const [dirCamMuted, setDirCamMuted] = useState(false);
-            const [dirMicMuted, setDirMicMuted] = useState(false);
+            const [dirCamMuted, setDirCamMuted] = useState(true);
+            const [dirMicMuted, setDirMicMuted] = useState(true);
             const [camera, setCamera] = useState(Storage.load('cm', 'user'));
             const [rec, setRec] = useState(false);
             const [remoteRec, setRemoteRec] = useState(false);
