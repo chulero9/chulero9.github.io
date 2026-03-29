@@ -1751,23 +1751,17 @@
 
             return (
                 <div className={`guest-layout tally-${tally}`}>
+                     <div className="guest-tally-border"></div>
                     <div className={`guest-ui-wrapper ${idle ? 'idle-hide' : ''}`}>
                         <ConnectionStatus state={connState} ping={ping} />
                         <div className="big-tally-text">
-                            {tally === 'live' ? ( <><span style={{ fontSize: '0.9rem' }}>🔴</span> AL AIRE</>
-                        ) : (
-                            <><span style={{ fontSize: '0.9rem' }}>⚠️</span> PREVENIDO</>)}
+                            {tally === 'live' ? 
+                                ( 
+                    <span style={{ fontSize: '0.9rem' }}>🔴</span> AL AIRE) : 
+                            (
+                    <span style={{ fontSize: '0.9rem' }}>⚠️</span> PREVENIDO)}
                         </div>
                     </div>
-
-                    <div className="guest-tally-border" />
-                    
-                    {prompterText && (
-                        <div className="teleprompter-overlay">
-                            {prompterText}
-                        </div>
-                    )}
-
                     <div 
                         className={`return-pip ${hasReturn && !dirCamMuted ? 'active' : ''}`}
                         style={{ top: Math.max(0, pipPos.y), left: Math.max(0, pipPos.x), cursor: 'grab', touchAction: 'none' }}
