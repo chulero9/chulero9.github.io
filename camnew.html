@@ -548,6 +548,11 @@
             transition: all 0.3s ease;
         }
 
+        .guest-layout .connection-status {
+            left: auto;
+            right: 15px;
+        }
+
         .conn-connecting {
             background: rgba(251, 191, 36, 0.9);
             color: #000;
@@ -1167,7 +1172,6 @@
 
             if (isObsMode) return (
                 <div className="obs-layout">
-                    <ConnectionStatus state={connState} />
                     <video ref={videoRef} className="obs-video" autoPlay playsInline muted />
                     <audio ref={audioRef} autoPlay playsInline style={{ display: 'none' }} />
                     {!connected && <div className="obs-status"><div className="loader" /> {status}</div>}
