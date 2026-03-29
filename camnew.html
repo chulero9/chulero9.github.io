@@ -996,6 +996,8 @@
                         });
                         mqttRef.current.on('connect', () => {
                             mqttRef.current.subscribe(`sc_rec_guest/${roomName}`);
+                            // Enviar estado inicial de retorno
+                            mqttRef.current.publish(`sc_return/${roomName}`, JSON.stringify({ camMuted: false, micMuted: false }), { retain: true });
                         });
                         mqttRef.current.on('message', (_, payload) => {
                             try {
@@ -1137,15 +1139,19 @@
             const toggleMicMute = () => {
                 const tracks = dirStreamRef.current?.getAudioTracks() || [];
                 if (!tracks.length) return;
-                tracks[0].enabled = !tracks[0].enabled;
-                setMicMuted(!tracks[0].enabled);
+                const newState = !tracks[0].enabled;
+                tracks[0].enabled = !newState;
+                setMicMuted(newState);
+                mqttRef.current?.publish(`sc_return/${roomName}`, JSON.stringify({ micMuted: newState }), { retain: true });
             };
 
             const toggleCamMute = () => {
                 const tracks = dirStreamRef.current?.getVideoTracks() || [];
                 if (!tracks.length) return;
-                tracks[0].enabled = !tracks[0].enabled;
-                setCamMuted(!tracks[0].enabled);
+                const newState = !tracks[0].enabled;
+                tracks[0].enabled = !newState;
+                setCamMuted(newState);
+                mqttRef.current?.publish(`sc_return/${roomName}`, JSON.stringify({ camMuted: newState }), { retain: true });
             };
 
             const tally_set = s => {
@@ -1281,6 +1287,8 @@
             const [micOff, setMicOff] = useState(false);
             const [camOff, setCamOff] = useState(false);
             const [hasReturn, setHasReturn] = useState(false);
+            const [dirCamMuted, setDirCamMuted] = useState(false);
+            const [dirMicMuted, setDirMicMuted] = useState(false);
             const [pinIn, setPinIn] = useState('');
             const [needsPin, setNeedsPin] = useState(!!pin);
             const [camera, setCamera] = useState(Storage.load('cm', 'user'));
@@ -1460,11 +1468,14 @@
                         if (subscribed) return; subscribed = true;
                         mqttRef.current.subscribe(`sc_tally/${roomName}`);
                         mqttRef.current.subscribe(`sc_rec/${roomName}`);
+                        mqttRef.current.subscribe(`sc_return/${roomName}`);
                         mqttRef.current.on('message', (_, payload) => {
                             try {
                                 const d = JSON.parse(payload.toString());
                                 if (d.state) setTally(d.state);
                                 if (d.recording !== undefined) setRemoteRec(d.recording);
+                                if (d.camMuted !== undefined) setDirCamMuted(d.camMuted);
+                                if (d.micMuted !== undefined) setDirMicMuted(d.micMuted);
                             } catch (e) { }
                         });
                     });
@@ -1627,11 +1638,13 @@
                         </div>
                     )}
 
-                    <div className={`return-pip ${hasReturn ? 'active' : ''}`}>
+                    <div className={`return-pip ${hasReturn && !dirCamMuted ? 'active' : ''}`}>
                         <video ref={returnVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         <audio ref={returnAudioRef} autoPlay playsInline style={{ display: 'none' }} />
                         <div className="pip-icon">🎧</div>
-                        <div className="pip-label">📺 Retorno</div>
+                        <div className="pip-label">
+                            📺 Retorno {dirMicMuted && '🔇'}
+                        </div>
                     </div>
 
                     <video ref={localVideoRef} className="guest-video" muted autoPlay playsInline />
