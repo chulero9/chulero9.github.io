@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>StreamCall V10 PRO - Cámara Corregida</title>
+    <title>StreamCall V10 PRO</title>
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -373,7 +373,7 @@
             position: absolute;
             top: 20px;
             left: 20px;
-            width: 280px;
+            width: 380px;
             aspect-ratio: 16/9;
             background: #111;
             border: 2px solid #52525b;
@@ -1618,7 +1618,6 @@
                     <div className={`return-pip ${hasReturn && !dirCamMuted ? 'active' : ''}`}>
                         <video ref={returnVideoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         <audio ref={returnAudioRef} autoPlay playsInline style={{ display: 'none' }} />
-                        <div className="pip-icon">🎧</div>
                         <div className="pip-label">
                             📺 Retorno {dirMicMuted && '🔇'}
                         </div>
