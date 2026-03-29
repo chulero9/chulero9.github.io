@@ -1754,7 +1754,9 @@
                     <div className={`guest-ui-wrapper ${idle ? 'idle-hide' : ''}`}>
                         <ConnectionStatus state={connState} ping={ping} />
                         <div className="big-tally-text">
-                            {tally === 'live' ? <>🔴 AL AIRE</> : <>⚠️ PREVIO</>}
+                            {tally === 'live' ? ( <><span style={{ fontSize: '0.9rem' }}>🔴</span> AL AIRE</>
+                        ) : (
+                            <><span style={{ fontSize: '0.9rem' }}>⚠️</span> PREVENIDO</>)}
                         </div>
                     </div>
 
