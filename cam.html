@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>StreamCall V10 PRO - Retorno Controlado</title>
+    <title>StreamCall V10 PRO - Cámara Corregida</title>
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -63,7 +64,6 @@
         .btn-dark    { background: #27272a; color: white; border: 1px solid #3f3f46; }
         .btn-dark:hover:not(:disabled) { background: #3f3f46; }
         .btn-blue    { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; }
-        .btn-orange  { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
 
         .obs-layout {
             width: 100vw; height: 100vh; position: relative; overflow: hidden;
@@ -91,21 +91,13 @@
         }
         body.light-theme .director-controls { background: #f8f9fa; border-left-color: #e5e7eb; }
 
-        /* Preview de cámara del Director */
+        /* NUEVO: Preview de cámara del Director */
         .director-self-preview {
             width: 100%; aspect-ratio: 16/9;
             background: #18181b; border-radius: 12px;
             overflow: hidden; margin-bottom: 15px;
             border: 2px solid #3f3f46;
             position: relative;
-            transition: all 0.3s ease;
-        }
-        .director-self-preview.active {
-            border-color: #10b981;
-            box-shadow: 0 0 20px rgba(16,185,129,0.3);
-        }
-        .director-self-preview.disabled {
-            opacity: 0.5;
         }
         .director-self-preview video {
             width: 100%; height: 100%; object-fit: cover;
@@ -117,14 +109,6 @@
             padding: 4px 10px; border-radius: 6px;
             font-weight: bold;
         }
-        .director-self-preview .status-badge {
-            position: absolute; top: 8px; right: 8px;
-            padding: 4px 10px; border-radius: 6px;
-            font-size: 0.65rem; font-weight: bold;
-            text-transform: uppercase;
-        }
-        .status-badge.active { background: #10b981; color: white; }
-        .status-badge.inactive { background: #52525b; color: #a1a1a1; }
 
         .tally-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 25px; }
         .t-btn {
@@ -162,26 +146,16 @@
         .guest-layout.tally-live .guest-tally-border { border-color: #f43f5e; box-shadow: inset 0 0 60px rgba(244,63,94,0.6); }
         .guest-layout.tally-prev .guest-tally-border { border-color: #10b981; box-shadow: inset 0 0 60px rgba(16,185,129,0.6); }
 
-        /* CORREGIDO: Retorno pip - solo visible cuando está activo */
         .return-pip {
             position: absolute; top: 20px; left: 20px;
             width: 280px; aspect-ratio: 16/9;
             background: #111; border: 2px solid #52525b;
             border-radius: 16px; overflow: hidden;
-            z-index: 80;
-            opacity: 0;
-            transform: scale(0.8) translateY(-20px);
-            pointer-events: none;
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            z-index: 80; opacity: 0; pointer-events: none;
+            transition: opacity 0.4s; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             display: flex; align-items: center; justify-content: center;
         }
-        .return-pip.active {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-            pointer-events: auto;
-            border-color: #10b981;
-        }
+        .return-pip.active { opacity: 1; pointer-events: auto; }
         .return-pip video  { width: 100%; height: 100%; object-fit: cover; }
         .pip-label {
             position: absolute; bottom: 8px; left: 8px;
@@ -195,21 +169,6 @@
             position: absolute; top:50%; left:50%; transform:translate(-50%,-50%);
             font-size: 2rem; opacity: 0.4; pointer-events: none;
         }
-        /* Mensaje cuando no hay retorno */
-        .no-return-msg {
-            position: absolute;
-            top: 20px; left: 20px;
-            background: rgba(39,39,42,0.9);
-            color: #71717a;
-            padding: 12px 20px;
-            border-radius: 12px;
-            font-size: 0.85rem;
-            z-index: 70;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .no-return-msg.hidden { display: none; }
 
         .guest-overlay {
             position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
@@ -394,7 +353,7 @@
     };
 
     /* ════════════════════════════════════════════════════════════
-       DIRECTOR VIEW - CON CONTROL DE RETORNO
+       DIRECTOR / OBS VIEW - CON RETORNO DE CÁMARA
        ════════════════════════════════════════════════════════════ */
     const ReceiverView = ({ roomName, isObsMode, pin }) => {
         const [status,        setStatus]       = useState('BUSCANDO...');
@@ -408,7 +367,7 @@
         const [selectedVideo, setSelectedVideo] = useState('');
         const [micMuted,      setMicMuted]      = useState(false);
         const [camMuted,      setCamMuted]      = useState(false);
-        const [returnEnabled, setReturnEnabled] = useState(false); // NUEVO: Inicia desactivado
+        const [returnEnabled, setReturnEnabled] = useState(true);
         const [stats,         setStats]         = useState({...StatsCollector.stats});
         const [rec,           setRec]           = useState(false);
         const [err,           setErr]           = useState(null);
@@ -418,26 +377,22 @@
         const audioRef        = useRef(null);
         const selfVideoRef    = useRef(null);
         const mqttRef         = useRef(null);
-        const dirStreamRef    = useRef(null);
-        const audioStreamRef  = useRef(null); // Solo audio para retorno
+        const dirStreamRef    = useRef(null);  // Stream del Director (audio + video)
         const recRef          = useRef(false);
         const timerStats      = useRef(null);
         const selectedARef    = useRef('');
         const selectedVRef    = useRef('');
         const activeCallRef   = useRef(null);
-        const returnEnabledRef = useRef(false);
 
         useEffect(() => { recRef.current = rec; }, [rec]);
         useEffect(() => { selectedARef.current = selectedAudio; }, [selectedAudio]);
         useEffect(() => { selectedVRef.current = selectedVideo; }, [selectedVideo]);
-        useEffect(() => { returnEnabledRef.current = returnEnabled; }, [returnEnabled]);
 
         useEffect(() => {
             init();
             const handleBeforeUnload = () => {
                 if (recRef.current) RecordingService.stop();
                 dirStreamRef.current?.getTracks().forEach(t=>t.stop());
-                audioStreamRef.current?.getTracks().forEach(t=>t.stop());
                 peerRef.current?.destroy();
                 mqttRef.current?.end();
             };
@@ -448,35 +403,22 @@
                 try {
                     if (recRef.current) RecordingService.stop();
                     dirStreamRef.current?.getTracks().forEach(t=>t.stop());
-                    audioStreamRef.current?.getTracks().forEach(t=>t.stop());
                     peerRef.current?.destroy();
                     mqttRef.current?.end();
                 } catch(e) {}
             };
         }, [roomName, isObsMode]);
 
-        // Adquirir stream de audio (siempre disponible)
-        const acquireAudioStream = async () => {
+        // NUEVO: Adquirir stream del Director (AUDIO + VIDEO para retorno)
+        const acquireDirectorStream = async () => {
             try {
-                audioStreamRef.current?.getTracks().forEach(t=>t.stop());
-                const constraints = selectedARef.current
-                    ? { audio:{ deviceId:{exact:selectedARef.current}, echoCancellation:true, noiseSuppression:true } }
-                    : { audio:{ echoCancellation:true, noiseSuppression:true } };
-                audioStreamRef.current = await navigator.mediaDevices.getUserMedia(constraints);
-                Logger.info('AudioStream','adquirido');
-            } catch(e) {
-                Logger.warn('AudioStream', e.message);
-                audioStreamRef.current = null;
-            }
-        };
-
-        // Adquirir stream de video (para retorno)
-        const acquireVideoStream = async () => {
-            try {
+                // Detener stream anterior
                 dirStreamRef.current?.getTracks().forEach(t=>t.stop());
                 
                 const constraints = {
-                    audio: false, // El audio viene de audioStreamRef
+                    audio: selectedARef.current
+                        ? { deviceId: { exact: selectedARef.current }, echoCancellation: true, noiseSuppression: true }
+                        : { echoCancellation: true, noiseSuppression: true },
                     video: selectedVRef.current
                         ? { deviceId: { exact: selectedVRef.current }, width: { ideal: 640 }, height: { ideal: 360 } }
                         : { width: { ideal: 640 }, height: { ideal: 360 } }
@@ -484,17 +426,24 @@
                 
                 dirStreamRef.current = await navigator.mediaDevices.getUserMedia(constraints);
                 
+                // Mostrar preview propio
                 if (selfVideoRef.current) {
                     selfVideoRef.current.srcObject = dirStreamRef.current;
                     selfVideoRef.current.play().catch(()=>{});
                 }
                 
-                Logger.info('VideoStream', 'adquirido');
-                return true;
+                Logger.info('DirStream', 'adquirido - audio:' + dirStreamRef.current.getAudioTracks().length + ' video:' + dirStreamRef.current.getVideoTracks().length);
             } catch(e) {
-                Logger.warn('VideoStream', e.message);
-                dirStreamRef.current = null;
-                return false;
+                Logger.warn('DirStream', e.message);
+                // Fallback: solo audio
+                try {
+                    dirStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
+                        audio: { echoCancellation: true, noiseSuppression: true } 
+                    });
+                    Logger.info('DirStream', 'fallback a solo audio');
+                } catch(e2) {
+                    dirStreamRef.current = null;
+                }
             }
         };
 
@@ -514,8 +463,8 @@
                     selectedARef.current = savedA;
                     selectedVRef.current = savedV;
 
-                    // Solo adquirir audio inicialmente
-                    await acquireAudioStream();
+                    // Adquirir stream del Director (audio + video)
+                    await acquireDirectorStream();
 
                     mqttRef.current = window.mqtt.connect(CONFIG.MQTT_BROKER, {
                         clientId: `dir_${Date.now()}`,
@@ -564,79 +513,17 @@
             }
         };
 
-        // NUEVO: Toggle para habilitar/deshabilitar retorno de video
-        const toggleReturnVideo = async () => {
-            const newState = !returnEnabled;
-            setReturnEnabled(newState);
-            
-            if (newState) {
-                // Activar: adquirir video y agregar a la conexión
-                const success = await acquireVideoStream();
-                if (!success) {
-                    setReturnEnabled(false);
-                    setErr('No se pudo acceder a la cámara');
-                    return;
-                }
-                
-                // Agregar track de video a las conexiones activas
-                const conns = Object.values(peerRef.current?.connections||{}).flat();
-                for (const conn of conns) {
-                    const pc = conn.peerConnection;
-                    if (!pc) continue;
-                    
-                    const videoTrack = dirStreamRef.current?.getVideoTracks()[0];
-                    if (videoTrack) {
-                        // Verificar si ya hay un sender de video
-                        const existingSender = pc.getSenders().find(s => s.track?.kind === 'video');
-                        if (existingSender) {
-                            existingSender.replaceTrack(videoTrack);
-                        } else {
-                            pc.addTrack(videoTrack, dirStreamRef.current);
-                        }
-                        Logger.info('toggleReturn', 'video track agregado');
-                    }
-                }
-            } else {
-                // Desactivar: remover track de video
-                const conns = Object.values(peerRef.current?.connections||{}).flat();
-                for (const conn of conns) {
-                    const pc = conn.peerConnection;
-                    if (!pc) continue;
-                    
-                    const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
-                    if (videoSender) {
-                        pc.removeTrack(videoSender);
-                        Logger.info('toggleReturn', 'video track removido');
-                    }
-                }
-                
-                // Detener stream de video
-                dirStreamRef.current?.getTracks().forEach(t=>t.stop());
-                dirStreamRef.current = null;
-            }
-        };
-
         const handleCall = (call) => {
             try {
                 activeCallRef.current = call;
                 
-                // Crear stream de respuesta: audio + video (si está habilitado)
-                let answerStream;
-                if (returnEnabledRef.current && dirStreamRef.current) {
-                    // Combinar audio + video
-                    const audioTrack = audioStreamRef.current?.getAudioTracks()[0];
-                    const videoTrack = dirStreamRef.current?.getVideoTracks()[0];
-                    
-                    if (audioTrack && videoTrack) {
-                        answerStream = new MediaStream([audioTrack, videoTrack]);
-                    } else if (videoTrack) {
-                        answerStream = dirStreamRef.current;
-                    } else {
-                        answerStream = audioStreamRef.current || new MediaStream();
-                    }
-                } else {
-                    // Solo audio
-                    answerStream = audioStreamRef.current || new MediaStream();
+                // NUEVO: Responder con el stream del Director (audio + video)
+                let answerStream = dirStreamRef.current;
+                if (!answerStream) {
+                    // Fallback: stream vacío con pista de audio silenciosa
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const dest = ctx.createMediaStreamDestination();
+                    answerStream = dest.stream;
                 }
                 
                 call.answer(answerStream);
@@ -673,10 +560,11 @@
             }
         };
 
+        // NUEVO: Cambiar dispositivo de video
         const changeVideo = async () => {
-            if (!returnEnabled) return;
-            await acquireVideoStream();
+            await acquireDirectorStream();
             
+            // Reemplazar tracks en conexiones activas
             const newStream = dirStreamRef.current;
             if (!newStream) return;
             
@@ -685,17 +573,25 @@
                 const pc = conn.peerConnection;
                 if (!pc) continue;
                 
+                // Reemplazar video
                 const newVideoTrack = newStream.getVideoTracks()[0];
                 const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
                 if (videoSender && newVideoTrack) {
                     videoSender.replaceTrack(newVideoTrack).catch(e => Logger.warn('replaceVideo', e.message));
                 }
+                
+                // Reemplazar audio
+                const newAudioTrack = newStream.getAudioTracks()[0];
+                const audioSender = pc.getSenders().find(s => s.track?.kind === 'audio');
+                if (audioSender && newAudioTrack) {
+                    audioSender.replaceTrack(newAudioTrack).catch(e => Logger.warn('replaceAudio', e.message));
+                }
             }
         };
 
         const changeMic = async () => {
-            await acquireAudioStream();
-            const newTrack = audioStreamRef.current?.getAudioTracks()[0];
+            await acquireDirectorStream();
+            const newTrack = dirStreamRef.current?.getAudioTracks()[0];
             if (!newTrack) return;
             
             const conns = Object.values(peerRef.current?.connections||{}).flat();
@@ -710,7 +606,7 @@
         };
 
         const toggleMicMute = () => {
-            const tracks = audioStreamRef.current?.getAudioTracks()||[];
+            const tracks = dirStreamRef.current?.getAudioTracks()||[];
             if (!tracks.length) return;
             tracks[0].enabled = !tracks[0].enabled;
             setMicMuted(!tracks[0].enabled);
@@ -758,25 +654,11 @@
                         📡 StreamCall PRO
                     </h2>
 
-                    {/* Preview de cámara del Director */}
-                    <div className={`director-self-preview ${returnEnabled?'active':'disabled'}`}>
+                    {/* NUEVO: Preview de cámara del Director */}
+                    <div className="director-self-preview">
                         <video ref={selfVideoRef} autoPlay playsInline muted />
-                        <div className="preview-label">🎥 TU CÁMARA</div>
-                        <div className={`status-badge ${returnEnabled?'active':'inactive'}`}>
-                            {returnEnabled?'ENVIANDO':'APAGADA'}
-                        </div>
+                        <div className="preview-label">🎥 TU CÁMARA (Retorno)</div>
                     </div>
-
-                    {/* NUEVO: Botón para activar/desactivar retorno de video */}
-                    <button 
-                        className={`btn ${returnEnabled?'btn-rose':'btn-emerald'}`} 
-                        onClick={toggleReturnVideo}
-                        disabled={!connected}
-                    >
-                        {returnEnabled ? '📹 Desactivar Retorno Video' : '📹 Activar Retorno Video'}
-                    </button>
-
-                    <div className="divider"/>
 
                     <label style={{color:'#a78bfa',fontSize:'0.75rem',marginBottom:'8px',display:'block',fontWeight:'bold'}}>🎙 Micrófono Retorno</label>
                     <select value={selectedAudio} onChange={e=>{
@@ -791,13 +673,14 @@
                         ))}
                     </select>
                     
+                    {/* NUEVO: Selector de cámara */}
                     <label style={{color:'#a78bfa',fontSize:'0.75rem',marginBottom:'8px',display:'block',fontWeight:'bold'}}>📷 Cámara Retorno</label>
                     <select value={selectedVideo} onChange={e=>{
                         setSelectedVideo(e.target.value);
                         Storage.save('sv',e.target.value);
                         selectedVRef.current=e.target.value;
-                        if(returnEnabled) changeVideo();
-                    }} disabled={!returnEnabled}>
+                        if(connected) changeVideo();
+                    }}>
                         <option value="">-- Seleccionar cámara --</option>
                         {videoDevices.map(d=>(
                             <option key={d.deviceId} value={d.deviceId}>{d.label||'Cámara'}</option>
@@ -808,7 +691,7 @@
                         <button className={`btn ${micMuted?'btn-rose':'btn-dark'}`} onClick={toggleMicMute} disabled={!connected} style={{flex:1}}>
                             {micMuted ? '🔇' : '🎤'}
                         </button>
-                        <button className={`btn ${camMuted?'btn-rose':'btn-blue'}`} onClick={toggleCamMute} disabled={!returnEnabled} style={{flex:1}}>
+                        <button className={`btn ${camMuted?'btn-rose':'btn-blue'}`} onClick={toggleCamMute} disabled={!connected} style={{flex:1}}>
                             {camMuted ? '📵' : '📹'}
                         </button>
                     </div>
@@ -850,7 +733,7 @@
     };
 
     /* ════════════════════════════════════════════════════════════
-       GUEST VIEW - RETORNO APARECE SOLO CUANDO HAY VIDEO
+       GUEST VIEW - CON CAMBIO DE CÁMARA CORREGIDO
        ════════════════════════════════════════════════════════════ */
     const GuestView = ({ roomName, pin }) => {
         const [joined,    setJoined]    = useState(false);
@@ -858,8 +741,7 @@
         const [tally,     setTally]     = useState('idle');
         const [micOff,    setMicOff]    = useState(false);
         const [camOff,    setCamOff]    = useState(false);
-        const [hasReturn, setHasReturn] = useState(false); // Solo true cuando hay video
-        const [hasAudioReturn, setHasAudioReturn] = useState(false);
+        const [hasReturn, setHasReturn] = useState(false);
         const [pinIn,     setPinIn]     = useState('');
         const [needsPin,  setNeedsPin]  = useState(!!pin);
         const [camera,    setCamera]    = useState(Storage.load('cm','user'));
@@ -907,10 +789,12 @@
             };
         },[joined]);
 
+        // CORREGIDO: Función para obtener stream con facingMode específico
         const getStreamWithFacingMode = async (facingMode) => {
             const res = {'360':[640,360],'720':[1280,720],'1080':[1920,1080]};
             const [w,h] = res[quality] || res['720'];
             
+            // Primero intentar con facingMode exacto
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
@@ -922,6 +806,7 @@
                 });
                 return stream;
             } catch (e) {
+                // Si falla (ej: no hay cámara trasera), intentar con ideal
                 Logger.warn('getStream', `facingMode exact ${facingMode} falló, intentando ideal`);
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { 
@@ -935,11 +820,15 @@
             }
         };
 
+        // CORREGIDO: Cambiar cámara reiniciando todo el stream
         const switchCamera = async () => {
             try {
                 const newFacingMode = camera === 'user' ? 'environment' : 'user';
+                
+                // Detener stream actual
                 localStreamRef.current?.getTracks().forEach(t => t.stop());
                 
+                // Obtener nuevo stream con facingMode
                 const newStream = await getStreamWithFacingMode(newFacingMode);
                 
                 if (abortRef.current) {
@@ -949,10 +838,12 @@
                 
                 localStreamRef.current = newStream;
                 
+                // Actualizar video local
                 if (localVideoRef.current) {
                     localVideoRef.current.srcObject = newStream;
                 }
                 
+                // CORREGIDO: Reemplazar tracks en TODAS las conexiones activas
                 if (peerRef.current) {
                     const allConnections = Object.values(peerRef.current.connections || {}).flat();
                     
@@ -962,6 +853,7 @@
                         
                         const senders = pc.getSenders();
                         
+                        // Reemplazar video
                         const videoTrack = newStream.getVideoTracks()[0];
                         const videoSender = senders.find(s => s.track?.kind === 'video');
                         if (videoSender && videoTrack) {
@@ -969,6 +861,7 @@
                             Logger.info('switchCamera', 'video track reemplazado');
                         }
                         
+                        // Reemplazar audio
                         const audioTrack = newStream.getAudioTracks()[0];
                         const audioSender = senders.find(s => s.track?.kind === 'audio');
                         if (audioSender && audioTrack) {
@@ -977,6 +870,7 @@
                     }
                 }
                 
+                // Guardar y actualizar estado
                 setCamera(newFacingMode);
                 Storage.save('cm', newFacingMode);
                 Logger.info('switchCamera', `cambiado a ${newFacingMode}`);
@@ -989,6 +883,7 @@
 
         const init_guest = async ()=>{
             try {
+                // Obtener lista de cámaras disponibles
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevs = devices.filter(d => d.kind === 'videoinput');
                 setCameras(videoDevs);
@@ -1008,6 +903,7 @@
                 });
                 mqttRef.current.on('error',e=>Logger.warn('MQTT-guest',e.message));
 
+                // CORREGIDO: Usar getStreamWithFacingMode
                 const stream = await getStreamWithFacingMode(camera);
 
                 if(abortRef.current){ stream.getTracks().forEach(t=>t.stop()); return; }
@@ -1032,30 +928,18 @@
                     );
                     outCallRef.current = outCall;
 
-                    // CORREGIDO: Detectar si hay video o solo audio en el retorno
                     outCall.on('stream', returnStream => {
-                        const videoTracks = returnStream.getVideoTracks();
-                        const audioTracks = returnStream.getAudioTracks();
-                        
-                        Logger.info('Guest-return', `tracks - video: ${videoTracks.length}, audio: ${audioTracks.length}`);
+                        Logger.info('Guest-return','stream recibido, tracks:'+returnStream.getTracks().length);
 
-                        // Siempre reproducir audio si existe
-                        if(audioTracks.length > 0 && returnAudioRef.current){
-                            returnAudioRef.current.srcObject=returnStream;
-                            returnAudioRef.current.play().catch(()=>{});
-                            setHasAudioReturn(true);
-                        }
-                        
-                        // Solo mostrar video si hay tracks de video activos
-                        if(videoTracks.length > 0 && returnVideoRef.current){
+                        if(returnVideoRef.current){
                             returnVideoRef.current.srcObject=returnStream;
                             returnVideoRef.current.play().catch(()=>{});
-                            setHasReturn(true); // Esto activa el PiP
-                            Logger.info('Guest-return', 'VIDEO detectado - mostrando PiP');
-                        } else {
-                            setHasReturn(false);
-                            Logger.info('Guest-return', 'Solo AUDIO - PiP oculto');
                         }
+                        if(returnAudioRef.current){
+                            returnAudioRef.current.srcObject=returnStream;
+                            returnAudioRef.current.play().catch(()=>{});
+                        }
+                        setHasReturn(true);
                     });
 
                     outCall.on('error', e=>{
@@ -1064,7 +948,6 @@
                     });
                     outCall.on('close',()=>{ 
                         setHasReturn(false); 
-                        setHasAudioReturn(false);
                         setConnState('disconnected');
                         Logger.warn('OutCall','closed'); 
                     });
@@ -1138,6 +1021,7 @@
                         <option value="1080">1080p — Alta</option>
                     </select>
                     
+                    {/* NUEVO: Mostrar cámaras disponibles */}
                     <label style={{fontSize:'0.75rem',color:'#a1a1a1',display:'block',marginBottom:8,fontWeight:'bold'}}>Cámara inicial</label>
                     <select value={camera} onChange={e=>{setCamera(e.target.value);Storage.save('cm',e.target.value);}}>
                         <option value="user">Frontal (Selfie)</option>
@@ -1158,19 +1042,12 @@
                     {tally==='live'?<>🔴 AL AIRE</>:<>⚠️ PREVIO</>}
                 </div>
 
-                {/* CORREGIDO: PiP solo aparece cuando hasReturn es true */}
                 <div className={`return-pip ${hasReturn?'active':''}`}>
                     <video ref={returnVideoRef} autoPlay playsInline muted style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                    <div className="pip-label">📺 Director</div>
+                    <audio ref={returnAudioRef} autoPlay playsInline style={{display:'none'}}/>
+                    <div className="pip-icon">🎧</div>
+                    <div className="pip-label">📺 Retorno</div>
                 </div>
-
-                {/* Mensaje cuando no hay retorno de video */}
-                <div className={`no-return-msg ${hasReturn?'hidden':''}`}>
-                    🔇 Esperando retorno del Director...
-                </div>
-
-                {/* Audio del retorno (siempre activo si existe) */}
-                <audio ref={returnAudioRef} autoPlay playsInline style={{display:'none'}}/>
 
                 <video ref={localVideoRef} className="guest-video" muted autoPlay playsInline/>
 
@@ -1195,6 +1072,7 @@
                         {camOff?'📵':'📹'}
                     </div>
                     
+                    {/* CORREGIDO: Botón de cambiar cámara usa switchCamera */}
                     <div className="mic-btn" title={`Cambiar a cámara ${camera==='user'?'trasera':'frontal'}`}
                         onClick={switchCamera}>
                         🔄
@@ -1257,7 +1135,7 @@
                     <h1 style={{fontSize:'2rem',fontWeight:800,marginBottom:4,textTransform:'uppercase',background:'linear-gradient(135deg,#a78bfa,#d8b4fe)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',textAlign:'center'}}>
                         StreamCall PRO
                     </h1>
-                    <p style={{color:'#52525b',textAlign:'center',marginBottom:28,fontSize:'0.8rem'}}>v10.3 — Retorno Controlado</p>
+                    <p style={{color:'#52525b',textAlign:'center',marginBottom:28,fontSize:'0.8rem'}}>v10.2 — Cámara Retorno + Switch</p>
                     <label style={{fontSize:'0.75rem',color:'#a1a1a1',display:'block',marginBottom:8,fontWeight:'bold'}}>ID de Sala</label>
                     <input value={room} onChange={e=>setRoom(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} placeholder="SALA" maxLength="20"/>
                     <label style={{fontSize:'0.75rem',color:'#a1a1a1',display:'block',marginBottom:8,fontWeight:'bold'}}>PIN (opcional)</label>
