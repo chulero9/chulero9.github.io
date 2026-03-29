@@ -431,6 +431,12 @@
                     selfVideoRef.current.play().catch(()=>{});
                 }
                 
+                // MANTENER ESTADO: Aplicar mute a los nuevos tracks si el usuario estaba muteado
+                const vt = dirStreamRef.current.getVideoTracks()[0];
+                if (vt) vt.enabled = !camMuted;
+                const at = dirStreamRef.current.getAudioTracks()[0];
+                if (at) at.enabled = !micMuted;
+                
                 Logger.info('DirStream', 'adquirido - audio:' + dirStreamRef.current.getAudioTracks().length + ' video:' + dirStreamRef.current.getVideoTracks().length);
             } catch(e) {
                 Logger.warn('DirStream', e.message);
@@ -841,6 +847,12 @@
                 if (localVideoRef.current) {
                     localVideoRef.current.srcObject = newStream;
                 }
+                
+                // MANTENER ESTADO: Aplicar el estado de mute actual a los nuevos tracks obtenidos
+                const newVideoTrackFallback = newStream.getVideoTracks()[0];
+                if (newVideoTrackFallback) newVideoTrackFallback.enabled = !camOff;
+                const newAudioTrackFallback = newStream.getAudioTracks()[0];
+                if (newAudioTrackFallback) newAudioTrackFallback.enabled = !micOff;
                 
                 // CORREGIDO: Reemplazar tracks en TODAS las conexiones activas
                 if (peerRef.current) {
