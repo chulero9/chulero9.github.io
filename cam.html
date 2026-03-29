@@ -232,35 +232,6 @@
             border-left-color: #e5e7eb;
         }
 
-        /* NUEVO: Preview de cámara del Director */
-        .director-self-preview {
-            width: 100%;
-            aspect-ratio: 16/9;
-            background: #18181b;
-            border-radius: 12px;
-            overflow: hidden;
-            margin-bottom: 15px;
-            border: 2px solid #3f3f46;
-            position: relative;
-        }
-
-        .director-self-preview video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .director-self-preview .preview-label {
-            position: absolute;
-            bottom: 8px;
-            left: 8px;
-            background: rgba(139, 92, 246, 0.9);
-            color: white;
-            font-size: 0.7rem;
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-weight: bold;
-        }
 
         .tally-grid {
             display: grid;
@@ -674,6 +645,7 @@
                 width: 350px;
             }
         }
+
         .multicam-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -694,7 +666,7 @@
             aspect-ratio: 16/9;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         }
 
         .guest-card video {
@@ -706,19 +678,50 @@
 
         .guest-card-overlay {
             position: absolute;
-            bottom: 0; left: 0; right: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
             padding: 20px 15px 15px 15px;
-            background: linear-gradient(transparent, rgba(0,0,0,0.9));
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
         }
 
-        .guest-id { font-size: 0.8rem; font-weight: bold; color: #fff; background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; }
-        .guest-actions { display: flex; gap: 8px; }
-        .gc-btn { background: #3f3f46; color: white; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 1rem; transition: background 0.2s; }
-        .gc-btn:hover { background: #52525b; }
-        .gc-btn.recording { background: #e11d48; color: white; animation: pulseRose 2s infinite; }
+        .guest-id {
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        .guest-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .gc-btn {
+            background: #3f3f46;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+
+        .gc-btn:hover {
+            background: #52525b;
+        }
+
+        .gc-btn.recording {
+            background: #e11d48;
+            color: white;
+            animation: pulseRose 2s infinite;
+        }
 
         .teleprompter-overlay {
             position: absolute;
@@ -734,7 +737,7 @@
             text-align: center;
             z-index: 9999;
             pointer-events: none;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
             border: 2px solid rgba(252, 211, 77, 0.4);
             animation: fadeInOut 7s forwards;
             max-width: 90%;
@@ -743,10 +746,25 @@
         }
 
         @keyframes fadeInOut {
-            0% { opacity: 0; transform: translate(-50%, 20px) scale(0.9); }
-            10% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-            90% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-            100% { opacity: 0; transform: translate(-50%, -20px) scale(0.9); }
+            0% {
+                opacity: 0;
+                transform: translate(-50%, 20px) scale(0.9);
+            }
+
+            10% {
+                opacity: 1;
+                transform: translate(-50%, 0) scale(1);
+            }
+
+            90% {
+                opacity: 1;
+                transform: translate(-50%, 0) scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -20px) scale(0.9);
+            }
         }
 
         .idle-hide {
@@ -787,13 +805,7 @@
             logs: [],
             info: (e, d) => { Logger.logs.push({ level: 'info', event: e, data: String(d), ts: Date.now() }); console.log(`[INFO] ${e}:`, d); },
             error: (e, d) => { Logger.logs.push({ level: 'error', event: e, data: String(d), ts: Date.now() }); console.error(`[ERROR] ${e}:`, d); },
-            warn: (e, d) => { Logger.logs.push({ level: 'warn', event: e, data: String(d), ts: Date.now() }); console.warn(`[WARN] ${e}:`, d); },
-            export: () => {
-                const blob = new Blob([JSON.stringify(Logger.logs, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                Object.assign(document.createElement('a'), { href: url, download: `sc-logs-${Date.now()}.json` }).click();
-                URL.revokeObjectURL(url);
-            }
+            warn: (e, d) => { Logger.logs.push({ level: 'warn', event: e, data: String(d), ts: Date.now() }); console.warn(`[WARN] ${e}:`, d); }
         };
 
         const Storage = {
@@ -933,15 +945,15 @@
                     </div>
                 );
             }
-            let color = '#ef4444'; 
-            if (ping > 0 && ping < 150) color = '#10b981'; 
-            else if (ping > 0 && ping < 400) color = '#f59e0b'; 
+            let color = '#ef4444';
+            if (ping > 0 && ping < 150) color = '#10b981';
+            else if (ping > 0 && ping < 400) color = '#f59e0b';
             return (
                 <div className="connection-status" style={{ background: 'rgba(0,0,0,0.6)', color }}>
                     <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 14, paddingBottom: 2 }}>
-                        <div style={{ width: 4, height: 6, background: color, borderRadius: 2 }}/>
-                        <div style={{ width: 4, height: 10, background: ping < 400 && ping > 0 ? color : '#52525b', borderRadius: 2 }}/>
-                        <div style={{ width: 4, height: 14, background: ping < 150 && ping > 0 ? color : '#52525b', borderRadius: 2 }}/>
+                        <div style={{ width: 4, height: 6, background: color, borderRadius: 2 }} />
+                        <div style={{ width: 4, height: 10, background: ping < 400 && ping > 0 ? color : '#52525b', borderRadius: 2 }} />
+                        <div style={{ width: 4, height: 14, background: ping < 150 && ping > 0 ? color : '#52525b', borderRadius: 2 }} />
                     </div>
                     <span>{ping > 0 ? `${ping}ms` : 'Al Aire'}</span>
                 </div>
@@ -957,7 +969,7 @@
 
             useEffect(() => {
                 if (!recorderRef.current) recorderRef.current = createVideoRecorder();
-                
+
                 const pt = setInterval(() => {
                     const pc = guest.call?.peerConnection;
                     if (pc) {
@@ -976,11 +988,11 @@
             useEffect(() => {
                 if (videoRef.current && guest.stream) {
                     videoRef.current.srcObject = guest.stream;
-                    videoRef.current.play().catch(() => {});
+                    videoRef.current.play().catch(() => { });
                 }
                 if (audioRef.current && guest.stream) {
                     audioRef.current.srcObject = guest.stream;
-                    audioRef.current.play().catch(() => {});
+                    audioRef.current.play().catch(() => { });
                 }
             }, [guest.stream]);
 
@@ -1009,8 +1021,8 @@
                     {!isObsMode && (
                         <div className="guest-card-overlay">
                             <div className="guest-id">
-                                <ConnectionStatus state={guest.connState} ping={ping} /> 
-                                <span style={{display: 'block', marginLeft: '30px', marginTop: '4px'}}>{guest.id.substring(0, 10)}</span>
+                                <ConnectionStatus state={guest.connState} ping={ping} />
+                                <span style={{ display: 'block', marginLeft: '30px', marginTop: '4px' }}>{guest.id.substring(0, 10)}</span>
                             </div>
                             <div className="guest-actions">
                                 <button className="gc-btn" onClick={captureSnapshot} title="Tomar Foto">📸</button>
@@ -1043,7 +1055,6 @@
 
             const connected = guests.length > 0;
             const peerRef = useRef(null);
-            const selfVideoRef = useRef(null);
             const mqttRef = useRef(null);
             const dirStreamRef = useRef(null);
             const timerStats = useRef(null);
@@ -1086,11 +1097,6 @@
                     };
 
                     dirStreamRef.current = await navigator.mediaDevices.getUserMedia(constraints);
-
-                    if (selfVideoRef.current) {
-                        selfVideoRef.current.srcObject = dirStreamRef.current;
-                        selfVideoRef.current.play().catch(() => { });
-                    }
 
                     const vt = dirStreamRef.current.getVideoTracks()[0];
                     if (vt) vt.enabled = !camMuted;
@@ -1232,10 +1238,10 @@
                     if (!pc) continue;
                     const newVideoTrack = newStream.getVideoTracks()[0];
                     const videoSender = pc.getSenders().find(s => s.track?.kind === 'video');
-                    if (videoSender && newVideoTrack) videoSender.replaceTrack(newVideoTrack).catch(() => {});
+                    if (videoSender && newVideoTrack) videoSender.replaceTrack(newVideoTrack).catch(() => { });
                     const newAudioTrack = newStream.getAudioTracks()[0];
                     const audioSender = pc.getSenders().find(s => s.track?.kind === 'audio');
-                    if (audioSender && newAudioTrack) audioSender.replaceTrack(newAudioTrack).catch(() => {});
+                    if (audioSender && newAudioTrack) audioSender.replaceTrack(newAudioTrack).catch(() => { });
                 }
             };
 
@@ -1246,7 +1252,7 @@
                 const conns = Object.values(peerRef.current?.connections || {}).flat();
                 for (const conn of conns) {
                     const sender = conn.peerConnection?.getSenders().find(s => s.track?.kind === 'audio');
-                    if (sender) sender.replaceTrack(newTrack).catch(() => {});
+                    if (sender) sender.replaceTrack(newTrack).catch(() => { });
                 }
             };
 
@@ -1275,14 +1281,14 @@
             };
 
             const sendPrompter = () => {
-                if(!prompterMsg.trim()) return;
+                if (!prompterMsg.trim()) return;
                 mqttRef.current?.publish(`sc_prompter/${roomName}`, JSON.stringify({ msg: prompterMsg }));
                 setPrompterMsg('');
                 toast('Mensaje enviado al Guest');
             };
 
             const forceQuality = () => {
-                if(window.confirm('¿Forzar a todos los Guests a bajar su calidad a 360p para estabilizar la red?')) {
+                if (window.confirm('¿Forzar a todos los Guests a bajar su calidad a 360p para estabilizar la red?')) {
                     mqttRef.current?.publish(`sc_cmd/${roomName}`, JSON.stringify({ cmd: 'force_quality', q: '360' }));
                     toast('Comando de reducción de calidad enviado');
                 }
@@ -1297,11 +1303,11 @@
             if (isObsMode) return (
                 <div className="obs-layout">
                     {guests.length === 0 ? (
-                       <div className="obs-status"><div className="loader" /> {status}</div>
+                        <div className="obs-status"><div className="loader" /> {status}</div>
                     ) : (
-                       <div className="multicam-grid">
-                           {guests.map(g => <GuestCard key={g.id} guest={g} isObsMode={true} />)}
-                       </div>
+                        <div className="multicam-grid">
+                            {guests.map(g => <GuestCard key={g.id} guest={g} isObsMode={true} />)}
+                        </div>
                     )}
                     {err && <div className="error-toast">{err}</div>}
                 </div>
@@ -1350,7 +1356,7 @@
                         </select>
 
                         <div style={{ display: 'flex', gap: '10px' }}>
-                            <button className={`btn ${micMuted ? 'btn-rose' : 'btn-emerald'}`} 
+                            <button className={`btn ${micMuted ? 'btn-rose' : 'btn-emerald'}`}
                                 onPointerDown={(e) => { e.preventDefault(); if (micMuted) toggleMicMute(true); }}
                                 onPointerUp={(e) => { e.preventDefault(); if (!micMuted) toggleMicMute(false); }}
                                 onPointerLeave={(e) => { e.preventDefault(); if (!micMuted) toggleMicMute(false); }}
@@ -1369,15 +1375,15 @@
                         <div className="divider" />
 
                         <label style={{ color: '#a1a1a1', fontSize: '0.75rem', marginBottom: '8px', display: 'block', fontWeight: 'bold' }}>📝 Teleprompter a Guests</label>
-                        <div style={{display: 'flex', gap: 5}}>
-                            <input value={prompterMsg} onChange={e => setPrompterMsg(e.target.value)} placeholder="Mensaje rápido..." style={{flex: 1}} />
-                            <button className="btn btn-violet" onClick={sendPrompter} style={{width: 'auto', marginBottom: 0}}>Enviar</button>
+                        <div style={{ display: 'flex', gap: 5 }}>
+                            <input value={prompterMsg} onChange={e => setPrompterMsg(e.target.value)} placeholder="Mensaje rápido..." style={{ flex: 1 }} />
+                            <button className="btn btn-violet" onClick={sendPrompter} style={{ width: 'auto', marginBottom: 0 }}>Enviar</button>
                         </div>
 
                         <div className="divider" />
 
                         <label style={{ color: '#a1a1a1', fontSize: '0.75rem', marginBottom: '8px', display: 'block', fontWeight: 'bold' }}>⚡ Rendimiento</label>
-                        <button className="btn btn-rose" onClick={forceQuality} style={{fontSize: '0.8rem'}}>🔻 Forzar Baja Calidad (360p)</button>
+                        <button className="btn btn-rose" onClick={forceQuality} style={{ fontSize: '0.8rem' }}>🔻 Forzar Baja Calidad (360p)</button>
 
                         <div className="divider" />
 
@@ -1415,8 +1421,6 @@
             const [dirCamMuted, setDirCamMuted] = useState(true);
             const [dirMicMuted, setDirMicMuted] = useState(true);
             const [camera, setCamera] = useState(Storage.load('cm', 'user'));
-            const [rec, setRec] = useState(false);
-            const [remoteRec, setRemoteRec] = useState(false);
             const [prompterText, setPrompterText] = useState('');
             const [idle, setIdle] = useState(false);
             const [pipPos, setPipPos] = useState({ x: 20, y: 20 });
@@ -1433,12 +1437,9 @@
             const localStreamRef = useRef(null);
             const timerStats = useRef(null);
             const idleTimer = useRef(null);
-            const recRef = useRef(false);
             const abortRef = useRef(false);
             const outCallRef = useRef(null);
             const dragInfo = useRef({ isDragging: false, startX: 0, startY: 0, initX: 0, initY: 0 });
-
-            useEffect(() => { recRef.current = rec; }, [rec]);
 
             useEffect(() => {
                 const resetIdle = () => {
@@ -1462,7 +1463,6 @@
                 init_guest();
 
                 const handleBeforeUnload = () => {
-                    if (recRef.current) RecordingService?.stop?.();
                     localStreamRef.current?.getTracks().forEach(t => t.stop());
                     peerRef.current?.destroy();
                     mqttRef.current?.end();
@@ -1474,7 +1474,6 @@
                     abortRef.current = true;
                     clearInterval(timerStats.current);
                     try {
-                        if (recRef.current) RecordingService?.stop?.();
                         localStreamRef.current?.getTracks().forEach(t => t.stop());
                         peerRef.current?.destroy();
                         mqttRef.current?.end();
@@ -1523,7 +1522,7 @@
                     const targetQ = forceQuality || quality;
                     localStreamRef.current?.getTracks().forEach(t => t.stop());
                     const newStream = await getStreamWithFacingMode(newFacingMode, targetQ);
-                    
+
                     if (abortRef.current) {
                         newStream.getTracks().forEach(t => t.stop());
                         return;
@@ -1545,10 +1544,10 @@
                             const senders = pc.getSenders();
                             const videoTrack = newStream.getVideoTracks()[0];
                             const videoSender = senders.find(s => s.track?.kind === 'video');
-                            if (videoSender && videoTrack) await videoSender.replaceTrack(videoTrack).catch(()=>{});
+                            if (videoSender && videoTrack) await videoSender.replaceTrack(videoTrack).catch(() => { });
                             const audioTrack = newStream.getAudioTracks()[0];
                             const audioSender = senders.find(s => s.track?.kind === 'audio');
-                            if (audioSender && audioTrack) await audioSender.replaceTrack(audioTrack).catch(()=>{});
+                            if (audioSender && audioTrack) await audioSender.replaceTrack(audioTrack).catch(() => { });
                         }
                     }
 
@@ -1581,19 +1580,19 @@
                         mqttRef.current.subscribe(`sc_return/${roomName}`);
                         mqttRef.current.subscribe(`sc_prompter/${roomName}`);
                         mqttRef.current.subscribe(`sc_cmd/${roomName}`);
-                        
+
                         mqttRef.current.on('message', (_, payload) => {
                             try {
                                 const topic = _.toString();
                                 const d = JSON.parse(payload.toString());
-                                
+
                                 if (topic.includes('sc_prompter') && d.msg) {
                                     setPrompterText(d.msg);
                                     // Limpiar animacion despues de 7 segundos
                                     setTimeout(() => setPrompterText(''), 7000);
                                 }
                                 else if (topic.includes('sc_cmd') && d.cmd === 'force_quality') {
-                                    if(quality !== '360') {
+                                    if (quality !== '360') {
                                         setQuality('360'); Storage.save('pq', '360');
                                         switchCamera('360');
                                         toast('Reduciendo formato a 360p para estabilizar red...');
@@ -1601,7 +1600,6 @@
                                 }
                                 else {
                                     if (d.state) setTally(d.state);
-                                    if (d.recording !== undefined) setRemoteRec(d.recording);
                                     if (d.camMuted !== undefined) setDirCamMuted(d.camMuted);
                                     if (d.micMuted !== undefined) setDirMicMuted(d.micMuted);
                                 }
@@ -1620,7 +1618,7 @@
                     }
 
                     const safeRoom = roomName.replace(/[^a-zA-Z0-9]/g, '');
-                    peerRef.current = new Peer(`guest_${safeRoom}_${Date.now().toString(36).substr(2,4)}`, CONFIG.PEER_CONFIG);
+                    peerRef.current = new Peer(`guest_${safeRoom}_${Date.now().toString(36).substr(2, 4)}`, CONFIG.PEER_CONFIG);
 
                     peerRef.current.on('open', () => {
                         if (abortRef.current) return;
@@ -1672,7 +1670,7 @@
                         const pc = conns[0]?.[0]?.peerConnection;
                         if (pc) {
                             applyBitrate(pc, quality);
-                            
+
                             pc.getStats().then(s => {
                                 s.forEach(r => {
                                     if (r.type === 'candidate-pair' && r.state === 'succeeded') {
@@ -1751,24 +1749,25 @@
 
             return (
                 <div className={`guest-layout tally-${tally}`}>
+                    <div className="guest-tally-border" />
                     <div className={`guest-ui-wrapper ${idle ? 'idle-hide' : ''}`}>
                         <ConnectionStatus state={connState} ping={ping} />
                         <div className="big-tally-text">
-                            {tally === 'live' ? ( <><span style={{ fontSize: '0.9rem' }}>🔴</span> AL AIRE</>
-                        ) : (
-                            <><span style={{ fontSize: '0.9rem' }}>⚠️</span> PREVENIDO</>)}
+                            {tally === 'live' ? (<><span style={{ fontSize: '0.9rem' }}>🔴</span> AL AIRE</>
+                            ) : (
+                                <><span style={{ fontSize: '0.9rem' }}>⚠️</span> PREVENIDO</>)}
                         </div>
                     </div>
 
-                    <div className="guest-tally-border" />
-                    
+
+
                     {prompterText && (
                         <div className="teleprompter-overlay">
                             {prompterText}
                         </div>
                     )}
 
-                    <div 
+                    <div
                         className={`return-pip ${hasReturn && !dirCamMuted ? 'active' : ''}`}
                         style={{ top: Math.max(0, pipPos.y), left: Math.max(0, pipPos.x), cursor: 'grab', touchAction: 'none' }}
                         onPointerDown={onPipPointerDown} onPointerMove={onPipPointerMove} onPointerUp={onPipPointerUp} onPointerCancel={onPipPointerUp}
