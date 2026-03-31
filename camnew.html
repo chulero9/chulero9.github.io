@@ -1314,9 +1314,9 @@
             };
 
             const forceQuality = () => {
-                if (window.confirm('¿Forzar a todos los Guests a bajar su calidad a 360p para estabilizar la red?')) {
-                    mqttRef.current?.publish(`sc_cmd/${roomName}`, JSON.stringify({ cmd: 'force_quality', q: '360' }));
-                    toast('Comando de reducción de calidad enviado');
+                if (window.confirm('¿Forzar a todos los Guests a estabilizar su calidad a 720p?')) {
+                    mqttRef.current?.publish(`sc_cmd/${roomName}`, JSON.stringify({ cmd: 'force_quality', q: '720' }));
+                    toast('Comando de ajuste de calidad enviado');
                 }
             };
 
@@ -1409,7 +1409,7 @@
                         <div className="divider" />
 
                         <label style={{ color: '#a1a1a1', fontSize: '0.75rem', marginBottom: '8px', display: 'block', fontWeight: 'bold' }}>⚡ Rendimiento</label>
-                        <button className="btn btn-rose" onClick={forceQuality} style={{ fontSize: '0.8rem' }}>🔻 Forzar Baja Calidad (360p)</button>
+                        <button className="btn btn-rose" onClick={forceQuality} style={{ fontSize: '0.8rem' }}>🔻 Forzar Calidad (720p)</button>
 
                         <div className="divider" />
 
@@ -1641,10 +1641,10 @@
                                     prompterTimer.current = setTimeout(() => setPrompterText(''), 7000);
                                 }
                                 else if (topic.includes('sc_cmd') && d.cmd === 'force_quality') {
-                                    if (quality !== '360') {
-                                        setQuality('360'); Storage.save('pq', '360');
-                                        switchCamera('360');
-                                        toast('Reduciendo formato a 360p para estabilizar red...');
+                                    if (quality !== '720') {
+                                        setQuality('720'); Storage.save('pq', '720');
+                                        switchCamera('720');
+                                        toast('Estabilizando formato a 720p...');
                                     }
                                 }
                                 else if (topic.includes('sc_cmd') && d.cmd === 'refresh_calls') {
