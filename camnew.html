@@ -1157,17 +1157,27 @@
 
                         await acquireDirectorStream();
 
-                        mqttRef.current = window.mqtt.connect(CONFIG.MQTT_BROKER, {
-                            clientId: `dir_${Date.now()}`,
-                            username: CONFIG.MQTT_USER,
-                            password: CONFIG.MQTT_PASS,
-                            clean: true
-                        });
+                    }
+
+                    mqttRef.current = window.mqtt.connect(CONFIG.MQTT_BROKER, {
+                        clientId: `${isObsMode ? 'obs' : 'dir'}_${Date.now()}`,
+                        username: CONFIG.MQTT_USER,
+                        password: CONFIG.MQTT_PASS,
+                        clean: true
+                    });
+                    
+                    if (!isObsMode) {
                         mqttRef.current.on('connect', () => {
                             mqttRef.current.publish(`sc_return/${roomName}`, JSON.stringify({ camMuted: true, micMuted: false }), { retain: true });
+                            mqttRef.current.publish(`sc_cmd/${roomName}`, JSON.stringify({ cmd: 'refresh_calls' }));
                         });
-                        mqttRef.current.on('error', e => Logger.warn('MQTT-dir', e.message));
+                    } else {
+                        mqttRef.current.on('connect', () => {
+                            mqttRef.current.publish(`sc_cmd/${roomName}`, JSON.stringify({ cmd: 'refresh_calls' }));
+                        });
                     }
+
+                    mqttRef.current.on('error', e => Logger.warn('MQTT-dir', e.message));
 
                     const myId = isObsMode ? `obs_${roomName.toUpperCase()}` : `dir_${roomName.toUpperCase()}`;
                     peerRef.current = new Peer(myId, CONFIG.PEER_CONFIG);
@@ -1636,6 +1646,24 @@
                                         switchCamera('360');
                                         toast('Reduciendo formato a 360p para estabilizar red...');
                                     }
+                                }
+                                else if (topic.includes('sc_cmd') && d.cmd === 'refresh_calls') {
+                                    if (abortRef.current || !peerRef.current || peerRef.current.destroyed || !localStreamRef.current) return;
+                                    const safeRoom = roomName.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                                    const newCall = peerRef.current.call(`dir_${safeRoom}`, localStreamRef.current);
+                                    if (newCall) {
+                                        outCallRef.current = newCall;
+                                        newCall.on('stream', returnStream => {
+                                            if (returnVideoRef.current) { returnVideoRef.current.srcObject = returnStream; returnVideoRef.current.play().catch(()=>{}); }
+                                            if (returnAudioRef.current) { returnAudioRef.current.srcObject = returnStream; returnAudioRef.current.play().catch(()=>{}); }
+                                            setHasReturn(true);
+                                        });
+                                        newCall.on('error', () => { setConnState('failed'); });
+                                        newCall.on('close', () => { setHasReturn(false); setConnState('disconnected'); });
+                                    }
+                                    const obsCall = peerRef.current.call(`obs_${safeRoom}`, localStreamRef.current);
+                                    obsCall?.on('error', () => { });
+                                    toast('El Director ha entrado. Sincronizando feed...');
                                 }
                                 else {
                                     if (d.state) setTally(d.state);
