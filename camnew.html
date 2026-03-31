@@ -1641,11 +1641,9 @@
                                     prompterTimer.current = setTimeout(() => setPrompterText(''), 7000);
                                 }
                                 else if (topic.includes('sc_cmd') && d.cmd === 'force_quality') {
-                                    if (quality !== '720') {
-                                        setQuality('720'); Storage.save('pq', '720');
-                                        switchCamera('720');
-                                        toast('Estabilizando formato a 720p...');
-                                    }
+                                    setQuality('720'); Storage.save('pq', '720');
+                                    switchCamera('720');
+                                    toast('El Director ha estabilizado tu formato a 720p', 'success');
                                 }
                                 else if (topic.includes('sc_cmd') && d.cmd === 'refresh_calls') {
                                     if (abortRef.current || !peerRef.current || peerRef.current.destroyed || !localStreamRef.current) return;
@@ -1817,8 +1815,7 @@
                         <p style={{ color: '#71717a', textAlign: 'center', marginBottom: 24, fontSize: '0.9rem' }}>Configura tu calidad antes de entrar</p>
                         <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: 8, fontWeight: 'bold' }}>Calidad de video</label>
                         <select value={quality} onChange={e => { setQuality(e.target.value); Storage.save('pq', e.target.value); }}>
-                            <option value="360">360p — Baja</option>
-                            <option value="720">720p — Media</option>
+                            <option value="720">720p — Standard</option>
                             <option value="1080">1080p — Alta</option>
                         </select>
 
