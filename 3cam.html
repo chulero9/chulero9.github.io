@@ -244,7 +244,7 @@
                             placeholder="EJ. ABCD"
                             className="w-full bg-slate-950 border border-slate-700 text-white p-4 rounded-xl text-lg text-center font-bold mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase tracking-widest placeholder-slate-600"
                         />
-                        
+
                         <label className="w-full text-left text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 pl-2">Número de Cámaras (Modulares)</label>
                         <select value={camCount} onChange={(e) => setCamCount(e.target.value)} className="w-full bg-slate-950 border border-slate-700 text-white p-4 rounded-xl text-lg text-center font-bold mb-8 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
                             <option value="1">1 CÁMARA (SINGLE)</option>
@@ -278,7 +278,7 @@
             // DVR State
             const getInitialRecordState = () => {
                 const s = {};
-                for(let i = 1; i <= cameraCount; i++) s[i] = false;
+                for (let i = 1; i <= cameraCount; i++) s[i] = false;
                 return s;
             };
             const [recordingState, setRecordingState] = useState(getInitialRecordState());
@@ -286,6 +286,7 @@
             const chunksRef = useRef({});
 
             const talkbackRef = useRef(false);
+            const ifbTimeoutRef = useRef(null);
             const peer = useRef(null);
             const mqttClient = useRef(null);
             const returnStreamRef = useRef(null);
@@ -355,6 +356,7 @@
                 if (recordingState[slotId]) {
                     recordersRef.current[slotId]?.stop();
                     setRecordingState(prev => ({ ...prev, [slotId]: false }));
+                    mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'DIRECTOR_REC', state: false }), { retain: true });
                 } else {
                     const stream = slots[slotId].stream;
                     if (!stream) { alert("No hay video para grabar en el CH " + slotId); return; }
@@ -377,6 +379,7 @@
                         recorder.start(1000);
                         recordersRef.current[slotId] = recorder;
                         setRecordingState(prev => ({ ...prev, [slotId]: true }));
+                        mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'DIRECTOR_REC', state: true }), { retain: true });
                     } catch (err) { alert("Error grabando: " + err.message); }
                 }
             };
@@ -392,7 +395,7 @@
             };
 
             const sendPrompterToAll = () => {
-                Array.from({length: cameraCount}, (_, i) => i + 1).forEach(slotId => mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'PROMPTER', value: globalPrompter }), { retain: true }));
+                Array.from({ length: cameraCount }, (_, i) => i + 1).forEach(slotId => mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'PROMPTER', value: globalPrompter }), { retain: true }));
                 alert('Mensaje enviado a todos los móviles conectados.');
             };
 
@@ -401,6 +404,7 @@
                     returnStreamRef.current?.getTracks().forEach(t => t.stop());
                     setTalkbackActive(false);
                     talkbackRef.current = false;
+                    if (ifbTimeoutRef.current) clearTimeout(ifbTimeoutRef.current);
                 } else {
                     try {
                         const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedAudio }, video: true });
@@ -409,12 +413,20 @@
                         talkbackRef.current = true;
 
                         let delay = 0;
-                        Array.from({length: cameraCount}, (_, i) => i + 1).forEach(slotId => {
+                        Array.from({ length: cameraCount }, (_, i) => i + 1).forEach(slotId => {
                             if (slots[slotId].connected) {
                                 setTimeout(() => { peer.current.call(`sc_guest_${roomName.toUpperCase()}_${slotId}`, s); }, delay);
                                 delay += 300;
                             }
                         });
+
+                        ifbTimeoutRef.current = setTimeout(() => {
+                            if (talkbackRef.current) {
+                                returnStreamRef.current?.getTracks().forEach(t => t.stop());
+                                setTalkbackActive(false);
+                                talkbackRef.current = false;
+                            }
+                        }, 10000); // 10 Segundos exactos de IFB auto-cerrado
                     } catch (e) { alert("Error retorno general"); }
                 }
             };
@@ -467,11 +479,11 @@
                     </header>
 
                     <main className={`flex-1 overflow-y-auto p-4 grid gap-6 align-content-center w-full mx-auto
-                        ${cameraCount === 1 ? 'grid-cols-1 max-w-5xl' : 
-                          cameraCount === 2 ? 'grid-cols-1 lg:grid-cols-2 max-w-7xl' : 
-                          cameraCount === 4 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2 max-w-[1700px]' : 
-                          'grid-cols-1 md:grid-cols-2 xl:grid-cols-3 max-w-full'}`}>
-                        {Array.from({length: cameraCount}, (_, i) => i + 1).map(slotId => (
+                        ${cameraCount === 1 ? 'grid-cols-1 max-w-5xl' :
+                            cameraCount === 2 ? 'grid-cols-1 lg:grid-cols-2 max-w-7xl' :
+                                cameraCount === 4 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2 max-w-[1700px]' :
+                                    'grid-cols-1 md:grid-cols-2 xl:grid-cols-3 max-w-full'}`}>
+                        {Array.from({ length: cameraCount }, (_, i) => i + 1).map(slotId => (
                             <div key={slotId} className={`glass-panel border-2 rounded-xl flex flex-col overflow-hidden relative min-h-[350px] transition-colors duration-300
                                 ${slots[slotId].tally === 'live' ? 'border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.2)]' :
                                     slots[slotId].tally === 'prev' ? 'border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.2)]' : 'border-slate-800'}`}>
@@ -530,6 +542,7 @@
             const [quality, setQuality] = useState('720');
             const [tally, setTally] = useState('idle');
             const [prompterText, setPrompterText] = useState('');
+            const [isDirectorRecording, setIsDirectorRecording] = useState(false);
             const [micMuted, setMicMuted] = useState(false);
             const [camOff, setCamOff] = useState(false);
             const [returnStream, setReturnStream] = useState(null);
@@ -661,7 +674,8 @@
                     if (t === mkTopic) {
                         try {
                             const data = JSON.parse(msg.toString());
-                            if (data.state !== undefined) setTally(data.state);
+                            if (data.type === 'DIRECTOR_REC') setIsDirectorRecording(data.state);
+                            else if (data.state !== undefined) setTally(data.state);
                             else if (data.type === 'TALLY') setTally(data.value);
                             else if (data.type === 'PROMPTER') setPrompterText(data.value);
                             else if (data.type === 'QUALITY') applyRemoteQuality(data.value);
@@ -780,6 +794,8 @@
                             {tally === 'live' ? 'AL AIRE' : 'PREVENIDO'}
                         </div>
                     )}
+
+                    {isDirectorRecording && <div className="absolute top-[90px] left-1/2 -translate-x-1/2 bg-red-600/90 border-2 border-red-400 text-white px-4 py-1.5 rounded-full font-black text-xs md:text-sm tracking-widest animate-pulse shadow-2xl shadow-red-500 z-[110] whitespace-nowrap">🔴 DIRECTOR REC</div>}
 
                     {prompterText && (
                         <div className="absolute top-28 left-1/2 -translate-x-1/2 w-11/12 max-w-[90%] bg-black/60 backdrop-blur-md border border-white/20 p-6 rounded-2xl z-[90] shadow-2xl transition-all duration-500 text-center pointer-events-none">
