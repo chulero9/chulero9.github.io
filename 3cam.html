@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StreamCall PRO</title>
+    
+    <!-- Librerías Externas -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+    
+    <!-- Tailwind (Generación en Vivo) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    animation: { 'pulse-red': 'pulseRed 2s infinite' },
+                    keyframes: {
+                        pulseRed: {
+                            '0%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0.4)' },
+                            '70%': { boxShadow: '0 0 0 10px rgba(239, 68, 68, 0)' },
+                            '100%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body { background-color: #050505; color: white; font-family: 'Inter', sans-serif; margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+        body.obs-mode { background-color: transparent !important; }
+
+        .btn { width: 100%; padding: 10px 16px; font-weight: 900; font-size: 0.875rem; border-radius: 8px; cursor: pointer; border: none; transition: 0.2s; text-transform: uppercase; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:hover { transform: scale(1.02); }
+        .btn:active { transform: scale(0.98); }
+        
+        .btn-blue { background: #3b82f6; color: white; box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39); }
+        .btn-blue:hover { background: #2563eb; }
+        .btn-green { background: #10b981; color: black; box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.39); }
+        .btn-red { background: #ef4444; color: white; box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.39); }
+        .btn-gray { background: #1e293b; color: white; border: 1px solid #334155; }
+        .btn-gray:hover { background: #334155; }
+
+        .glass-panel { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.5); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+    </style>
+</head>
+<body>
+    <div id="root" class="w-full h-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- GLOBAL CONFIGURATION --- //
+        // Se añaden servidores STUN redundantes y servidores TURN públicos gratuitos (OpenRelay Metered).
+        // El TURN es vital para garantizar conexión al 100% en redes NAT estrictas (4G/5G empresarial) y evitar fallos por cortafuegos.
+        const PEER_CONFIG = { 
+            config: { 
+                'iceServers': [
+                    { urls: 'stun:stun.l.google.com:19302' }, 
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' }, // Redundancia STUN
+                    { 
+                        urls: "turn:openrelay.metered.ca:80",  // Servidor TURN principal (TCP/UDP)
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    },
+                    { 
+                        urls: "turn:openrelay.metered.ca:443", // TURN por puerto seguro HTTPS (Pasa firewalls)
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    }
+                ] 
+            } 
+        };
+        const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+        const MQTT_TOPIC_PREFIX = 'sc_pro_v2_tally_sec_'; // Ofuscación de Tópico para mayor seguridad
+        
+        const getTallyTopic = (roomName, slotId) => `${MQTT_TOPIC_PREFIX}${roomName.toUpperCase()}/${slotId}`;
+
+        let sharedAudioCtx = null;
+        const getAudioContext = () => {
+            if (!sharedAudioCtx) sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+            return sharedAudioCtx;
+        };
+
+        // --- COMMON COMPONENTS --- //
+        const VideoPlayer = ({ stream, muted, className, style }) => {
+            const videoRef = useRef(null);
+            useEffect(() => {
+                if (videoRef.current && stream) {
+                    videoRef.current.srcObject = stream;
+                    const playPromise = videoRef.current.play();
+                    if (playPromise !== undefined) playPromise.catch(e => console.warn("Auto-play constraint", e));
+                }
+            }, [stream]);
+            return <video ref={videoRef} className={className} style={style} autoPlay playsInline muted={muted}></video>;
+        };
+
+        const VUMeter = ({ stream }) => {
+            const barRef = useRef(null);
+            useEffect(() => {
+                if (!stream || stream.getAudioTracks().length === 0) return;
+                let anim, source;
+                try {
+                    const ctx = getAudioContext();
+                    if (ctx.state === 'running') {
+                        const analyser = ctx.createAnalyser();
+                        source = ctx.createMediaStreamSource(stream);
+                        source.connect(analyser);
+                        const data = new Uint8Array(analyser.frequencyBinCount);
+                        
+                        const tick = () => {
+                            if (!stream.active) return;
+                            analyser.getByteFrequencyData(data);
+                            let sum = 0;
+                            for(let i = 0; i < data.length; i++) sum += data[i];
+                            const level = Math.min((sum / data.length) * 2.5, 100);
+                            if (barRef.current) barRef.current.style.width = level + '%';
+                            anim = requestAnimationFrame(tick);
+                        };
+                        tick();
+                    }
+                } catch(e) { console.error('AudioContext error', e); }
+                return () => { if (anim) cancelAnimationFrame(anim); if (source) source.disconnect(); };
+            }, [stream]);
+
+            return (
+                <div className="w-full h-1.5 bg-black border-t border-slate-700 relative z-20">
+                    <div ref={barRef} className="h-full w-0 transition-all duration-[50ms] ease-linear bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500"></div>
+                </div>
+            );
+        };
+
+        // --- LOBBY VIEW --- //
+        const Lobby = ({ initialRoom }) => {
+            const [room, setRoom] = useState(initialRoom || '');
+            const handleJoin = () => { if (room.trim()) window.location.href = `?mode=director&room=${room.toUpperCase()}`; };
+
+            return (
+                <div className="flex flex-col items-center justify-center h-full bg-slate-900 p-5 text-center">
+                    <div className="glass-panel p-10 rounded-2xl max-w-md w-full flex flex-col items-center">
+                        <div className="bg-blue-500/10 p-4 text-4xl mb-6 rounded-full ring-1 ring-blue-500/30">🎥</div>
+                        <h1 className="text-3xl font-black mb-2 uppercase tracking-tighter bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">StreamCall PRO</h1>
+                        <p className="text-slate-400 text-sm font-medium mb-8">Centro de Control de Broadcasting</p>
+
+                        <input 
+                            value={room} 
+                            onChange={(e) => setRoom(e.target.value.toUpperCase())} 
+                            placeholder="ID DE SALA (EJ. ABCD)" 
+                            className="w-full bg-slate-950 border border-slate-700 text-white p-4 rounded-xl text-lg text-center font-bold mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase tracking-widest placeholder-slate-600"
+                        />
+                        <button onClick={handleJoin} className="btn btn-blue py-4 text-lg w-full rounded-xl">⚙️ ABRIR DIRECTOR</button>
+                    </div>
+                    <div className="mt-8 text-xs text-slate-500 flex flex-col items-center gap-2"><span className="font-mono">v3.0 • Premium HTML Integrado</span></div>
+                </div>
+            );
+        };
+
+        // --- DIRECTOR VIEW --- //
+        const DirectorView = ({ roomName }) => {
+            const [slots, setSlots] = useState({
+                1: { connected: false, tally: 'idle', stream: null },
+                2: { connected: false, tally: 'idle', stream: null },
+                3: { connected: false, tally: 'idle', stream: null }
+            });
+            const [audioDevices, setAudioDevices] = useState([]);
+            const [selectedAudio, setSelectedAudio] = useState('');
+            const [talkbackActive, setTalkbackActive] = useState(false);
+            const [audioUnlocked, setAudioUnlocked] = useState(false);
+            const [globalPrompter, setGlobalPrompter] = useState('');
+
+            const talkbackRef = useRef(false);
+            const peer = useRef(null);
+            const mqttClient = useRef(null);
+            const returnStreamRef = useRef(null);
+
+            const initDirector = () => {
+                setAudioUnlocked(true);
+                getAudioContext(); // Desbloqueo interactivo (Policy)
+                mqttClient.current = mqtt.connect(MQTT_BROKER);
+                
+                navigator.mediaDevices.enumerateDevices().then(devs => {
+                    const audios = devs.filter(d => d.kind === 'audioinput');
+                    setAudioDevices(audios);
+                    if (audios.length > 0) setSelectedAudio(audios[0].deviceId);
+                });
+
+                peer.current = new Peer(`sc_dir_${roomName.toUpperCase()}`, PEER_CONFIG);
+
+                // Manejo Automático de Microcortes de Red (Signaling):
+                // Si el WebSocket se cae por cambio de red, se reinicializa sin recargar la página.
+                peer.current.on('disconnected', () => {
+                    console.warn(`[DIRECTOR] Desconectado del servidor Signaling. Reconectando transparentemente...`);
+                    if (!peer.current.destroyed) peer.current.reconnect();
+                });
+                peer.current.on('error', (err) => {
+                    console.error(`[DIRECTOR] Error en PeerJS:`, err.type, err);
+                    if (err.type === 'network' || err.type === 'disconnected') {
+                       setTimeout(() => { if (!peer.current.destroyed) peer.current.reconnect(); }, 2000);
+                    }
+                });
+
+                peer.current.on('call', (call) => {
+                    const match = call.peer.match(/_(\d+)$/);
+                    if (match) {
+                        const slotId = parseInt(match[1]);
+                        if (slotId >= 1 && slotId <= 3) {
+                            call.answer(); 
+                            call.on('stream', (stream) => {
+                                setSlots(prev => ({ ...prev, [slotId]: { ...prev[slotId], connected: true, stream: stream } }));
+                                if (talkbackRef.current && returnStreamRef.current) {
+                                    setTimeout(() => { peer.current.call(`sc_guest_${roomName.toUpperCase()}_${slotId}`, returnStreamRef.current); }, 1500);
+                                }
+                            });
+                            call.on('close', () => { setSlots(prev => ({ ...prev, [slotId]: { ...prev[slotId], connected: false, stream: null } })); });
+                        }
+                    }
+                });
+            };
+
+            useEffect(() => { return () => { peer.current?.destroy(); mqttClient.current?.end(); }; }, []);
+
+            const handleTally = (slotId, state) => {
+                setSlots(prev => ({ ...prev, [slotId]: { ...prev[slotId], tally: state } }));
+                mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'TALLY', value: state }), { retain: true });
+            };
+
+            const handleRemoteQuality = (slotId, q) => {
+                mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'QUALITY', value: q }), { retain: false });
+                alert(`Orden de cambio a ${q}p enviada al Móvil ${slotId}`);
+            };
+
+            const sendPrompterToAll = () => {
+                [1, 2, 3].forEach(slotId => mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'PROMPTER', value: globalPrompter }), { retain: true }));
+                alert('Mensaje enviado a todos los móviles conectados.');
+            };
+
+            const toggleReturnAll = async () => {
+                if (talkbackActive) {
+                    returnStreamRef.current?.getTracks().forEach(t => t.stop());
+                    setTalkbackActive(false);
+                    talkbackRef.current = false;
+                } else {
+                    try {
+                        const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedAudio }, video: true });
+                        returnStreamRef.current = s;
+                        setTalkbackActive(true);
+                        talkbackRef.current = true;
+                        
+                        let delay = 0;
+                        [1, 2, 3].forEach(slotId => {
+                            if (slots[slotId].connected) {
+                                setTimeout(() => { peer.current.call(`sc_guest_${roomName.toUpperCase()}_${slotId}`, s); }, delay);
+                                delay += 300;
+                            }
+                        });
+                    } catch (e) { alert("Error retorno general"); }
+                }
+            };
+
+            const copyLink = (mode, slotId) => {
+                const url = `${window.location.origin}${window.location.pathname}?mode=${mode}&room=${roomName}&slot=${slotId}`;
+                navigator.clipboard.writeText(url); 
+                alert(`Enlace ${mode.toUpperCase()} (Móvil ${slotId}) copiado.`);
+            };
+
+            if (!audioUnlocked) return (
+                <div className="flex items-center justify-center p-10 h-screen bg-slate-900">
+                    <div className="glass-panel p-10 rounded-2xl flex flex-col items-center">
+                        <h2 className="text-xl font-bold mb-4">Iniciar Emisión del Director</h2>
+                        <p className="text-slate-400 mb-8 text-center text-sm">Debes reaccionar a esta pantalla para encender el audio.</p>
+                        <button className="btn btn-blue py-3 px-8 text-lg rounded-xl" onClick={initDirector}>INICIAR SALA {roomName}</button>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="flex flex-col h-screen bg-slate-950">
+                    <header className="bg-slate-900 border-b border-slate-800 p-4 flex justify-between items-center shadow-md z-10 flex-wrap gap-4">
+                        <div>
+                            <h2 className="text-2xl font-black bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent uppercase tracking-tighter">StreamCall PRO</h2>
+                            <span className="inline-block mt-1 bg-blue-500/20 text-blue-400 text-xs py-1 px-2 rounded font-bold uppercase ring-1 ring-blue-500/50">Sala: {roomName.toUpperCase()}</span>
+                        </div>
+                        
+                        <div className="flex-1 flex gap-2 mx-4 max-w-xl hidden lg:flex">
+                            <input 
+                                value={globalPrompter} 
+                                onChange={e => setGlobalPrompter(e.target.value)}
+                                placeholder="Escribe un mensaje de Teleprompter / IFB..." 
+                                className="flex-1 bg-slate-950 border border-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder-slate-600"
+                            />
+                            <button onClick={sendPrompterToAll} className="btn-green !w-auto !px-6 py-2 font-black text-sm uppercase rounded-lg border-none flex-shrink-0">ENVIAR IFB</button>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row items-center gap-4">
+                            <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
+                                <span className="text-slate-400 mx-2 text-sm">🎤</span>
+                                <select value={selectedAudio} onChange={e => setSelectedAudio(e.target.value)} className="bg-transparent text-white text-sm outline-none w-40 cursor-pointer p-1">
+                                    {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId} className="bg-slate-900">{d.label || 'Mic. Predeterminado'}</option>)}
+                                </select>
+                            </div>
+                            <button className={`btn ${talkbackActive ? 'btn-red animate-pulse' : 'btn-blue'} !w-auto !px-6`} onClick={toggleReturnAll}>
+                                {talkbackActive ? '🔴 CORTAR IFB GLOBAL' : '▶️ IFB GLOBAL'}
+                            </button>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 align-content-center">
+                        {[1, 2, 3].map(slotId => (
+                            <div key={slotId} className={`glass-panel border-2 rounded-xl flex flex-col overflow-hidden relative min-h-[350px] transition-colors duration-300
+                                ${slots[slotId].tally === 'live' ? 'border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.2)]' : 
+                                slots[slotId].tally === 'prev' ? 'border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.2)]' : 'border-slate-800'}`}>
+                                
+                                <div className="flex-1 bg-black relative flex flex-col items-center justify-center overflow-hidden border-b border-slate-800">
+                                    {slots[slotId].stream ? (
+                                        <VideoPlayer stream={slots[slotId].stream} muted={true} className="w-full h-full object-contain absolute z-10" />
+                                    ) : (
+                                        <div className="absolute flex flex-col items-center justify-center text-slate-600 gap-3 z-0 animate-pulse">
+                                            <span className="text-4xl opacity-50">📱</span>
+                                            <span className="font-bold tracking-widest text-sm text-slate-500">ESPERANDO SEÑAL</span>
+                                        </div>
+                                    )}
+                                    <div className="absolute top-3 left-3 z-20 flex gap-2">
+                                        <span className={`text-[10px] font-black px-2 py-1 rounded bg-black/80 backdrop-blur-sm border 
+                                            ${slots[slotId].connected ? 'text-emerald-400 border-emerald-500/50' : 'text-red-400 border-red-500/50'}`}>
+                                            {slots[slotId].connected ? 'ONLINE' : 'OFFLINE'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {slots[slotId].connected && <VUMeter stream={slots[slotId].stream} />}
+                                
+                                <div className="p-3 bg-slate-900/90 flex flex-col md:flex-row justify-between items-center gap-3">
+                                    <span className="font-black text-white text-lg tracking-tight">CH {slotId}</span>
+                                    <div className="flex flex-col gap-1.5 w-full md:w-auto md:max-w-[180px]">
+                                        <div className="flex gap-1.5 w-full">
+                                            <button className={`flex-1 py-1.5 text-xs font-bold rounded-md border-2 transition-all ${slots[slotId].tally === 'idle' ? 'border-slate-500 text-white bg-slate-800' : 'border-transparent text-slate-500 hover:bg-slate-800'}`} onClick={()=>handleTally(slotId, 'idle')}>OFF</button>
+                                            <button className={`flex-1 py-1.5 text-xs font-bold rounded-md border-2 transition-all ${slots[slotId].tally === 'prev' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/20' : 'border-transparent text-slate-500 hover:bg-slate-800'}`} onClick={()=>handleTally(slotId, 'prev')}>PREV</button>
+                                            <button className={`flex-1 py-1.5 text-xs font-bold rounded-md border-2 transition-all ${slots[slotId].tally === 'live' ? 'border-red-500 text-red-400 bg-red-500/20 animate-pulse-red' : 'border-transparent text-slate-500 hover:bg-slate-800'}`} onClick={()=>handleTally(slotId, 'live')}>AIRE</button>
+                                        </div>
+                                        <select onChange={(e)=>handleRemoteQuality(slotId, e.target.value)} className="w-full bg-slate-950 text-[10px] text-slate-400 font-bold p-1 rounded outline-none border border-slate-700 cursor-pointer" defaultValue="">
+                                            <option value="" disabled>⚙️ Forzar Calidad Remota</option>
+                                            <option value="360">Forzar 360p</option>
+                                            <option value="720">Forzar 720p</option>
+                                            <option value="1080">Forzar 1080p</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex md:flex-col lg:flex-row gap-1.5 w-full md:w-auto">
+                                        <button className="flex-1 btn btn-gray !py-1.5 !px-3 !text-[10px]" onClick={()=>copyLink('obs', slotId)}>🖥️ OBS</button>
+                                        <button className="flex-1 btn btn-blue !py-1.5 !px-3 !text-[10px]" onClick={()=>copyLink('guest', slotId)}>📋 MÓVIL</button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </main>
+                </div>
+            );
+        };
+
+        // --- GUEST VIEW --- //
+        const GuestView = ({ roomName, slotId }) => {
+            const [joined, setJoined] = useState(false);
+            const [quality, setQuality] = useState('720');
+            const [tally, setTally] = useState('idle');
+            const [prompterText, setPrompterText] = useState('');
+            const [micMuted, setMicMuted] = useState(false);
+            const [camOff, setCamOff] = useState(false);
+            const [returnStream, setReturnStream] = useState(null);
+            const [facingMode, setFacingMode] = useState('user');
+            
+            const peer = useRef(null);
+            const mqttClient = useRef(null);
+            const localStream = useRef(null);
+            const [myStreamState, setMyStreamState] = useState(null);
+
+            const applyRemoteQuality = async (newQuality) => {
+                setQuality(newQuality);
+                try {
+                    const res = { '360': [640,360], '720': [1280,720], '1080': [1920,1080] };
+                    if (localStream.current) {
+                        const oldVideoTrack = localStream.current.getVideoTracks()[0];
+                        if (oldVideoTrack) oldVideoTrack.stop(); 
+                    }
+                    const newVideoState = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: res[newQuality][0] }, height: { ideal: res[newQuality][1] }, 
+                            facingMode: facingMode, frameRate: { ideal: 30, max: 60 }, aspectRatio: { ideal: 1.777778 }
+                        }
+                    });
+                    const newVideoTrack = newVideoState.getVideoTracks()[0];
+                    if (peer.current) {
+                        Object.values(peer.current.connections).forEach(connArray => {
+                            connArray.forEach(connection => {
+                                if (connection.peerConnection) {
+                                    const videoSender = connection.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                                    if (videoSender) videoSender.replaceTrack(newVideoTrack);
+                                }
+                            });
+                        });
+                    }
+                    if (localStream.current) {
+                        const oldVideoTracks = localStream.current.getVideoTracks();
+                        oldVideoTracks.forEach(t => localStream.current.removeTrack(t)); 
+                        localStream.current.addTrack(newVideoTrack);
+                        setMyStreamState(new MediaStream(localStream.current.getTracks()));
+                    }
+                } catch(e) { console.error("Error QA Remoto", e); }
+            };
+
+            const switchCamera = async () => {
+                const nextMode = facingMode === 'user' ? 'environment' : 'user';
+                try {
+                    const res = { '360': [640,360], '720': [1280,720], '1080': [1920,1080] };
+                    
+                    // Hardware lock safe fix
+                    if (localStream.current) {
+                        const oldVideoTrack = localStream.current.getVideoTracks()[0];
+                        if (oldVideoTrack) oldVideoTrack.stop(); 
+                    }
+                    
+                    setFacingMode(nextMode);
+                    const newVideoState = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: res[quality][0] }, 
+                            height: { ideal: res[quality][1] }, 
+                            facingMode: nextMode,
+                            frameRate: { ideal: 30, max: 60 },
+                            aspectRatio: { ideal: 1.777778 }
+                        }
+                    });
+                    const newVideoTrack = newVideoState.getVideoTracks()[0];
+                    
+                    if (peer.current) {
+                        Object.values(peer.current.connections).forEach(connArray => {
+                            connArray.forEach(connection => {
+                                if (connection.peerConnection) {
+                                    const videoSender = connection.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                                    if (videoSender) videoSender.replaceTrack(newVideoTrack);
+                                }
+                            });
+                        });
+                    }
+
+                    if (localStream.current) {
+                        const oldVideoTracks = localStream.current.getVideoTracks();
+                        oldVideoTracks.forEach(t => localStream.current.removeTrack(t)); 
+                        localStream.current.addTrack(newVideoTrack);
+                        setMyStreamState(new MediaStream(localStream.current.getTracks()));
+                    }
+                } catch (e) { alert("Error al girar cámara"); }
+            };
+
+            useEffect(() => {
+                if (!joined) return;
+                const mkTopic = getTallyTopic(roomName, slotId);
+                const mq = mqtt.connect(MQTT_BROKER);
+                mqttClient.current = mq;
+                mq.on('connect', () => { mq.subscribe(mkTopic); });
+                mq.on('message', (t, msg) => { 
+                    if (t === mkTopic) {
+                        try {
+                            const data = JSON.parse(msg.toString());
+                            if (data.state !== undefined) setTally(data.state);
+                            else if (data.type === 'TALLY') setTally(data.value);
+                            else if (data.type === 'PROMPTER') setPrompterText(data.value);
+                            else if (data.type === 'QUALITY') applyRemoteQuality(data.value);
+                        } catch(e){}
+                    }
+                });
+                
+                const init = async () => {
+                    try {
+                        const res = { '360': [640,360], '720': [1280,720], '1080': [1920,1080] };
+                        const s = await navigator.mediaDevices.getUserMedia({ 
+                            video: { 
+                                width: { ideal: res[quality][0] }, 
+                                height: { ideal: res[quality][1] }, 
+                                facingMode: facingMode,
+                                frameRate: { ideal: 30, max: 60 },
+                                aspectRatio: { ideal: 1.777778 }
+                            }, 
+                            audio: { 
+                                echoCancellation: true, 
+                                noiseSuppression: true,
+                                autoGainControl: true
+                            } 
+                        });
+                        localStream.current = s;
+                        setMyStreamState(s);
+                        
+                        const baseId = roomName.toUpperCase();
+                        peer.current = new Peer(`sc_guest_${baseId}_${slotId}`, PEER_CONFIG);
+                        
+                        // Protección anti-desconexión en Móviles (vital al cambiar de antena WiFi <-> 4G)
+                        peer.current.on('disconnected', () => {
+                            console.warn(`[MÓVIL ${slotId}] Desconectado de Signaling. Intentando revivir conexión...`);
+                            if (!peer.current.destroyed) peer.current.reconnect();
+                        });
+                        peer.current.on('error', (err) => {
+                            console.error(`[MÓVIL ${slotId}] Error PeerJS:`, err.type, err);
+                            // Revivir silenciosamente ante fallas de red no catastroficas ('peer-unavailable' cuando OBS no está listo aun, etc)
+                            if (err.type === 'network' || err.type === 'disconnected' || err.type === 'server-error') {
+                                setTimeout(() => { if (!peer.current.destroyed) peer.current.reconnect(); }, 2000);
+                            }
+                        });
+
+                        peer.current.on('open', () => { setTimeout(() => { peer.current.call(`sc_dir_${baseId}`, localStream.current); }, 300); });
+                        peer.current.on('connection', (conn) => {
+                            conn.on('data', (data) => { if (data === 'WAKE_UP_OBS' && localStream.current) peer.current.call(`sc_obs_${baseId}_${slotId}`, localStream.current); });
+                        });
+                        peer.current.on('call', (c) => { c.answer(); c.on('stream', (rem) => { setReturnStream(rem); }); });
+                    } catch (e) { alert("Error de cámara/mic"); }
+                };
+                init();
+                return () => { peer.current?.destroy(); mq.end(); };
+            }, [joined]); // Intentionally omitting constraints changes
+
+            const toggleMic = () => { if (localStream.current) { const t = localStream.current.getAudioTracks()[0]; if(t){t.enabled = !t.enabled; setMicMuted(!t.enabled);} } };
+            const toggleCam = () => { if (localStream.current) { const t = localStream.current.getVideoTracks()[0]; if(t){t.enabled = !t.enabled; setCamOff(!t.enabled);} } };
+
+            if (!joined) return (
+                <div className="flex flex-col items-center justify-center h-full bg-slate-900 p-5 text-center">
+                    <div className="glass-panel p-10 rounded-2xl max-w-sm w-full flex flex-col items-center">
+                        <div className="bg-emerald-500/10 p-4 rounded-full mb-6 text-2xl ring-1 ring-emerald-500/30">🚪</div>
+                        <h2 className="text-xl font-black mb-2 text-white uppercase tracking-widest bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">SALA: {roomName}</h2>
+                        <h3 className="text-3xl font-black mb-6 text-emerald-400 uppercase tracking-widest drop-shadow-lg">MÓVIL {slotId}</h3>
+                        
+                        <p className="text-slate-400 text-sm mb-2 font-medium">Resolución de Envío:</p>
+                        <select className="w-full bg-slate-950 border-2 border-slate-700 text-white p-4 rounded-xl text-lg text-center font-bold mb-8 outline-none focus:ring-2 focus:ring-emerald-500" value={quality} onChange={e => setQuality(e.target.value)}>
+                            <option value="360">360p (DATOS BAJOS)</option>
+                            <option value="720">720p (ESTÁNDAR)</option>
+                            <option value="1080">1080p (WIFI HQ)</option>
+                        </select>
+                        <button className="btn btn-green py-5 text-xl w-full rounded-xl" onClick={() => setJoined(true)}>ENTRAR AL VIVO</button>
+                    </div>
+                </div>
+            );
+
+            const getTallyBorder = () => {
+                if (tally === 'live') return 'border-red-500 shadow-[inset_0_0_80px_rgba(239,68,68,0.7)]';
+                if (tally === 'prev') return 'border-emerald-500 shadow-[inset_0_0_80px_rgba(16,185,129,0.7)]';
+                return 'border-transparent';
+            };
+
+            return (
+                <div className="relative w-screen h-screen bg-black flex flex-col items-center justify-center overflow-hidden">
+                    <div className={`absolute top-0 left-0 w-full h-full border-[15px] pointer-events-none transition-all duration-300 z-50 mix-blend-screen box-border ${getTallyBorder()}`} />
+                    
+                    {tally !== 'idle' && (
+                        <div className={`absolute top-10 left-1/2 -translate-x-1/2 px-8 py-2 rounded-2xl text-2xl font-black tracking-tighter uppercase z-[100] shadow-2xl transition-all duration-300 backdrop-blur-md border border-white/20
+                            ${tally === 'live' ? 'bg-red-500/90 text-white animate-pulse' : 'bg-emerald-500/90 text-black'}`}>
+                            {tally === 'live' ? 'AL AIRE' : 'PREVENIDO'}
+                        </div>
+                    )}
+
+                    {prompterText && (
+                        <div className="absolute top-28 left-1/2 -translate-x-1/2 w-11/12 max-w-[90%] bg-black/60 backdrop-blur-md border border-white/20 p-6 rounded-2xl z-[90] shadow-2xl transition-all duration-500 text-center pointer-events-none">
+                            <span className="text-3xl md:text-5xl text-yellow-400 font-black tracking-tighter leading-tight uppercase relative drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]" style={{textShadow: "2px 2px 4px black, -2px -2px 4px black, 2px -2px 4px black, -2px 2px 4px black"}}>{prompterText}</span>
+                        </div>
+                    )}
+                    
+                    <div className={`absolute top-6 left-6 w-48 aspect-video bg-black/80 backdrop-blur border-2 rounded-xl overflow-hidden z-[80] transition-opacity duration-300 shadow-2xl
+                        ${returnStream ? 'opacity-100 border-slate-600 pointer-events-auto' : 'opacity-0 border-transparent pointer-events-none'}`}>
+                        {returnStream && <VideoPlayer stream={returnStream} muted={false} className="w-full h-full object-cover" />}
+                        <div className="absolute bottom-1 left-1 bg-black/80 text-white text-[10px] uppercase font-black px-2 py-0.5 rounded backdrop-blur border border-white/10">RETORNO</div>
+                    </div>
+                    
+                    {myStreamState && <VideoPlayer stream={myStreamState} muted={true} className="w-full h-full object-cover" style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />}
+                    
+                    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 glass-panel px-6 py-4 rounded-full flex items-center gap-4 z-[100] shadow-2xl">
+                        <div className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2 px-2 py-1 bg-slate-800 rounded">CH {slotId}</div>
+                        <button onClick={toggleMic} className={`p-4 rounded-full transition-all text-xl ${micMuted ? 'bg-red-500' : 'bg-slate-800'}`}>{micMuted ? '🔇' : '🎤'}</button>
+                        <button onClick={toggleCam} className={`p-4 rounded-full transition-all text-xl ${camOff ? 'bg-red-500' : 'bg-slate-800'}`}>{camOff ? '🚫' : '🎥'}</button>
+                        <button onClick={switchCamera} className="p-4 rounded-full bg-blue-500 text-xl border-none shadow-[0_0_15px_rgba(59,130,246,0.6)]">🔄</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- OBS VIEW --- //
+        const ObsView = ({ roomName, slotId }) => {
+            const [status, setStatus] = useState(`INICIANDO ENLACE...`);
+            const [stream, setStream] = useState(null);
+            const peer = useRef(null);
+
+            useEffect(() => {
+                let pingInterval;
+                const baseId = roomName.toUpperCase();
+                const guestId = `sc_guest_${baseId}_${slotId}`;
+                
+                peer.current = new Peer(`sc_obs_${baseId}_${slotId}`, PEER_CONFIG);
+                
+                // Reconexión agresiva para OBS (Es el cliente que no debe fallar)
+                peer.current.on('disconnected', () => {
+                    console.warn(`[OBS] Señalización perdida. Autoreconectando al servidor...`);
+                    if (!peer.current.destroyed) peer.current.reconnect();
+                });
+                peer.current.on('error', (err) => {
+                    console.error(`[OBS] Error PeerJS:`, err.type, err);
+                    if (err.type === 'network' || err.type === 'disconnected') {
+                        setTimeout(() => { if (!peer.current.destroyed) peer.current.reconnect(); }, 2000);
+                    }
+                });
+
+                const startPing = () => {
+                    if (!pingInterval) {
+                        pingInterval = setInterval(() => {
+                            const conn = peer.current.connect(guestId, { reliable: false });
+                            conn.on('open', () => { conn.send('WAKE_UP_OBS'); setTimeout(() => conn.close(), 500); });
+                        }, 3000);
+                    }
+                };
+
+                peer.current.on('open', () => { setStatus(`BUSCANDO MÓVIL ${slotId}...`); startPing(); });
+
+                peer.current.on('call', (call) => {
+                    if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
+                    setStatus('RECIBIENDO...');
+                    call.answer(); 
+                    call.on('stream', (s) => { setStream(s); setStatus(''); });
+                    call.on('close', () => { setStream(null); setStatus(`MÓVIL ${slotId} DESCONECTADO... RECONECTANDO`); startPing(); });
+                });
+
+                return () => { if (pingInterval) clearInterval(pingInterval); peer.current?.destroy(); };
+            }, [roomName, slotId]);
+
+            return (
+                <div className="w-screen h-screen relative bg-transparent overflow-hidden flex items-center justify-center">
+                    {stream ? (
+                        <VideoPlayer stream={stream} muted={false} className="w-full h-full object-cover absolute top-0 left-0 z-10" />
+                    ) : (
+                        <div className="absolute z-50 bg-black/85 backdrop-blur-md px-8 py-6 rounded-2xl flex flex-col items-center gap-4 border border-yellow-500/50 shadow-[0_0_50px_rgba(234,179,8,0.2)]">
+                            <span className="text-5xl animate-pulse">📶</span>
+                            <span className="text-yellow-400 font-mono text-xl font-bold tracking-widest text-center">{status}</span>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- ROUTER / APP --- //
+        const App = () => {
+            const [appState, setAppState] = useState({ mode: null, room: null, slot: '1' });
+            useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                const m = params.get('mode'); 
+                const r = params.get('room');
+                const s = params.get('slot') || '1';
+                if (m && r) { 
+                    if (m === 'obs') document.body.classList.add('obs-mode'); 
+                    setAppState({ mode: m, room: r, slot: s });
+                } else {
+                    setAppState({ mode: 'lobby', room: Math.random().toString(36).substring(2, 6).toUpperCase(), slot: '1' });
+                }
+            }, []);
+
+            if (appState.mode === 'director') return <DirectorView roomName={appState.room} />;
+            if (appState.mode === 'obs') return <ObsView roomName={appState.room} slotId={appState.slot} />;
+            if (appState.mode === 'guest') return <GuestView roomName={appState.room} slotId={appState.slot} />;
+            if (appState.mode === 'lobby') return <Lobby initialRoom={appState.room} />;
+            
+            return null;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
