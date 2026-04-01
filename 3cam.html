@@ -92,6 +92,27 @@
             return sharedAudioCtx;
         };
 
+        const takeSnapshot = (stream, fileName) => {
+            if (!stream) { alert("No hay señal de video activa para capturar."); return; }
+            const video = document.createElement('video');
+            video.muted = true;
+            video.playsInline = true;
+            video.srcObject = stream;
+            video.play().then(() => {
+                setTimeout(() => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth || 1280;
+                    canvas.height = video.videoHeight || 720;
+                    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const link = document.createElement('a');
+                    link.download = `${fileName}_${new Date().getTime()}.png`;
+                    link.href = canvas.toDataURL('image/png', 1.0);
+                    link.click();
+                    video.srcObject = null;
+                }, 500); // 500ms allows frame stabilization
+            }).catch(e => alert("Error tomando foto: " + e.message));
+        };
+
         // --- COMMON COMPONENTS --- //
         const VideoPlayer = ({ stream, muted, className, style }) => {
             const videoRef = useRef(null);
@@ -178,6 +199,11 @@
             const [audioUnlocked, setAudioUnlocked] = useState(false);
             const [globalPrompter, setGlobalPrompter] = useState('');
 
+            // DVR State
+            const [recordingState, setRecordingState] = useState({ 1: false, 2: false, 3: false });
+            const recordersRef = useRef({ 1: null, 2: null, 3: null });
+            const chunksRef = useRef({ 1: [], 2: [], 3: [] });
+
             const talkbackRef = useRef(false);
             const peer = useRef(null);
             const mqttClient = useRef(null);
@@ -215,19 +241,62 @@
                         const slotId = parseInt(match[1]);
                         if (slotId >= 1 && slotId <= 3) {
                             call.answer(); 
+                            
+                            // Vigilante ICE para el Director (Desconecta llamadas zombie si cae el móvil intermitentemente)
+                            const checkIce = () => {
+                                if (call.peerConnection && (call.peerConnection.iceConnectionState === 'disconnected' || call.peerConnection.iceConnectionState === 'failed' || call.peerConnection.iceConnectionState === 'closed')) {
+                                    console.warn(`[DIRECTOR] Conexión ICE con Móvil ${slotId} congelada. Cerrando para invocar nueva señal...`);
+                                    call.close();
+                                }
+                            };
+                            if (call.peerConnection) call.peerConnection.addEventListener('iceconnectionstatechange', checkIce);
+
                             call.on('stream', (stream) => {
                                 setSlots(prev => ({ ...prev, [slotId]: { ...prev[slotId], connected: true, stream: stream } }));
                                 if (talkbackRef.current && returnStreamRef.current) {
                                     setTimeout(() => { peer.current.call(`sc_guest_${roomName.toUpperCase()}_${slotId}`, returnStreamRef.current); }, 1500);
                                 }
                             });
-                            call.on('close', () => { setSlots(prev => ({ ...prev, [slotId]: { ...prev[slotId], connected: false, stream: null } })); });
+                            call.on('close', () => { 
+                                if (call.peerConnection) call.peerConnection.removeEventListener('iceconnectionstatechange', checkIce);
+                                setSlots(prev => ({ ...prev, [slotId]: { ...prev[slotId], connected: false, stream: null } })); 
+                            });
                         }
                     }
                 });
             };
 
             useEffect(() => { return () => { peer.current?.destroy(); mqttClient.current?.end(); }; }, []);
+
+            const toggleRecord = (slotId) => {
+                if (recordingState[slotId]) {
+                    recordersRef.current[slotId]?.stop();
+                    setRecordingState(prev => ({ ...prev, [slotId]: false }));
+                } else {
+                    const stream = slots[slotId].stream;
+                    if (!stream) { alert("No hay video para grabar en el CH " + slotId); return; }
+                    chunksRef.current[slotId] = [];
+                    let mime = MediaRecorder.isTypeSupported('video/webm; codecs=vp8,opus') ? 'video/webm; codecs=vp8,opus' : 'video/webm';
+                    if (MediaRecorder.isTypeSupported('video/mp4')) mime = 'video/mp4'; 
+                    
+                    try {
+                        const recorder = new MediaRecorder(stream, { mimeType: mime });
+                        recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current[slotId].push(e.data); };
+                        recorder.onstop = () => {
+                            const blob = new Blob(chunksRef.current[slotId], { type: mime });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Dir_Rec_Cam${slotId}_${new Date().getTime()}.${mime.includes('mp4') ? 'mp4' : 'webm'}`;
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                        };
+                        recorder.start(1000);
+                        recordersRef.current[slotId] = recorder;
+                        setRecordingState(prev => ({ ...prev, [slotId]: true }));
+                    } catch (err) { alert("Error grabando: " + err.message); }
+                }
+            };
 
             const handleTally = (slotId, state) => {
                 setSlots(prev => ({ ...prev, [slotId]: { ...prev[slotId], tally: state } }));
@@ -354,9 +423,11 @@
                                             <option value="1080">Forzar 1080p</option>
                                         </select>
                                     </div>
-                                    <div className="flex md:flex-col lg:flex-row gap-1.5 w-full md:w-auto">
-                                        <button className="flex-1 btn btn-gray !py-1.5 !px-3 !text-[10px]" onClick={()=>copyLink('obs', slotId)}>🖥️ OBS</button>
-                                        <button className="flex-1 btn btn-blue !py-1.5 !px-3 !text-[10px]" onClick={()=>copyLink('guest', slotId)}>📋 MÓVIL</button>
+                                    <div className="flex md:flex-col lg:flex-row gap-1.5 w-full md:w-auto mt-2 md:mt-0">
+                                        <button className="flex-1 btn btn-gray !py-1.5 !px-2 !text-xs !min-w-0 flex items-center justify-center p-0" onClick={()=>copyLink('obs', slotId)} title="Enlace OBS">🖥️</button>
+                                        <button className="flex-1 btn btn-gray !py-1.5 !px-2 !text-xs !min-w-0 flex items-center justify-center p-0" onClick={()=>copyLink('guest', slotId)} title="Enlace Móvil">📱</button>
+                                        <button className={`flex-1 btn ${recordingState[slotId] ? 'btn-red animate-pulse' : 'btn-gray'} !py-1.5 !px-2 !text-xs !min-w-0 flex items-center justify-center p-0`} onClick={()=>toggleRecord(slotId)} title="Grabar">{recordingState[slotId] ? '⏹️' : '🔴'}</button>
+                                        <button className="flex-1 btn btn-blue !py-1.5 !px-2 !text-xs !min-w-0 flex items-center justify-center p-0" onClick={()=>takeSnapshot(slots[slotId].stream, `Dir_Cam${slotId}`)} title="Capturar Foto">📸</button>
                                     </div>
                                 </div>
                             </div>
@@ -377,10 +448,44 @@
             const [returnStream, setReturnStream] = useState(null);
             const [facingMode, setFacingMode] = useState('user');
             
+            // DVR State
+            const [isRecording, setIsRecording] = useState(false);
+            const recorderRef = useRef(null);
+            const chunksRef = useRef([]);
+
             const peer = useRef(null);
             const mqttClient = useRef(null);
             const localStream = useRef(null);
             const [myStreamState, setMyStreamState] = useState(null);
+
+            const toggleRecording = () => {
+                if (isRecording) {
+                    recorderRef.current?.stop();
+                    setIsRecording(false);
+                } else {
+                    if (!localStream.current) return;
+                    chunksRef.current = [];
+                    let mime = MediaRecorder.isTypeSupported('video/webm; codecs=vp8,opus') ? 'video/webm; codecs=vp8,opus' : 'video/webm';
+                    if (MediaRecorder.isTypeSupported('video/mp4')) mime = 'video/mp4';
+                    
+                    try {
+                        const recorder = new MediaRecorder(localStream.current, { mimeType: mime });
+                        recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+                        recorder.onstop = () => {
+                            const blob = new Blob(chunksRef.current, { type: mime });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Mobile_Rec_${roomName}_${new Date().getTime()}.${mime.includes('mp4') ? 'mp4' : 'webm'}`;
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                        };
+                        recorder.start(1000);
+                        recorderRef.current = recorder;
+                        setIsRecording(true);
+                    } catch (e) { alert("Error al grabar: " + e.message); }
+                }
+            };
 
             const applyRemoteQuality = async (newQuality) => {
                 setQuality(newQuality);
@@ -500,20 +605,42 @@
                         const baseId = roomName.toUpperCase();
                         peer.current = new Peer(`sc_guest_${baseId}_${slotId}`, PEER_CONFIG);
                         
+                        let currentCall = null;
+                        const callDirector = () => {
+                            if (!localStream.current || peer.current.disconnected) return;
+                            console.log(`[MÓVIL ${slotId}] Llamando a Director...`);
+                            currentCall = peer.current.call(`sc_dir_${baseId}`, localStream.current);
+                            if (currentCall) {
+                                const checkIce = () => {
+                                    if (currentCall.peerConnection && (currentCall.peerConnection.iceConnectionState === 'disconnected' || currentCall.peerConnection.iceConnectionState === 'failed' || currentCall.peerConnection.iceConnectionState === 'closed')) {
+                                        console.warn(`[MÓVIL ${slotId}] Fallo en Enlace ICE del Video. Reactivando automáticamente...`);
+                                        currentCall.close(); // Fuerza el close que dispara el reintento
+                                    }
+                                };
+                                currentCall.peerConnection.addEventListener('iceconnectionstatechange', checkIce);
+                                currentCall.on('close', () => { 
+                                    if (currentCall.peerConnection) currentCall.peerConnection.removeEventListener('iceconnectionstatechange', checkIce);
+                                    if (!peer.current.destroyed) setTimeout(callDirector, 2500); // Re-Llamada sin fin si se corta
+                                });
+                            }
+                        };
+
                         // Protección anti-desconexión en Móviles (vital al cambiar de antena WiFi <-> 4G)
                         peer.current.on('disconnected', () => {
                             console.warn(`[MÓVIL ${slotId}] Desconectado de Signaling. Intentando revivir conexión...`);
-                            if (!peer.current.destroyed) peer.current.reconnect();
+                            if (!peer.current.destroyed) {
+                                peer.current.reconnect();
+                                setTimeout(callDirector, 3000); // Intenta mandar imagen de nuevo al recuperar red
+                            }
                         });
                         peer.current.on('error', (err) => {
                             console.error(`[MÓVIL ${slotId}] Error PeerJS:`, err.type, err);
-                            // Revivir silenciosamente ante fallas de red no catastroficas ('peer-unavailable' cuando OBS no está listo aun, etc)
-                            if (err.type === 'network' || err.type === 'disconnected' || err.type === 'server-error') {
+                            if (err.type === 'network' || err.type === 'disconnected' || err.type === 'server-error' || err.type === 'peer-unavailable') {
                                 setTimeout(() => { if (!peer.current.destroyed) peer.current.reconnect(); }, 2000);
                             }
                         });
 
-                        peer.current.on('open', () => { setTimeout(() => { peer.current.call(`sc_dir_${baseId}`, localStream.current); }, 300); });
+                        peer.current.on('open', () => { setTimeout(callDirector, 500); });
                         peer.current.on('connection', (conn) => {
                             conn.on('data', (data) => { if (data === 'WAKE_UP_OBS' && localStream.current) peer.current.call(`sc_obs_${baseId}_${slotId}`, localStream.current); });
                         });
@@ -576,11 +703,14 @@
                     
                     {myStreamState && <VideoPlayer stream={myStreamState} muted={true} className="w-full h-full object-cover" style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />}
                     
-                    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 glass-panel px-6 py-4 rounded-full flex items-center gap-4 z-[100] shadow-2xl">
-                        <div className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2 px-2 py-1 bg-slate-800 rounded">CH {slotId}</div>
-                        <button onClick={toggleMic} className={`p-4 rounded-full transition-all text-xl ${micMuted ? 'bg-red-500' : 'bg-slate-800'}`}>{micMuted ? '🔇' : '🎤'}</button>
-                        <button onClick={toggleCam} className={`p-4 rounded-full transition-all text-xl ${camOff ? 'bg-red-500' : 'bg-slate-800'}`}>{camOff ? '🚫' : '🎥'}</button>
-                        <button onClick={switchCamera} className="p-4 rounded-full bg-blue-500 text-xl border-none shadow-[0_0_15px_rgba(59,130,246,0.6)]">🔄</button>
+                    <div className="absolute bottom-10 left-1/2 -translate-x-1/2 glass-panel px-6 py-4 rounded-full flex items-center gap-3 z-[100] shadow-2xl">
+                        <div className="text-xs font-black text-slate-400 uppercase tracking-widest mr-2 px-2 py-1 bg-slate-800 rounded hidden sm:block">CH {slotId}</div>
+                        <button onClick={toggleMic} className={`p-4 rounded-full transition-all text-xl ${micMuted ? 'bg-red-500' : 'bg-slate-800'}`} title="Mic">{micMuted ? '🔇' : '🎤'}</button>
+                        <button onClick={toggleCam} className={`p-4 rounded-full transition-all text-xl ${camOff ? 'bg-red-500' : 'bg-slate-800'}`} title="Cam">{camOff ? '🚫' : '🎥'}</button>
+                        <button onClick={switchCamera} className="p-4 rounded-full bg-blue-500 text-xl border-none shadow-[0_0_15px_rgba(59,130,246,0.6)]" title="Girar Cámara">🔄</button>
+                        <div className="w-px h-8 bg-slate-700 mx-1"></div>
+                        <button onClick={()=>takeSnapshot(localStream.current, `Mobile_Cam${slotId}`)} className="p-4 rounded-full bg-slate-800 text-xl transition-all hover:bg-slate-700" title="Foto">📸</button>
+                        <button onClick={toggleRecording} className={`p-4 rounded-full transition-all text-xl ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-slate-800'}`} title="Grabar">{isRecording ? '⏹️' : '🔴'}</button>
                     </div>
                 </div>
             );
@@ -626,8 +756,22 @@
                     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
                     setStatus('RECIBIENDO...');
                     call.answer(); 
+                    
+                    const checkIce = () => {
+                        if (call.peerConnection && (call.peerConnection.iceConnectionState === 'disconnected' || call.peerConnection.iceConnectionState === 'failed' || call.peerConnection.iceConnectionState === 'closed')) {
+                            console.warn(`[OBS] Conexión ICE con Móvil ${slotId} rota. Reactivando Auto-Ping de rescate...`);
+                            call.close();
+                        }
+                    };
+                    if (call.peerConnection) call.peerConnection.addEventListener('iceconnectionstatechange', checkIce);
+
                     call.on('stream', (s) => { setStream(s); setStatus(''); });
-                    call.on('close', () => { setStream(null); setStatus(`MÓVIL ${slotId} DESCONECTADO... RECONECTANDO`); startPing(); });
+                    call.on('close', () => { 
+                        if (call.peerConnection) call.peerConnection.removeEventListener('iceconnectionstatechange', checkIce);
+                        setStream(null); 
+                        setStatus(`MÓVIL ${slotId} DESCONECTADO... RECONECTANDO`); 
+                        startPing(); 
+                    });
                 });
 
                 return () => { if (pingInterval) clearInterval(pingInterval); peer.current?.destroy(); };
