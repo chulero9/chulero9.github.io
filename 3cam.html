@@ -227,7 +227,8 @@
         // --- LOBBY VIEW --- //
         const Lobby = ({ initialRoom }) => {
             const [room, setRoom] = useState(initialRoom || '');
-            const handleJoin = () => { if (room.trim()) window.location.href = `?mode=director&room=${room.toUpperCase()}`; };
+            const [camCount, setCamCount] = useState('3');
+            const handleJoin = () => { if (room.trim()) window.location.href = `?mode=director&room=${room.toUpperCase()}&camcount=${camCount}`; };
 
             return (
                 <div className="flex flex-col items-center justify-center h-full bg-slate-900 p-5 text-center">
@@ -236,13 +237,23 @@
                         <h1 className="text-3xl font-black mb-2 uppercase tracking-tighter bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">StreamCall PRO</h1>
                         <p className="text-slate-400 text-sm font-medium mb-8">Centro de Control de Broadcasting</p>
 
+                        <label className="w-full text-left text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 pl-2">ID DE SALA</label>
                         <input
                             value={room}
                             onChange={(e) => setRoom(e.target.value.toUpperCase())}
-                            placeholder="ID DE SALA (EJ. ABCD)"
+                            placeholder="EJ. ABCD"
                             className="w-full bg-slate-950 border border-slate-700 text-white p-4 rounded-xl text-lg text-center font-bold mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase tracking-widest placeholder-slate-600"
                         />
-                        <button onClick={handleJoin} className="btn btn-blue py-4 text-lg w-full rounded-xl">⚙️ ABRIR DIRECTOR</button>
+                        
+                        <label className="w-full text-left text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 pl-2">Número de Cámaras (Modulares)</label>
+                        <select value={camCount} onChange={(e) => setCamCount(e.target.value)} className="w-full bg-slate-950 border border-slate-700 text-white p-4 rounded-xl text-lg text-center font-bold mb-8 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                            <option value="1">1 CÁMARA (SINGLE)</option>
+                            <option value="2">2 CÁMARAS (DUO)</option>
+                            <option value="3">3 CÁMARAS (TRIO)</option>
+                            <option value="4">4 CÁMARAS (CCTV MATRIX)</option>
+                        </select>
+
+                        <button onClick={handleJoin} className="btn btn-blue py-4 text-lg w-full rounded-xl group hover:shadow-[0_0_30px_rgba(59,130,246,0.5)]">⚙️ ABRIR DIRECTOR</button>
                     </div>
                     <div className="mt-8 text-xs text-slate-500 flex flex-col items-center gap-2"><span className="font-mono">v3.0 • Premium HTML Integrado</span></div>
                 </div>
@@ -250,12 +261,14 @@
         };
 
         // --- DIRECTOR VIEW --- //
-        const DirectorView = ({ roomName }) => {
-            const [slots, setSlots] = useState({
-                1: { connected: false, tally: 'idle', stream: null },
-                2: { connected: false, tally: 'idle', stream: null },
-                3: { connected: false, tally: 'idle', stream: null }
-            });
+        const DirectorView = ({ roomName, cameraCount = 3 }) => {
+            const getInitialSlots = () => {
+                const s = {};
+                for (let i = 1; i <= cameraCount; i++) s[i] = { connected: false, tally: 'idle', stream: null };
+                return s;
+            };
+            const [slots, setSlots] = useState(getInitialSlots());
+
             const [audioDevices, setAudioDevices] = useState([]);
             const [selectedAudio, setSelectedAudio] = useState('');
             const [talkbackActive, setTalkbackActive] = useState(false);
@@ -263,9 +276,14 @@
             const [globalPrompter, setGlobalPrompter] = useState('');
 
             // DVR State
-            const [recordingState, setRecordingState] = useState({ 1: false, 2: false, 3: false });
-            const recordersRef = useRef({ 1: null, 2: null, 3: null });
-            const chunksRef = useRef({ 1: [], 2: [], 3: [] });
+            const getInitialRecordState = () => {
+                const s = {};
+                for(let i = 1; i <= cameraCount; i++) s[i] = false;
+                return s;
+            };
+            const [recordingState, setRecordingState] = useState(getInitialRecordState());
+            const recordersRef = useRef({});
+            const chunksRef = useRef({});
 
             const talkbackRef = useRef(false);
             const peer = useRef(null);
@@ -304,7 +322,7 @@
                     const match = call.peer.match(/_(\d+)$/);
                     if (match) {
                         const slotId = parseInt(match[1]);
-                        if (slotId >= 1 && slotId <= 3) {
+                        if (slotId >= 1 && slotId <= cameraCount) {
                             call.answer();
 
                             // Vigilante ICE para el Director (Desconecta llamadas zombie si cae el móvil intermitentemente)
@@ -374,7 +392,7 @@
             };
 
             const sendPrompterToAll = () => {
-                [1, 2, 3].forEach(slotId => mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'PROMPTER', value: globalPrompter }), { retain: true }));
+                Array.from({length: cameraCount}, (_, i) => i + 1).forEach(slotId => mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'PROMPTER', value: globalPrompter }), { retain: true }));
                 alert('Mensaje enviado a todos los móviles conectados.');
             };
 
@@ -391,7 +409,7 @@
                         talkbackRef.current = true;
 
                         let delay = 0;
-                        [1, 2, 3].forEach(slotId => {
+                        Array.from({length: cameraCount}, (_, i) => i + 1).forEach(slotId => {
                             if (slots[slotId].connected) {
                                 setTimeout(() => { peer.current.call(`sc_guest_${roomName.toUpperCase()}_${slotId}`, s); }, delay);
                                 delay += 300;
@@ -448,8 +466,12 @@
                         </div>
                     </header>
 
-                    <main className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 align-content-center">
-                        {[1, 2, 3].map(slotId => (
+                    <main className={`flex-1 overflow-y-auto p-4 grid gap-6 align-content-center w-full mx-auto
+                        ${cameraCount === 1 ? 'grid-cols-1 max-w-5xl' : 
+                          cameraCount === 2 ? 'grid-cols-1 lg:grid-cols-2 max-w-7xl' : 
+                          cameraCount === 4 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2 max-w-[1700px]' : 
+                          'grid-cols-1 md:grid-cols-2 xl:grid-cols-3 max-w-full'}`}>
+                        {Array.from({length: cameraCount}, (_, i) => i + 1).map(slotId => (
                             <div key={slotId} className={`glass-panel border-2 rounded-xl flex flex-col overflow-hidden relative min-h-[350px] transition-colors duration-300
                                 ${slots[slotId].tally === 'live' ? 'border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.2)]' :
                                     slots[slotId].tally === 'prev' ? 'border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.2)]' : 'border-slate-800'}`}>
@@ -863,21 +885,22 @@
 
         // --- ROUTER / APP --- //
         const App = () => {
-            const [appState, setAppState] = useState({ mode: null, room: null, slot: '1' });
+            const [appState, setAppState] = useState({ mode: null, room: null, slot: '1', camCount: 3 });
             useEffect(() => {
                 const params = new URLSearchParams(window.location.search);
                 const m = params.get('mode');
                 const r = params.get('room');
                 const s = params.get('slot') || '1';
+                const c = params.get('camcount') ? parseInt(params.get('camcount')) : 3;
                 if (m && r) {
                     if (m === 'obs') document.body.classList.add('obs-mode');
-                    setAppState({ mode: m, room: r, slot: s });
+                    setAppState({ mode: m, room: r, slot: s, camCount: c });
                 } else {
-                    setAppState({ mode: 'lobby', room: Math.random().toString(36).substring(2, 6).toUpperCase(), slot: '1' });
+                    setAppState({ mode: 'lobby', room: Math.random().toString(36).substring(2, 6).toUpperCase(), slot: '1', camCount: c });
                 }
             }, []);
 
-            if (appState.mode === 'director') return <DirectorView roomName={appState.room} />;
+            if (appState.mode === 'director') return <DirectorView roomName={appState.room} cameraCount={appState.camCount} />;
             if (appState.mode === 'obs') return <ObsView roomName={appState.room} slotId={appState.slot} />;
             if (appState.mode === 'guest') return <GuestView roomName={appState.room} slotId={appState.slot} />;
             if (appState.mode === 'lobby') return <Lobby initialRoom={appState.room} />;
