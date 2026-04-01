@@ -421,8 +421,9 @@
             };
 
             const sendPrompterToAll = () => {
+                if (!globalPrompter.trim()) return;
                 Array.from({ length: cameraCount }, (_, i) => i + 1).forEach(slotId => mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'PROMPTER', value: globalPrompter }), { retain: true }));
-                alert('Mensaje enviado a todos los móviles conectados.');
+                setGlobalPrompter('');
             };
 
             const toggleReturnAll = async () => {
@@ -598,6 +599,7 @@
 
             const peer = useRef(null);
             const mqttClient = useRef(null);
+            const prompterTimeoutRef = useRef(null);
             const localStream = useRef(null);
             const [myStreamState, setMyStreamState] = useState(null);
 
@@ -720,7 +722,11 @@
                             if (data.type === 'DIRECTOR_REC') setIsDirectorRecording(data.state);
                             else if (data.state !== undefined) setTally(data.state);
                             else if (data.type === 'TALLY') setTally(data.value);
-                            else if (data.type === 'PROMPTER') setPrompterText(data.value);
+                            else if (data.type === 'PROMPTER') {
+                                setPrompterText(data.value);
+                                if (prompterTimeoutRef.current) clearTimeout(prompterTimeoutRef.current);
+                                if (data.value) prompterTimeoutRef.current = setTimeout(() => setPrompterText(''), 10000);
+                            }
                             else if (data.type === 'QUALITY') applyRemoteQuality(data.value);
                         } catch (e) { }
                     }
