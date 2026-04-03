@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stream P2P</title>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; color: white; font-family: 'Inter', -apple-system, sans-serif; overflow: hidden; }
+
+        /* Viewer */
+        .viewer-container { width: 100vw; height: 100vh; position: relative; background: #000; }
+        .video-el { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+
+        /* Loading */
+        .loading-overlay {
+            position: absolute; inset: 0; background: #0f172a;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 50; transition: opacity 0.5s;
+        }
+        .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+
+        .spinner {
+            width: 40px; height: 40px; border: 3px solid #1e293b;
+            border-top-color: #3b82f6; border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 14px; color: #94a3b8; letter-spacing: 1px; }
+
+        /* Badge */
+        .live-badge {
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(239, 68, 68, 0.9); color: white;
+            padding: 6px 12px; border-radius: 20px;
+            font-size: 12px; font-weight: bold; letter-spacing: 1px;
+            z-index: 40; animation: pulse 2s infinite;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .live-dot { width: 6px; height: 6px; background: white; border-radius: 50%; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+        /* Controles */
+        .controls {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 12px; z-index: 60;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .viewer-container:hover .controls,
+        .viewer-container:active .controls { opacity: 1; }
+
+        .control-btn {
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2); color: white;
+            padding: 12px 24px; border-radius: 30px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 8px;
+            transition: all 0.2s;
+        }
+        .control-btn:active { transform: scale(0.95); }
+        .control-btn.active { background: rgba(16, 185, 129, 0.9); border-color: #10b981; color: black; }
+
+        /* 
+         * FIX #3: Audio overlay NO se oculta en fullscreen.
+         * Solo se ocultan badge, room-info y controls cuando hay fullscreen limpio.
+         */
+        .audio-overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.7);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 70; backdrop-filter: blur(5px);
+            transition: opacity 0.3s;
+        }
+        .audio-overlay.hidden { opacity: 0; pointer-events: none; }
+
+        .audio-btn {
+            background: #3b82f6; color: white; border: none;
+            padding: 16px 32px; border-radius: 50px;
+            font-size: 16px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 20px rgba(59,130,246,0.5);
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .room-info {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(0,0,0,0.6); padding: 8px 12px;
+            border-radius: 8px; font-size: 12px; color: #94a3b8;
+            z-index: 40; opacity: 0.7;
+        }
+
+        /* Reconectando */
+        .reconnecting-banner {
+            position: absolute; top: 0; left: 0; right: 0;
+            background: rgba(234, 179, 8, 0.9); color: black;
+            text-align: center; padding: 8px; font-size: 13px; font-weight: bold;
+            z-index: 80; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+
+        /* Error */
+        .error-screen {
+            position: absolute; inset: 0; background: #0f172a;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100;
+        }
+        .error-btn {
+            margin-top: 20px; background: #3b82f6; color: white;
+            border: none; padding: 12px 30px; border-radius: 25px;
+            font-size: 14px; font-weight: bold; cursor: pointer;
+        }
+
+        /* FIX #3: fullscreen oculta solo elementos decorativos, NO el audio overlay */
+        .viewer-container.fullscreen-clean .live-badge,
+        .viewer-container.fullscreen-clean .room-info,
+        .viewer-container.fullscreen-clean .controls {
+            display: none !important;
+        }
+
+        /* Director */
+        .director-layout { display: flex; flex-direction: column; height: 100vh; background: #0f172a; }
+        .dir-header { background: #1e293b; padding: 15px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .dir-content { flex: 1; display: grid; grid-template-columns: 1fr 300px; gap: 20px; padding: 20px; overflow: hidden; }
+        @media (max-width: 900px) { .dir-content { grid-template-columns: 1fr; } }
+
+        .preview-box { background: #000; border: 2px solid #3b82f6; border-radius: 12px; overflow: hidden; aspect-ratio: 16/9; position: relative; }
+        .rec-grid { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+        .rec-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .rec-card.streaming { border-color: #10b981; background: rgba(16,185,129,0.1); }
+
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .btn-red { background: #ef4444; color: white; }
+        .btn-green { background: #10b981; color: black; }
+        .btn-blue { background: #3b82f6; color: white; }
+
+        .log-box { background: #000; border: 1px solid #334155; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 11px; color: #94a3b8; height: 100px; overflow-y: auto; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // FIX #5: Agregar TURN server para mayor compatibilidad con NAT simétrico
+        const PEER_CONFIG = {
+            host: '0.peerjs.com',
+            port: 443,
+            secure: true,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    // TURN público de respaldo para redes con NAT simétrico
+                    {
+                        urls: 'turn:openrelay.metered.ca:80',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    {
+                        urls: 'turn:openrelay.metered.ca:443',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    }
+                ]
+            }
+        };
+
+        // ==================== DIRECTOR ====================
+        const Director = ({ room }) => {
+            const [stream, setStream] = useState(null);
+            const [isBroadcasting, setIsBroadcasting] = useState(false);
+            const [receivers, setReceivers] = useState({});
+            const [source, setSource] = useState('camera');
+            const [logs, setLogs] = useState([]);
+
+            const addLog = useCallback((msg) => {
+                const t = new Date().toLocaleTimeString('en-GB');
+                setLogs(prev => [...prev.slice(-20), `[${t}] ${msg}`]);
+                console.log(msg);
+            }, []);
+
+            const peerRef = useRef(null);
+            const streamRef = useRef(null);
+            const videoRef = useRef(null);
+            const broadcastingRef = useRef(false);
+
+            // FIX #1: Usar ref para receivers para evitar stale closures en handlers asíncronos
+            const receiversRef = useRef({});
+            const updateReceivers = useCallback((updater) => {
+                setReceivers(prev => {
+                    const next = typeof updater === 'function' ? updater(prev) : updater;
+                    receiversRef.current = next;
+                    return next;
+                });
+            }, []);
+
+            useEffect(() => {
+                if (videoRef.current && stream) videoRef.current.srcObject = stream;
+            }, [stream]);
+
+            // FIX #1: sendToViewer con useCallback estable, sin depender de `receivers`
+            const sendToViewer = useCallback((slot) => {
+                if (!peerRef.current || !streamRef.current) return;
+                const vid = `view-${room}-${slot}`;
+
+                addLog(`Enviando stream a #${slot}...`);
+
+                // Cerrar llamada previa si existe
+                const existing = receiversRef.current[slot];
+                if (existing?.call) {
+                    try { existing.call.close(); } catch (_) {}
+                }
+
+                const call = peerRef.current.call(vid, streamRef.current);
+                if (!call) {
+                    addLog(`Error: no se pudo llamar a #${slot}`);
+                    return;
+                }
+
+                updateReceivers(prev => ({ ...prev, [slot]: { ...prev[slot], status: 'streaming', call } }));
+
+                call.on('close', () => {
+                    addLog(`Llamada a #${slot} cerrada`);
+                    updateReceivers(prev => ({ ...prev, [slot]: { ...prev[slot], status: 'connected', call: null } }));
+                });
+
+                call.on('error', (err) => {
+                    addLog(`Error en llamada a #${slot}: ${err.message}`);
+                    updateReceivers(prev => ({ ...prev, [slot]: { ...prev[slot], status: 'error', call: null } }));
+                });
+            }, [room, addLog, updateReceivers]);
+
+            useEffect(() => {
+                const id = `dir-${room}`;
+                addLog(`Director ID: ${id}`);
+
+                peerRef.current = new Peer(id, PEER_CONFIG);
+
+                peerRef.current.on('open', () => addLog('Conectado al servidor de señalización'));
+
+                peerRef.current.on('connection', conn => {
+                    const slot = conn.peer.replace(`view-${room}-`, '');
+                    addLog(`Viewer #${slot} conectado`);
+
+                    updateReceivers(prev => ({ ...prev, [slot]: { slot, conn, status: 'connected', call: null } }));
+
+                    conn.on('data', data => {
+                        if (data === 'READY_FOR_STREAM') {
+                            addLog(`#${slot} solicita video`);
+                            if (streamRef.current && broadcastingRef.current) {
+                                sendToViewer(slot);
+                            } else {
+                                conn.send('WAITING');
+                            }
+                        }
+                    });
+
+                    conn.on('close', () => {
+                        addLog(`Viewer #${slot} desconectado`);
+                        updateReceivers(prev => ({
+                            ...prev,
+                            [slot]: { ...prev[slot], status: 'offline', call: null }
+                        }));
+                    });
+                });
+
+                peerRef.current.on('error', err => addLog(`PeerJS error: ${err.type} - ${err.message}`));
+
+                return () => {
+                    peerRef.current?.destroy();
+                };
+            }, [room, addLog, sendToViewer, updateReceivers]);
+
+            // FIX #1: startBroadcast usa receiversRef.current para evitar stale closure
+            const startBroadcast = async () => {
+                try {
+                    let s;
+                    if (source === 'screen') {
+                        s = await navigator.mediaDevices.getDisplayMedia({
+                            video: { width: 1280, height: 720 }, audio: true
+                        });
+                        s.getVideoTracks()[0].onended = () => stopBroadcast();
+                    } else {
+                        s = await navigator.mediaDevices.getUserMedia({
+                            video: { width: 1280, height: 720 }, audio: true
+                        });
+                    }
+
+                    streamRef.current = s;
+                    setStream(s);
+                    setIsBroadcasting(true);
+                    broadcastingRef.current = true;
+                    addLog('Broadcast iniciado');
+
+                    // FIX #1: Usa receiversRef.current (siempre actualizado) en lugar de `receivers` (stale)
+                    Object.entries(receiversRef.current).forEach(([slot, rec]) => {
+                        if (rec.conn?.open) sendToViewer(slot);
+                    });
+                } catch (e) {
+                    addLog(`Error al iniciar: ${e.message}`);
+                    alert('Error: ' + e.message);
+                }
+            };
+
+            const stopBroadcast = () => {
+                streamRef.current?.getTracks().forEach(t => t.stop());
+                streamRef.current = null;
+                setStream(null);
+                setIsBroadcasting(false);
+                broadcastingRef.current = false;
+                addLog('Broadcast detenido');
+            };
+
+            const copyLink = useCallback((slot) => {
+                const url = `${window.location.origin}${window.location.pathname}?mode=view&room=${room}&slot=${slot}`;
+                navigator.clipboard.writeText(url).then(() => addLog(`Link #${slot} copiado`));
+            }, [room, addLog]);
+
+            return (
+                <div className="director-layout">
+                    <div className="dir-header">
+                        <div>
+                            <h1 className="text-xl font-bold text-blue-400">DIRECTOR: {room}</h1>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                            <select
+                                value={source}
+                                onChange={e => setSource(e.target.value)}
+                                disabled={isBroadcasting}
+                                className="bg-black border border-gray-600 rounded px-3 py-2 text-white text-sm"
+                            >
+                                <option value="camera">📷 Cámara</option>
+                                <option value="screen">🖥️ Pantalla</option>
+                            </select>
+                            {!isBroadcasting
+                                ? <button onClick={startBroadcast} className="btn btn-red">🔴 INICIAR</button>
+                                : <button onClick={stopBroadcast} className="btn btn-green">⏹ DETENER</button>
+                            }
+                        </div>
+                    </div>
+
+                    <div className="dir-content">
+                        <div>
+                            <div className="preview-box">
+                                {stream
+                                    ? <video ref={videoRef} autoPlay muted playsInline style={{width:'100%',height:'100%',objectFit:'contain'}} />
+                                    : <div className="flex items-center justify-center h-full text-gray-500">Sin señal</div>
+                                }
+                                {isBroadcasting && (
+                                    <div className="absolute top-4 left-4 bg-red-600 px-3 py-1 rounded text-xs font-bold animate-pulse">
+                                        EN VIVO
+                                    </div>
+                                )}
+                            </div>
+                            <div className="log-box" id="logBox">
+                                {logs.map((l, i) => <div key={i} className="text-xs text-gray-400 mb-1">{l}</div>)}
+                            </div>
+                        </div>
+
+                        <div className="rec-grid">
+                            <h3 className="font-bold text-gray-400 text-sm mb-2">RECEPTORES (10)</h3>
+                            {[1,2,3,4,5,6,7,8,9,10].map(n => {
+                                const rec = receivers[n];
+                                const isStreaming = rec?.status === 'streaming';
+                                const isConnected = rec?.status === 'connected';
+                                return (
+                                    <div key={n} className={`rec-card ${isStreaming ? 'streaming' : ''}`}>
+                                        <span className="font-bold text-sm">#{n}</span>
+                                        <span className={`text-xs ${
+                                            isStreaming ? 'text-green-400' :
+                                            isConnected ? 'text-blue-400' :
+                                            rec?.status === 'error' ? 'text-red-400' : 'text-gray-500'
+                                        }`}>
+                                            {isStreaming ? '● RECIBIENDO' :
+                                             isConnected ? '● Conectado' :
+                                             rec?.status === 'error' ? '✕ Error' :
+                                             rec?.status === 'offline' ? 'Offline' : '—'}
+                                        </span>
+                                        <button onClick={() => copyLink(n)} className="btn btn-blue text-xs">LINK</button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ==================== VIEWER ====================
+        const Viewer = ({ room, slot }) => {
+            const [isReceiving, setIsReceiving] = useState(false);
+            const [isMuted, setIsMuted] = useState(true);
+            const [showAudioOverlay, setShowAudioOverlay] = useState(false);
+            const [hasError, setHasError] = useState(false);
+            const [isReconnecting, setIsReconnecting] = useState(false);
+            const [isFullscreen, setIsFullscreen] = useState(false);
+
+            const peerRef = useRef(null);
+            const videoRef = useRef(null);
+            const connRef = useRef(null);
+            const currentCallRef = useRef(null);
+            const hasReceivedStreamRef = useRef(false);
+            // FIX #6: Retry periódico con contador para no intentar indefinidamente
+            const retryCountRef = useRef(0);
+            const retryTimerRef = useRef(null);
+            const MAX_RETRIES = 8;
+
+            // FIX #3: Detección de fullscreen (sin ocultar audio overlay)
+            useEffect(() => {
+                const handleFullscreenChange = () => {
+                    const fsEl = document.fullscreenElement
+                        || document.webkitFullscreenElement
+                        || document.mozFullScreenElement;
+                    setIsFullscreen(!!fsEl);
+                };
+                document.addEventListener('fullscreenchange', handleFullscreenChange);
+                document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+                document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+                return () => {
+                    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+                    document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+                    document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+                };
+            }, []);
+
+            const scheduleRetry = useCallback(() => {
+                if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+                if (retryCountRef.current >= MAX_RETRIES) {
+                    console.log('Máximo de reintentos alcanzado');
+                    setHasError(true);
+                    return;
+                }
+                // Backoff exponencial: 5s, 10s, 20s... hasta 60s máximo
+                const delay = Math.min(5000 * Math.pow(1.5, retryCountRef.current), 60000);
+                retryCountRef.current += 1;
+                console.log(`Reintento #${retryCountRef.current} en ${Math.round(delay/1000)}s`);
+                retryTimerRef.current = setTimeout(() => {
+                    if (!hasReceivedStreamRef.current && connRef.current?.open) {
+                        setIsReconnecting(true);
+                        connRef.current.send('READY_FOR_STREAM');
+                    }
+                }, delay);
+            }, []);
+
+            useEffect(() => {
+                const myId = `view-${room}-${slot}`;
+                const dirId = `dir-${room}`;
+
+                console.log(`Viewer: ${myId}`);
+
+                // FIX #7: Evitar ID duplicado sin reload infinito —
+                // si el ID está en uso, esperar 2s y reconectar con sufijo único
+                let idSuffix = '';
+                const createPeer = (id) => {
+                    const peer = new Peer(id, PEER_CONFIG);
+
+                    peer.on('open', () => {
+                        console.log(`Peer abierto: ${id}`);
+                        setIsReconnecting(false);
+                        const conn = peer.connect(dirId, { reliable: true });
+                        connRef.current = conn;
+
+                        conn.on('open', () => {
+                            console.log('Conectado al Director');
+                            retryCountRef.current = 0; // Resetear contador al conectar
+                            if (!hasReceivedStreamRef.current) {
+                                conn.send('READY_FOR_STREAM');
+                            }
+                        });
+
+                        conn.on('data', data => {
+                            if (data === 'WAITING') {
+                                console.log('Director no ha iniciado aún, reintentando...');
+                                scheduleRetry();
+                            }
+                        });
+
+                        // FIX #4: Manejar caída de conexión DESPUÉS de haber recibido stream
+                        conn.on('close', () => {
+                            console.log('Conexión con Director cerrada');
+                            if (hasReceivedStreamRef.current) {
+                                // Stream ya recibido: mostrar banner de reconexión, no error fatal
+                                setIsReconnecting(true);
+                            } else {
+                                scheduleRetry();
+                            }
+                        });
+
+                        conn.on('error', (err) => {
+                            console.log('Error de conexión:', err);
+                            scheduleRetry();
+                        });
+                    });
+
+                    // FIX #2: Al recibir una nueva llamada del Director,
+                    // aceptarla SIEMPRE (permite reconexión legítima)
+                    peer.on('call', call => {
+                        // Cerrar llamada previa si existe
+                        if (currentCallRef.current) {
+                            try { currentCallRef.current.close(); } catch (_) {}
+                        }
+                        currentCallRef.current = call;
+                        call.answer(null);
+
+                        call.on('stream', remoteStream => {
+                            hasReceivedStreamRef.current = true;
+                            setIsReconnecting(false);
+                            retryCountRef.current = 0;
+
+                            if (videoRef.current) {
+                                videoRef.current.srcObject = remoteStream;
+                                videoRef.current.muted = true;
+
+                                videoRef.current.play()
+                                    .then(() => {
+                                        setIsReceiving(true);
+                                        setShowAudioOverlay(true);
+                                    })
+                                    .catch(() => {
+                                        setIsReceiving(true);
+                                        setShowAudioOverlay(true);
+                                    });
+                            }
+                        });
+
+                        call.on('close', () => {
+                            console.log('Stream cerrado por el Director');
+                            setIsReceiving(false);
+                            setIsReconnecting(true);
+                            // FIX #4: Intentar reconectar automáticamente
+                            scheduleRetry();
+                        });
+
+                        call.on('error', (err) => {
+                            console.log('Error en stream:', err);
+                            scheduleRetry();
+                        });
+                    });
+
+                    peer.on('error', err => {
+                        console.log(`PeerJS error: ${err.type}`);
+                        // FIX #7: unavailable-id NO causa reload infinito,
+                        // intenta con sufijo único una sola vez
+                        if (err.type === 'unavailable-id') {
+                            if (!idSuffix) {
+                                idSuffix = '-' + Math.random().toString(36).substring(2, 5);
+                                console.log(`ID ocupado, usando: ${myId + idSuffix}`);
+                                setTimeout(() => createPeer(myId + idSuffix), 500);
+                            } else {
+                                setHasError(true);
+                            }
+                        } else if (err.type === 'peer-unavailable') {
+                            console.log('Director no disponible, reintentando...');
+                            scheduleRetry();
+                        } else {
+                            scheduleRetry();
+                        }
+                    });
+
+                    return peer;
+                };
+
+                peerRef.current = createPeer(myId);
+
+                return () => {
+                    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+                    peerRef.current?.destroy();
+                };
+            }, [room, slot, scheduleRetry]);
+
+            const enableAudio = useCallback(() => {
+                if (videoRef.current) {
+                    videoRef.current.muted = false;
+                    setIsMuted(false);
+                    setShowAudioOverlay(false);
+                }
+            }, []);
+
+            const toggleMute = useCallback(() => {
+                if (videoRef.current) {
+                    const newMuted = !videoRef.current.muted;
+                    videoRef.current.muted = newMuted;
+                    setIsMuted(newMuted);
+                }
+            }, []);
+
+            const enterFullscreen = useCallback(() => {
+                const el = document.documentElement;
+                if (el.requestFullscreen) el.requestFullscreen();
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+                else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+            }, []);
+
+            if (hasError) {
+                return (
+                    <div className="error-screen">
+                        <div className="text-4xl mb-4">⚠️</div>
+                        <div className="font-bold text-lg mb-2">CONEXIÓN PERDIDA</div>
+                        <div className="text-gray-400 text-sm mb-4">No fue posible reconectar automáticamente</div>
+                        <button onClick={() => window.location.reload()} className="error-btn">
+                            REINTENTAR MANUALMENTE
+                        </button>
+                    </div>
+                );
+            }
+
+            return (
+                /* FIX #3: fullscreen-clean oculta solo decorativos, NO el audio overlay */
+                <div className={`viewer-container ${isFullscreen ? 'fullscreen-clean' : ''}`}>
+
+                    <video
+                        ref={videoRef}
+                        className="video-el"
+                        playsInline
+                        autoPlay
+                        muted={isMuted}
+                    />
+
+                    {/* Loading inicial */}
+                    {!isReceiving && !isReconnecting && (
+                        <div className="loading-overlay">
+                            <div className="spinner"></div>
+                            <div className="loading-text">CONECTANDO...</div>
+                        </div>
+                    )}
+
+                    {/* FIX #4: Banner de reconexión (no pantalla de error) */}
+                    {isReconnecting && (
+                        <div className="reconnecting-banner">
+                            <div className="spinner" style={{width:16,height:16,borderWidth:2,marginBottom:0}}></div>
+                            RECONECTANDO...
+                        </div>
+                    )}
+
+                    {/* Badge LIVE */}
+                    {isReceiving && (
+                        <div className="live-badge">
+                            <span className="live-dot"></span>
+                            EN VIVO
+                        </div>
+                    )}
+
+                    {/* Info sala */}
+                    <div className="room-info">{room} | #{slot}</div>
+
+                    {/* FIX #3: Audio overlay NO está en la lista de elementos ocultos en fullscreen */}
+                    {isReceiving && showAudioOverlay && (
+                        <div className="audio-overlay" onClick={enableAudio}>
+                            <button className="audio-btn" onClick={enableAudio}>
+                                <span>🔊</span>
+                                <span>TOCAR PARA ACTIVAR AUDIO</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Controles */}
+                    {isReceiving && (
+                        <div className="controls">
+                            <button
+                                onClick={toggleMute}
+                                className={`control-btn ${!isMuted ? 'active' : ''}`}
+                            >
+                                <span>{isMuted ? '🔇' : '🔊'}</span>
+                                <span>{isMuted ? 'SIN AUDIO' : 'CON AUDIO'}</span>
+                            </button>
+                            <button onClick={enterFullscreen} className="control-btn">
+                                <span>⛶</span>
+                                <span>PANTALLA COMPLETA</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // ==================== ROUTER ====================
+        const App = () => {
+            const [state, setState] = useState({ mode: null, room: null, slot: null });
+
+            useEffect(() => {
+                const p = new URLSearchParams(window.location.search);
+                const m = p.get('mode'), r = p.get('room'), s = p.get('slot');
+
+                if (m === 'director' && r) setState({ mode: 'director', room: r });
+                else if (m === 'view' && r && s) setState({ mode: 'view', room: r, slot: s });
+                else setState({ mode: 'lobby', room: Math.random().toString(36).substring(2, 6).toUpperCase() });
+            }, []);
+
+            if (state.mode === 'director') return <Director room={state.room} />;
+            if (state.mode === 'view') return <Viewer room={state.room} slot={state.slot} />;
+
+            return (
+                <div className="flex items-center justify-center h-screen bg-slate-900">
+                    <div className="bg-slate-800 p-8 rounded-xl border border-slate-700 max-w-md w-full text-center mx-4">
+                        <h1 className="text-3xl font-bold text-blue-400 mb-2">STREAM P2P</h1>
+                        <p className="text-gray-400 text-sm mb-6">Transmisión directa 1 → 10 receptores</p>
+
+                        <input
+                            value={state.room || ''}
+                            onChange={e => setState({ ...state, room: e.target.value.toUpperCase() })}
+                            className="w-full bg-black border-2 border-slate-600 rounded p-4 text-center text-xl font-bold mb-4 text-white uppercase"
+                            placeholder="NOMBRE SALA"
+                            maxLength={8}
+                        />
+
+                        <button
+                            onClick={() => window.location.href = `?mode=director&room=${state.room}`}
+                            disabled={!state.room}
+                            className="w-full bg-red-600 hover:bg-red-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg text-lg transition-colors"
+                        >
+                            🎬 INICIAR DIRECTOR
+                        </button>
+
+                        <div className="mt-6 text-slate-500 text-xs">
+                            El receptor recibe video limpio con reconexión automática
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
