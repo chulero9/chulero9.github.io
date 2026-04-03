@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamSplitter V25</title>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0; padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            user-select: none;
+        }
+
+        #matrix-root {
+            width: 100vw; height: 100vh;
+            display: grid;
+            grid-template-columns: 50% 50%;
+            grid-template-rows: 50% 50%;
+            gap: 6px;
+            background: #000;
+            padding: 6px;
+            transition: gap 0.3s, padding 0.3s;
+        }
+
+        .clean-mode { cursor: none; }
+        .clean-mode #matrix-root { gap: 2px; padding: 0; }
+        .clean-mode .cell { border: none !important; border-radius: 0 !important; }
+        .clean-mode .cam-tag { display: none !important; }
+        .clean-mode .res-badge { display: none !important; }
+
+        .cell {
+            position: relative;
+            overflow: hidden;
+            background: #0a0a0a;
+            border: 1px dashed #333;
+            border-radius: 4px;
+            transition: border-color 0.2s, background 0.2s;
+            cursor: pointer;
+        }
+        .cell.selected { border: 2px solid #facc15; }
+        .cell:hover:not(.selected) { border-color: #555; }
+
+        .cell-inner {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+        }
+
+        /* FIX CRÍTICO: transform-origin center center + sin object-fit */
+        .video-source {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            transform-origin: center center;
+            will-change: transform;
+            pointer-events: none;
+            image-rendering: optimizeQuality;
+        }
+
+        .hd-boost { filter: contrast(1.08) saturate(1.1) brightness(1.03); }
+
+        .cam-tag {
+            position: absolute; top: 8px; left: 8px;
+            background: rgba(0,0,0,0.75);
+            color: #facc15;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px; font-weight: 700;
+            pointer-events: none;
+            border: 1px solid rgba(250,204,21,0.5);
+            letter-spacing: 0.05em;
+        }
+        .res-badge {
+            position: absolute; top: 8px; right: 8px;
+            background: rgba(0,0,0,0.75);
+            color: #4ade80;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px; font-weight: 600;
+            pointer-events: none;
+            border: 1px solid rgba(74,222,128,0.4);
+        }
+        .res-badge.res-hd { color: #60a5fa; border-color: rgba(96,165,250,0.4); }
+
+        @keyframes airFlash { 0%{opacity:0} 20%{opacity:0.55} 100%{opacity:0} }
+        .air-flash {
+            position: fixed; inset: 0;
+            background: #facc15;
+            pointer-events: none;
+            animation: airFlash 0.45s ease-out forwards;
+            z-index: 9999;
+        }
+
+        .controls-panel {
+            position: fixed;
+            bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(9, 14, 26, 0.97);
+            padding: 18px 20px 14px;
+            border-radius: 14px;
+            border: 1px solid #1e2d45;
+            box-shadow: 0 16px 64px rgba(0,0,0,0.95);
+            z-index: 100;
+            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.3s;
+            width: 92%; max-width: 500px;
+        }
+        .controls-panel.hidden-ui {
+            transform: translate(-50%, 130%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .close-btn {
+            position: absolute; top: 10px; right: 10px;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.06);
+            color: #555;
+            border: 1px solid transparent;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 13px; font-weight: 700;
+            transition: background 0.15s, color 0.15s;
+        }
+        .close-btn:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+
+        .d-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 38px);
+            grid-template-rows: repeat(3, 38px);
+            gap: 4px;
+        }
+        .d-btn {
+            background: #1a2437; border: 1px solid #2a3a55;
+            color: #94a3b8; border-radius: 7px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.9rem;
+            transition: background 0.08s, transform 0.07s;
+            touch-action: none;
+        }
+        .d-btn:active { background: #2563eb; border-color: #60a5fa; transform: scale(0.92); }
+
+        input[type=range] { width: 100%; accent-color: #facc15; cursor: pointer; }
+
+        select {
+            background: #0d1424; border: 1px solid #2a3a55;
+            color: #cbd5e1; padding: 7px 30px 7px 10px;
+            border-radius: 7px; width: 100%; font-size: 13px;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 10px center;
+        }
+        select:focus { outline: none; border-color: #2563eb; }
+
+        .btn { border: none; cursor: pointer; font-weight: 700; border-radius: 8px; transition: filter 0.12s, transform 0.08s; }
+        .btn:active { transform: scale(0.96); filter: brightness(0.88); }
+        .btn-connect { background: #1d4ed8; color: #fff; padding: 7px 14px; font-size: 12px; border-radius: 7px; white-space: nowrap; }
+        .btn-atem    { background: #c2410c; color: #fff; padding: 8px 12px; font-size: 12px; border-radius: 8px; }
+        .btn-clean   { background: #15803d; color: #fff; padding: 11px 12px; font-size: 13px; width: 100%; letter-spacing: 0.04em; }
+        .btn-sm      { background: #1a2437; color: #64748b; padding: 5px 10px; font-size: 11px; border: 1px solid #2a3a55; border-radius: 6px; }
+        .btn-boost   { background: #1a2437; color: #64748b; padding: 6px 12px; font-size: 11px; border: 1px solid #2a3a55; width: 100%; border-radius: 7px; }
+        .btn-boost.active { background: #1e3a8a; color: #bfdbfe; border-color: #2563eb; }
+        .speed-btn { padding: 4px 10px; font-size: 10px; border-radius: 5px; cursor: pointer; border: 1px solid #2a3a55; background: #1a2437; color: #64748b; font-weight: 700; transition: all 0.1s; }
+        .speed-btn.active { background: #1d4ed8; color: #fff; border-color: #3b82f6; }
+
+        .kbd { background: #1a2437; border: 1px solid #2a3a55; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-family: monospace; color: #475569; }
+        .divider { border: none; border-top: 1px solid #111d2e; margin: 6px 0; }
+
+        .protocol-warn {
+            position: fixed; inset: 0; background: #030712; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; gap: 14px; padding: 24px;
+        }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const DEFAULT_CONFIGS = [
+    { id: 0, x: 0, y: 0, scale: 100, label: "CAM 1" },
+    { id: 1, x: 0, y: 0, scale: 100, label: "CAM 2" },
+    { id: 2, x: 0, y: 0, scale: 100, label: "CAM 3" },
+    { id: 3, x: 0, y: 0, scale: 100, label: "CAM 4" },
+];
+
+const STORAGE_KEY = 'streamsplitter_v25_cfg';
+
+/*
+ * FIX CRÍTICO — buildTransform
+ * Orden: scale() PRIMERO, translate() DESPUÉS.
+ * Con transform-origin:center center el pivot es el centro.
+ * Antes (incorrecto): translate → scale causaba que el frame "volara" al hacer zoom.
+ */
+const buildTransform = (cfg) =>
+    `scale(${cfg.scale / 100}) translate(${cfg.x}%, ${cfg.y}%)`;
+
+const App = () => {
+    const [devices,        setDevices]        = useState([]);
+    const [selectedDevice, setSelectedDevice] = useState('');
+    const [cleanMode,      setCleanMode]      = useState(false);
+    const [selectedCam,    setSelectedCam]    = useState(0);
+    const [moveSpeed,      setMoveSpeed]      = useState(1);
+    const [boost,          setBoost]          = useState(false);
+    const [isFile,         setIsFile]         = useState(false);
+    const [resolution,     setResolution]     = useState(null);
+    const [showFlash,      setShowFlash]      = useState(false);
+
+    const [configs, setConfigs] = useState(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            return saved ? JSON.parse(saved) : DEFAULT_CONFIGS;
+        } catch { return DEFAULT_CONFIGS; }
+    });
+
+    const videoRefs       = [useRef(null), useRef(null), useRef(null), useRef(null)];
+    const moveIntervalRef = useRef(null);
+    const activeStreamRef = useRef(null);
+
+    /* INICIALIZACIÓN */
+    useEffect(() => {
+        if (window.location.protocol === 'file:') { setIsFile(true); return; }
+
+        navigator.mediaDevices.enumerateDevices().then(devs => {
+            const vids = devs.filter(d => d.kind === 'videoinput');
+            setDevices(vids);
+            if (vids.length > 0) setSelectedDevice(vids[0].deviceId);
+        }).catch(() => {});
+
+        /* FIX: limpiar intervalo al desmontar */
+        return () => {
+            if (moveIntervalRef.current) clearInterval(moveIntervalRef.current);
+        };
+    }, []);
+
+    /* PERSISTENCIA */
+    useEffect(() => {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(configs)); }
+        catch {}
+    }, [configs]);
+
+    /* MOVIMIENTO con useCallback */
+    const applyMove = useCallback((dx, dy) => {
+        const spd = moveSpeed === 1 ? 0.4 : 2.5;
+        setConfigs(prev => prev.map((c, i) =>
+            i === selectedCam ? { ...c, x: c.x + dx * spd, y: c.y + dy * spd } : c
+        ));
+    }, [selectedCam, moveSpeed]);
+
+    const startMoving = useCallback((dx, dy) => {
+        if (moveIntervalRef.current) return;
+        applyMove(dx, dy);
+        moveIntervalRef.current = setInterval(() => applyMove(dx, dy), 50);
+    }, [applyMove]);
+
+    const stopMoving = useCallback(() => {
+        if (moveIntervalRef.current) {
+            clearInterval(moveIntervalRef.current);
+            moveIntervalRef.current = null;
+        }
+    }, []);
+
+    const updateZoom = useCallback((val) => {
+        setConfigs(prev => prev.map((c, i) =>
+            i === selectedCam ? { ...c, scale: parseFloat(val) } : c
+        ));
+    }, [selectedCam]);
+
+    const updateAxis = useCallback((axis, val) => {
+        setConfigs(prev => prev.map((c, i) =>
+            i === selectedCam ? { ...c, [axis]: parseFloat(val) } : c
+        ));
+    }, [selectedCam]);
+
+    const resetCam = useCallback((idx) => {
+        setConfigs(prev => prev.map((c, i) =>
+            i === idx ? { ...DEFAULT_CONFIGS[i], label: c.label } : c
+        ));
+    }, []);
+
+    /* FIX: dead code eliminado, preset limpio */
+    const applyAtemPreset = () => setConfigs([
+        { id: 0, x: 0,    y: 0,    scale: 200, label: "CAM 1" },
+        { id: 1, x: 0,    y: 0,    scale: 200, label: "CAM 2" },
+        { id: 2, x: 0,    y: -100, scale: 400, label: "CAM 3" },
+        { id: 3, x: -100, y: -100, scale: 400, label: "CAM 4" },
+    ]);
+
+    /* CONECTAR CÁMARA */
+    const startCamera = async () => {
+        if (!selectedDevice) return;
+        if (activeStreamRef.current)
+            activeStreamRef.current.getTracks().forEach(t => t.stop());
+
+        let stream = null, resLabel = null;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: { exact: selectedDevice }, width: { ideal: 3840 }, height: { ideal: 2160 } }
+            });
+            resLabel = '4K';
+        } catch {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { deviceId: { exact: selectedDevice }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+                });
+                resLabel = 'HD';
+            } catch {
+                alert('Error: Cámara en uso o no disponible.');
+                return;
+            }
+        }
+
+        activeStreamRef.current = stream;
+        /* FIX: resolución leída desde el track real */
+        const settings = stream.getVideoTracks()[0].getSettings();
+        setResolution({
+            label: resLabel,
+            str: (settings.width && settings.height) ? `${settings.width}×${settings.height}` : resLabel
+        });
+
+        videoRefs.forEach(ref => {
+            if (ref.current) { ref.current.srcObject = stream; ref.current.play().catch(() => {}); }
+        });
+    };
+
+    /* TECLADO GLOBAL */
+    useEffect(() => {
+        const onKey = (e) => {
+            if (e.key === 'Escape') { setCleanMode(false); return; }
+            if (['1','2','3','4'].includes(e.key)) { setSelectedCam(+e.key - 1); return; }
+            const map = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0] };
+            if (map[e.key]) { e.preventDefault(); applyMove(...map[e.key]); }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [applyMove]);
+
+    const enterAirMode = () => {
+        setShowFlash(true);
+        setTimeout(() => setShowFlash(false), 500);
+        setCleanMode(true);
+    };
+
+    /* FIX: dblClick no actúa dentro del panel */
+    const handleDoubleClick = (e) => {
+        if (e.target.closest('.controls-panel')) return;
+        if (cleanMode) setCleanMode(false);
+    };
+
+    const exportConfig = () => {
+        const blob = new Blob([JSON.stringify({ version: 25, configs }, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        Object.assign(document.createElement('a'), { href: url, download: 'streamsplitter_v25.json' }).click();
+        URL.revokeObjectURL(url);
+    };
+
+    const importConfig = () => {
+        const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json' });
+        input.onchange = (e) => {
+            const fr = new FileReader();
+            fr.onload = (ev) => {
+                try {
+                    const p = JSON.parse(ev.target.result);
+                    if (Array.isArray(p.configs)) setConfigs(p.configs);
+                    else alert('Archivo inválido.');
+                } catch { alert('No se pudo leer el archivo.'); }
+            };
+            fr.readAsText(e.target.files[0]);
+        };
+        input.click();
+    };
+
+    if (isFile) return (
+        <div className="protocol-warn">
+            <div style={{ fontSize: 42 }}>⚠️</div>
+            <h2 style={{ color: '#ef4444', margin: 0, fontWeight: 800 }}>Protocolo file:// no soportado</h2>
+            <p style={{ color: '#64748b', maxWidth: 300, lineHeight: 1.6, margin: 0 }}>
+                Sube el archivo a <strong style={{color:'#94a3b8'}}>Netlify Drop</strong> o
+                abre desde un servidor local con <code style={{color:'#60a5fa'}}>npx serve .</code>
+            </p>
+        </div>
+    );
+
+    return (
+        <div
+            style={{ width: '100vw', height: '100vh' }}
+            className={cleanMode ? 'clean-mode' : ''}
+            onDoubleClick={handleDoubleClick}
+        >
+            {showFlash && <div className="air-flash" />}
+
+            <div id="matrix-root">
+                {configs.map((cfg, i) => (
+                    <div
+                        key={i}
+                        className={`cell${!cleanMode && selectedCam === i ? ' selected' : ''}`}
+                        onClick={() => !cleanMode && setSelectedCam(i)}
+                    >
+                        <div className="cell-inner">
+                            <video
+                                ref={videoRefs[i]}
+                                className={`video-source${boost ? ' hd-boost' : ''}`}
+                                muted playsInline
+                                style={{ transform: buildTransform(cfg) }}
+                            />
+                        </div>
+                        <div className="cam-tag">{cfg.label}</div>
+                        {resolution && i === 0 && (
+                            <div className={`res-badge${resolution.label === 'HD' ? ' res-hd' : ''}`}>
+                                {resolution.str}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            <div className={`controls-panel${cleanMode ? ' hidden-ui' : ''}`}>
+                <div className="close-btn" onClick={enterAirMode} title="Modo Aire">✕</div>
+
+                <div style={{ textAlign: 'center', marginBottom: 12, paddingRight: 20 }}>
+                    <span style={{ fontWeight: 900, fontSize: 15, letterSpacing: '0.1em', color: '#3b82f6' }}>STREAM</span>
+                    <span style={{ fontWeight: 900, fontSize: 15, letterSpacing: '0.1em', color: '#e2e8f0' }}>SPLITTER</span>
+                    <span style={{ fontWeight: 400, fontSize: 11, color: '#334155', marginLeft: 6 }}>V25</span>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <select value={selectedDevice} onChange={e => setSelectedDevice(e.target.value)} style={{ flex: 1 }}>
+                        {devices.length === 0
+                            ? <option>Sin dispositivos</option>
+                            : devices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Cámara ${d.deviceId.slice(0,6)}`}</option>)
+                        }
+                    </select>
+                    <button className="btn btn-connect" onClick={startCamera}>CONECTAR</button>
+                </div>
+
+                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                    <button className="btn btn-atem" style={{ flex: 1 }} onClick={applyAtemPreset}>⚡ PRESET ATEM</button>
+                    <button className="btn btn-sm" onClick={exportConfig}>↓ JSON</button>
+                    <button className="btn btn-sm" onClick={importConfig}>↑ JSON</button>
+                </div>
+
+                <hr className="divider" style={{ marginTop: 10 }} />
+
+                <div style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid #111d2e', borderRadius: 10, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
+                        {configs.map((c, i) => (
+                            <button key={i} onClick={() => setSelectedCam(i)} style={{
+                                flex: 1, padding: '4px 0', fontSize: 11, fontWeight: 700,
+                                borderRadius: 6, border: '1px solid', cursor: 'pointer', transition: 'all 0.12s',
+                                background:  selectedCam === i ? '#facc15' : '#111d2e',
+                                color:       selectedCam === i ? '#000'    : '#475569',
+                                borderColor: selectedCam === i ? '#facc15' : '#1e2d45',
+                            }}>{c.label}</button>
+                        ))}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                        <div style={{ flexShrink: 0 }}>
+                            <div className="d-pad">
+                                <div />
+                                <button className="d-btn"
+                                    onMouseDown={() => startMoving(0,-1)} onMouseUp={stopMoving} onMouseLeave={stopMoving}
+                                    onTouchStart={e=>{e.preventDefault();startMoving(0,-1)}} onTouchEnd={stopMoving}>▲</button>
+                                <div />
+                                <button className="d-btn"
+                                    onMouseDown={() => startMoving(-1,0)} onMouseUp={stopMoving} onMouseLeave={stopMoving}
+                                    onTouchStart={e=>{e.preventDefault();startMoving(-1,0)}} onTouchEnd={stopMoving}>◀</button>
+                                <button className="d-btn" onClick={() => resetCam(selectedCam)} title="Reset" style={{ fontSize: '0.75rem', color: '#334155' }}>↺</button>
+                                <button className="d-btn"
+                                    onMouseDown={() => startMoving(1,0)} onMouseUp={stopMoving} onMouseLeave={stopMoving}
+                                    onTouchStart={e=>{e.preventDefault();startMoving(1,0)}} onTouchEnd={stopMoving}>▶</button>
+                                <div />
+                                <button className="d-btn"
+                                    onMouseDown={() => startMoving(0,1)} onMouseUp={stopMoving} onMouseLeave={stopMoving}
+                                    onTouchStart={e=>{e.preventDefault();startMoving(0,1)}} onTouchEnd={stopMoving}>▼</button>
+                                <div />
+                            </div>
+                        </div>
+
+                        <div style={{ flex: 1 }}>
+                            {[
+                                { label: 'ZOOM',  min: 100, max: 600,  val: configs[selectedCam].scale, onChange: e => updateZoom(e.target.value) },
+                                { label: 'POS X', min: -200, max: 200, val: configs[selectedCam].x,     onChange: e => updateAxis('x', e.target.value) },
+                                { label: 'POS Y', min: -200, max: 200, val: configs[selectedCam].y,     onChange: e => updateAxis('y', e.target.value) },
+                            ].map(({ label, min, max, val, onChange }) => (
+                                <div key={label} style={{ marginBottom: 8 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#334155', fontWeight: 700, marginBottom: 2 }}>
+                                        <span>{label}</span>
+                                        <span style={{ color: '#475569' }}>{parseFloat(val).toFixed(0)}%</span>
+                                    </div>
+                                    <input type="range" min={min} max={max} value={val} onChange={onChange} />
+                                </div>
+                            ))}
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                <span style={{ fontSize: 10, color: '#334155', fontWeight: 700, flex: 1 }}>VELOCIDAD</span>
+                                <button className={`speed-btn${moveSpeed === 1 ? ' active' : ''}`} onClick={() => setMoveSpeed(1)}>LENTA</button>
+                                <button className={`speed-btn${moveSpeed === 5 ? ' active' : ''}`} onClick={() => setMoveSpeed(5)}>RÁPIDA</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button className={`btn btn-boost${boost ? ' active' : ''}`} style={{ marginTop: 8 }} onClick={() => setBoost(b => !b)}>
+                    {boost ? '✨ MEJORA VISUAL ACTIVA' : '🔧 ACTIVAR MEJORA VISUAL'}
+                </button>
+
+                <button className="btn btn-clean" style={{ marginTop: 6 }} onClick={enterAirMode}>
+                    MODO AIRE — OCULTAR CONTROLES
+                </button>
+
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+                    <span style={{ fontSize: 10, color: '#1e293b' }}>
+                        <span className="kbd">ESC</span> o <span className="kbd">dbl-clic</span> para volver
+                    </span>
+                    <span style={{ fontSize: 10, color: '#1e293b' }}>
+                        <span className="kbd">1</span>–<span className="kbd">4</span> cámara activa
+                    </span>
+                    <span style={{ fontSize: 10, color: '#1e293b' }}>
+                        <span className="kbd">↑↓←→</span> mover frame
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
