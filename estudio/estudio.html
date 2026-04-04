@@ -1271,7 +1271,7 @@
                 client.on('connect', () => {
                     setConnectionError(null);
                     client.subscribe(`radio/${roomCode}/reporters`);
-                    client.subscribe(`radio/${roomCode}/alerts`);
+                    client.subscribe(`radio/${roomCode}/alerts`, { qos: 1 });
                     client.subscribe(`radio/${roomCode}/chat`);
                     client.publish(
                         `radio/${roomCode}/studio`,
@@ -1448,7 +1448,8 @@
                 if (!mqttRef.current?.connected) return;
                 mqttRef.current.publish(
                     `radio/${roomCode}/studio_alert/${reporterId}`,
-                    JSON.stringify({ reporterId, type, from: studioName, timestamp: Date.now() })
+                    JSON.stringify({ reporterId, type, from: studioName, timestamp: Date.now() }),
+                    { qos: 1 } // Garantizar entrega a través de QoS 1
                 );
                 setAlertSent(prev => ({ ...prev, [reporterId]: { type, time: Date.now() } }));
                 setTimeout(() => {
@@ -1467,7 +1468,8 @@
                 if (!selectedAlert || !mqttRef.current?.connected) return;
                 mqttRef.current.publish(
                     `radio/${roomCode}/alerts/response`,
-                    JSON.stringify({ to: selectedAlert.reporterId, from: studioName, message: msg, timestamp: Date.now() })
+                    JSON.stringify({ to: selectedAlert.reporterId, from: studioName, message: msg, timestamp: Date.now() }),
+                    { qos: 1 } // Alta prioridad
                 );
                 setSelectedAlert(null);
             };
