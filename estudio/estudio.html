@@ -1190,7 +1190,7 @@
                 // Pedir micrófono (para IFB de retorno)
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({
-                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                     });
                     studioMicRef.current = stream;
                     setStudioMicActive(true);
@@ -1421,7 +1421,7 @@
                     // Encender: pedir micrófono
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({
-                            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                         });
                         studioMicRef.current = stream;
                         const [track] = stream.getAudioTracks();
