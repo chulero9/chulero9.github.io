@@ -1264,6 +1264,22 @@
                         }
                         callRef.current = call;
 
+                        // Monitor de ICE para reconexión forzada en caso de cortes de red (Wifi a 4G)
+                        if (call.peerConnection) {
+                            call.peerConnection.addEventListener('iceconnectionstatechange', () => {
+                                const state = call.peerConnection.iceConnectionState;
+                                if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+                                    // Esperar un instante, si sigue desconectado forzamos el cierre para reconectar
+                                    setTimeout(() => {
+                                        if (call.peerConnection && ['failed', 'disconnected', 'closed'].includes(call.peerConnection.iceConnectionState)) {
+                                            console.warn('ICE connection dropped, forcing reconnect...');
+                                            call.close();
+                                        }
+                                    }, 4000);
+                                }
+                            });
+                        }
+
                         // IFB: recibir audio del estudio
                         call.on('stream', async (remoteStream) => {
                             const el = ifbAudioRef.current;
