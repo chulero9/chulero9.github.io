@@ -1147,7 +1147,7 @@
                 let stream;
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({
-                        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true }
                     });
                     micStreamRef.current = stream;
                     applyMicMute(micMuted);
@@ -1242,7 +1242,14 @@
                             if (!el) return;
                             el.srcObject = remoteStream;
                             try {
+                                const ctx = await getAudioCtx();
+                                el.muted = true; // Mute element para evitar latencia HTML
                                 await el.play();
+
+                                // Routing cero latencia (IFB Retorno)
+                                const source = ctx.createMediaStreamSource(remoteStream);
+                                source.connect(ctx.destination);
+
                                 setAudioBlocked(false);
                                 setIfbConnected(true);
                             } catch (e) {
