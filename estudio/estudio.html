@@ -1232,6 +1232,21 @@
                     call.answer(answerStream);
                     globalCalls.current.set(call.peer, call);
 
+                    // Monitor de ICE para atrapar desconexiones "fantasma" que no disparan evento close()
+                    if (call.peerConnection) {
+                        call.peerConnection.addEventListener('iceconnectionstatechange', () => {
+                            const state = call.peerConnection.iceConnectionState;
+                            if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+                                setTimeout(() => {
+                                    if (call.peerConnection && ['failed', 'disconnected', 'closed'].includes(call.peerConnection.iceConnectionState)) {
+                                        console.warn(`ICE dropped for ${call.peer}. Forcing cleanup.`);
+                                        call.close();
+                                    }
+                                }, 4000);
+                            }
+                        });
+                    }
+
                     call.on('stream', remoteStream => {
                         globalStreams.current.set(call.peer, remoteStream);
                         setReporters(prev => ({
@@ -1406,26 +1421,13 @@
 
             // ── Toggle micrófono del estudio (IFB) ────────────────────────────────────
             const toggleStudioMic = async () => {
-                if (studioMicActive) {
-                    // Apagar: detener tracks y enviar silencio
-                    if (studioMicRef.current) {
-                        studioMicRef.current.getTracks().forEach(t => t.stop());
-                        studioMicRef.current = null;
-                    }
-                    const silentStream = createSilentStream();
-                    const silentTrack = silentStream.getAudioTracks()[0] || null;
-                    globalCalls.current.forEach(call => {
-                        try {
-                            call.peerConnection?.getSenders().forEach(sender => {
-                                if (sender.track && sender.track.kind === 'audio') {
-                                    sender.replaceTrack(silentTrack);
-                                }
-                            });
-                        } catch (e) { console.warn('replaceTrack silent:', e); }
-                    });
-                    setStudioMicActive(false);
+                if (studioMicRef.current) {
+                    // Simplemente mutear/desmutear el track (no romper la conexión WebRTC)
+                    const nextState = !studioMicActive;
+                    studioMicRef.current.getAudioTracks().forEach(t => { t.enabled = nextState; });
+                    setStudioMicActive(nextState);
                 } else {
-                    // Encender: pedir micrófono
+                    // Encender: pedir micrófono por primera vez si no lo había hecho
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({
                             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
