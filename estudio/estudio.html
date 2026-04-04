@@ -13,1492 +13,659 @@
     
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        
         body { 
-            background: #050505; 
-            color: white; 
+            background: #050505; color: white;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            height: 100vh;
-            overflow: hidden;
-            font-size: 14px;
+            height: 100vh; overflow: hidden; font-size: 14px;
         }
-        
         .lobby-screen {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            height: 100vh; display: flex; align-items: center; justify-content: center;
             background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
         }
-        
         .lobby-box {
-            background: #111;
-            padding: 50px;
-            border-radius: 20px;
-            border: 1px solid #333;
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
+            background: #111; padding: 50px; border-radius: 20px;
+            border: 1px solid #333; text-align: center; max-width: 400px; width: 90%;
         }
-        
-        .lobby-box h1 {
-            font-size: 2.5rem;
-            margin: 0 0 10px 0;
-            font-weight: 900;
-        }
-        
+        .lobby-box h1 { font-size: 2.5rem; margin: 0 0 10px 0; font-weight: 900; }
         .lobby-box h1 span { color: #3b82f6; }
-        
-        .lobby-box p {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 0.9rem;
-        }
-        
+        .lobby-box p { color: #666; margin-bottom: 30px; font-size: 0.9rem; }
         .lobby-input {
-            width: 100%;
-            background: #0a0a0a;
-            border: 2px solid #333;
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 1.2rem;
-            margin-bottom: 15px;
-            text-align: center;
-            text-transform: uppercase;
+            width: 100%; background: #0a0a0a; border: 2px solid #333; color: white;
+            padding: 15px; border-radius: 10px; font-size: 1.2rem; margin-bottom: 15px;
+            text-align: center; text-transform: uppercase;
         }
-        
         .lobby-input:focus { outline: none; border-color: #3b82f6; }
-        
         .lobby-btn {
-            width: 100%;
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 20px;
-            font-size: 1.1rem;
-            font-weight: 900;
-            border-radius: 12px;
-            cursor: pointer;
-            text-transform: uppercase;
+            width: 100%; background: #3b82f6; color: white; border: none;
+            padding: 20px; font-size: 1.1rem; font-weight: 900; border-radius: 12px;
+            cursor: pointer; text-transform: uppercase;
         }
-        
-        .dashboard {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-        
+        .dashboard { display: flex; flex-direction: column; height: 100vh; }
         .top-bar {
-            padding: 15px 30px;
-            background: #111;
-            border-bottom: 1px solid #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-shrink: 0;
+            padding: 15px 30px; background: #111; border-bottom: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
         }
-        
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 900;
-        }
-        
+        .logo { font-size: 1.5rem; font-weight: 900; }
         .logo span { color: #3b82f6; }
-        
-        .logo small {
-            font-size: 0.75rem;
-            color: #666;
-            margin-left: 10px;
-            font-weight: 400;
-        }
-        
-        .top-status {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-        
+        .logo small { font-size: 0.75rem; color: #666; margin-left: 10px; font-weight: 400; }
+        .top-status { display: flex; gap: 20px; align-items: center; }
         .connection-error {
-            color: #f59e0b;
-            font-size: 0.85rem;
-            cursor: pointer;
-            padding: 4px 8px;
-            background: rgba(245, 158, 11, 0.15);
-            border-radius: 6px;
-            margin-right: 10px;
+            color: #f59e0b; font-size: 0.85rem; cursor: pointer; padding: 4px 8px;
+            background: rgba(245,158,11,0.15); border-radius: 6px; margin-right: 10px;
         }
-
-        .connection-error:hover { opacity: 0.9; }
-
-        .room-code {
-            color: #666;
-            font-size: 0.9rem;
-        }
-        
+        .room-code { color: #666; font-size: 0.9rem; }
         .room-code b { color: white; margin-left: 5px; }
-        
-        .online-status {
-            color: #22c55e;
-            font-size: 0.9rem;
-            font-weight: bold;
-        }
-        
-        .main-content {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
-        
+        .online-status { color: #22c55e; font-size: 0.9rem; font-weight: bold; }
+        .main-content { display: flex; flex: 1; overflow: hidden; }
         .info-panel {
-            width: 300px;
-            background: #0a0a0a;
-            border-right: 1px solid #333;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            flex-shrink: 0;
+            width: 300px; background: #0a0a0a; border-right: 1px solid #333;
+            padding: 20px; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0;
         }
-        
         .info-panel h2 {
-            font-size: 0.9rem;
-            font-weight: 900;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            color: #666;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            font-size: 0.9rem; font-weight: 900; margin-bottom: 20px;
+            text-transform: uppercase; color: #666; display: flex; align-items: center; gap: 8px;
         }
-        
         .info-box {
-            background: #1a1a1a;
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 12px;
-            border: 1px solid #333;
+            background: #1a1a1a; border-radius: 12px; padding: 15px;
+            margin-bottom: 12px; border: 1px solid #333;
         }
-        
-        .info-label {
-            font-size: 0.7rem;
-            color: #666;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        
-        .info-value {
-            font-size: 1.8rem;
-            font-weight: 900;
-            color: white;
-        }
-        
+        .info-label { font-size: 0.7rem; color: #666; text-transform: uppercase; margin-bottom: 5px; font-weight: bold; }
+        .info-value { font-size: 1.8rem; font-weight: 900; color: white; }
         .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 15px;
-            padding: 12px;
-            background: #14201a;
-            border-radius: 10px;
-            border: 1px solid #22c55e;
+            display: flex; align-items: center; gap: 10px; margin-top: 15px;
+            padding: 12px; background: #14201a; border-radius: 10px; border: 1px solid #22c55e;
         }
-        
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            background: #22c55e;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        
-        .status-text {
-            font-weight: bold;
-            color: #22c55e;
-            font-size: 0.85rem;
-        }
-        
-        .ifb-control {
-            margin-top: 20px;
-            padding: 15px;
-            background: #1a1a1a;
-            border-radius: 12px;
-            border: 1px solid #333;
-        }
-        
-        .ifb-title {
-            font-size: 0.75rem;
-            font-weight: bold;
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            color: #94a3b8;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
+        .status-dot { width: 10px; height: 10px; background: #22c55e; border-radius: 50%; animation: pulse 2s infinite; }
+        .status-text { font-weight: bold; color: #22c55e; font-size: 0.85rem; }
+        .ifb-control { margin-top: 20px; padding: 15px; background: #1a1a1a; border-radius: 12px; border: 1px solid #333; }
+        .ifb-title { font-size: 0.75rem; font-weight: bold; margin-bottom: 12px; text-transform: uppercase; color: #94a3b8; }
         .mic-btn {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            font-weight: bold;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            transition: all 0.2s;
+            width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            gap: 8px; font-size: 0.85rem; transition: all 0.2s;
         }
-        
-        .mic-btn.off {
-            background: #334155;
-            color: #94a3b8;
-        }
-        
-        .mic-btn.on {
-            background: #22c55e;
-            color: black;
-            animation: pulse 2s infinite;
-        }
-        
-        .mic-hint {
-            font-size: 0.75rem;
-            color: #666;
-            margin-top: 8px;
-            text-align: center;
-        }
-        
+        .mic-btn.off { background: #334155; color: #94a3b8; }
+        .mic-btn.on { background: #22c55e; color: black; animation: pulse 2s infinite; }
+        .mic-hint { font-size: 0.75rem; color: #666; margin-top: 8px; text-align: center; }
         .listening-info {
-            margin-top: 15px;
-            padding: 15px;
-            background: #14201a;
-            border-radius: 10px;
-            border: 1px solid #22c55e;
+            margin-top: 15px; padding: 15px; background: #14201a;
+            border-radius: 10px; border: 1px solid #22c55e;
         }
-        
-        .listening-label {
-            font-size: 0.7rem;
-            color: #666;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-        }
-        
-        .listening-name {
-            font-weight: bold;
-            color: #22c55e;
-            font-size: 1rem;
-            margin-bottom: 10px;
-        }
-        
-        .vu-container {
-            width: 100%;
-            height: 8px;
-            background: #0a0a0a;
-            border-radius: 4px;
-            overflow: hidden;
-            border: 1px solid #333;
-        }
-        
-        .vu-bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #22c55e, #facc15, #ef4444);
-            transition: width 0.05s;
-        }
-        
-        .center-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: #0f172a;
-            min-width: 0;
-        }
-        
-        .tabs {
-            display: flex;
-            background: #111;
-            border-bottom: 1px solid #333;
-            flex-shrink: 0;
-        }
-        
+        .listening-label { font-size: 0.7rem; color: #666; margin-bottom: 5px; text-transform: uppercase; }
+        .listening-name { font-weight: bold; color: #22c55e; font-size: 1rem; margin-bottom: 10px; }
+        .vu-container { width: 100%; height: 8px; background: #0a0a0a; border-radius: 4px; overflow: hidden; border: 1px solid #333; }
+        .vu-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #22c55e, #facc15, #ef4444); transition: width 0.05s; }
+        .center-panel { flex: 1; display: flex; flex-direction: column; background: #0f172a; min-width: 0; }
+        .tabs { display: flex; background: #111; border-bottom: 1px solid #333; flex-shrink: 0; }
         .tab {
-            padding: 15px 25px;
-            background: none;
-            border: none;
-            color: #666;
-            font-weight: bold;
-            cursor: pointer;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            transition: all 0.2s;
+            padding: 15px 25px; background: none; border: none; color: #666; font-weight: bold;
+            cursor: pointer; text-transform: uppercase; font-size: 0.8rem; transition: all 0.2s;
         }
-        
-        .tab:hover { color: #999; background: #1a1a1a; }
         .tab.active { color: white; border-bottom: 2px solid #3b82f6; background: #1a1a1a; }
-        
-        .panel-content {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .view-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            overflow: hidden;
-        }
-        
-        .rx-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 15px;
-            padding: 20px;
-            overflow-y: auto;
-            height: 100%;
-        }
-        
-        .empty-state {
-            grid-column: 1 / -1;
-            text-align: center;
-            color: #666;
-            margin-top: 50px;
-            font-size: 1rem;
-        }
-        
-        .rx-card {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.2s;
-            position: relative;
-        }
-        
-        .rx-card.live {
-            border-color: #ef4444;
-            background: rgba(239, 68, 68, 0.05);
-        }
-        
-        .rx-card.listening {
-            border-color: #22c55e;
-            box-shadow: 0 0 20px rgba(34, 197, 94, 0.15);
-        }
-        
+        .panel-content { flex: 1; position: relative; overflow: hidden; }
+        .rx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; padding: 20px; overflow-y: auto; height: 100%; }
+        .empty-state { grid-column: 1/-1; text-align: center; color: #666; margin-top: 50px; font-size: 1rem; }
+        .rx-card { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 20px; transition: all 0.2s; position: relative; }
+        .rx-card.live { border-color: #ef4444; background: rgba(239,68,68,0.05); }
+        .rx-card.listening { border-color: #22c55e; box-shadow: 0 0 20px rgba(34,197,94,0.15); }
         .on-air-indicator {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #ef4444;
-            color: white;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: bold;
-            animation: pulse 2s infinite;
+            position: absolute; top: 10px; right: 10px; background: #ef4444;
+            color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem;
+            font-weight: bold; animation: pulse 2s infinite;
         }
-        
-        .rx-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        
-        .rx-name {
-            font-weight: 900;
-            font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .led {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #333;
-            flex-shrink: 0;
-        }
-        
-        .led.red {
-            background: #ef4444;
-            box-shadow: 0 0 10px #ef4444;
-            animation: pulse 1.5s infinite;
-        }
-        
-        .live-tag {
-            background: #ef4444;
-            color: white;
-            font-size: 0.65rem;
-            padding: 2px 8px;
-            border-radius: 4px;
-            margin-left: 8px;
-            font-weight: bold;
-        }
-        
-        .rx-meta {
-            font-size: 0.8rem;
-            color: #666;
-            margin-bottom: 15px;
-            line-height: 1.4;
-        }
-        
-        .rx-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 10px;
-        }
-        
-        .rx-btn {
-            flex: 1;
-            min-width: 70px;
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: bold;
-            border: none;
-            cursor: pointer;
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            transition: all 0.2s;
-        }
-        
+        .rx-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .rx-name { font-weight: 900; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+        .led { width: 10px; height: 10px; border-radius: 50%; background: #333; flex-shrink: 0; }
+        .led.red { background: #ef4444; box-shadow: 0 0 10px #ef4444; animation: pulse 1.5s infinite; }
+        .live-tag { background: #ef4444; color: white; font-size: 0.65rem; padding: 2px 8px; border-radius: 4px; margin-left: 8px; font-weight: bold; }
+        .rx-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .rx-btn { flex: 1; min-width: 70px; padding: 10px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; text-transform: uppercase; font-size: 0.75rem; transition: all 0.2s; }
         .rx-btn.play { background: #22c55e; color: black; }
         .rx-btn.play:hover { background: #16a34a; }
         .rx-btn.stop { background: #ef4444; color: white; }
-        .rx-btn.stop:hover { background: #dc2626; }
-        
-        .rx-btn:disabled {
-            background: #333;
-            color: #666;
-            cursor: not-allowed;
-        }
-
-        .rx-dismiss {
-            width: 100%;
-            margin-top: 8px;
-            padding: 6px;
-            border-radius: 6px;
-            border: 1px solid #333;
-            background: transparent;
-            color: #666;
-            font-size: 0.75rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
+        .rx-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+        .rx-dismiss { width: 100%; margin-top: 8px; padding: 6px; border-radius: 6px; border: 1px solid #333; background: transparent; color: #666; font-size: 0.75rem; cursor: pointer; }
         .rx-dismiss:hover { background: #2a2a2a; color: #999; }
-        
-        .alert-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #333;
-        }
-        
+        .alert-actions { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; }
         .alert-btn-studio {
-            flex: 1;
-            padding: 12px;
-            border-radius: 8px;
-            font-weight: 900;
-            border: none;
-            cursor: pointer;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
+            flex: 1; padding: 12px; border-radius: 8px; font-weight: 900; border: none; cursor: pointer;
+            text-transform: uppercase; font-size: 0.8rem; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
         }
-        
-        .alert-btn-studio.attention {
-            background: #f59e0b;
-            color: black;
-        }
-        
-        .alert-btn-studio.attention:hover {
-            background: #d97706;
-        }
-        
-        .alert-btn-studio.on-air {
-            background: #ef4444;
-            color: white;
-            animation: pulse 2s infinite;
-        }
-        
-        .alert-btn-studio.on-air:hover {
-            background: #dc2626;
-        }
-        
-        .alert-btn-studio:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            animation: none;
-        }
-        
-        .ifb-status-bar {
-            margin-top: 10px;
-            padding: 8px 12px;
-            background: #1e3a8a;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            color: #60a5fa;
-            text-align: center;
-        }
-        
-        .alerts-panel {
-            width: 350px;
-            background: #0a0a0a;
-            border-left: 1px solid #333;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-        }
-        
-        .alerts-header {
-            padding: 20px;
-            background: #111;
-            border-bottom: 1px solid #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-shrink: 0;
-        }
-        
-        .alerts-header h2 {
-            font-size: 0.9rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .unread-badge {
-            background: #ef4444;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
-        
-        .alerts-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 15px;
-        }
-        
-        .alert-card {
-            background: #1a1a1a;
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 12px;
-            border-left: 4px solid;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
-        }
-        
+        .alert-btn-studio.attention { background: #f59e0b; color: black; }
+        .alert-btn-studio.on-air { background: #ef4444; color: white; animation: pulse 2s infinite; }
+        .alert-btn-studio:disabled { opacity: 0.5; cursor: not-allowed; animation: none; }
+        .ifb-status-bar { margin-top: 10px; padding: 8px 12px; background: #1e3a8a; border-radius: 6px; font-size: 0.75rem; color: #60a5fa; text-align: center; }
+        .alerts-panel { width: 350px; background: #0a0a0a; border-left: 1px solid #333; display: flex; flex-direction: column; flex-shrink: 0; }
+        .alerts-header { padding: 20px; background: #111; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .alerts-header h2 { font-size: 0.9rem; font-weight: 900; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+        .unread-badge { background: #ef4444; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; }
+        .alerts-list { flex: 1; overflow-y: auto; padding: 15px; }
+        .alert-card { background: #1a1a1a; border-radius: 12px; padding: 15px; margin-bottom: 12px; border-left: 4px solid; cursor: pointer; transition: all 0.2s; position: relative; }
         .alert-card:hover { background: #252525; transform: translateX(4px); }
-        .alert-card.high { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
-        .alert-card.medium { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
-        .alert-card.normal { border-left-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+        .alert-card.high { border-left-color: #ef4444; background: rgba(239,68,68,0.1); }
+        .alert-card.medium { border-left-color: #f59e0b; background: rgba(245,158,11,0.1); }
+        .alert-card.normal { border-left-color: #3b82f6; background: rgba(59,130,246,0.1); }
         .alert-card.ack { opacity: 0.5; border-left-color: #666 !important; }
-        
-        .alert-pulse {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            width: 10px;
-            height: 10px;
-            background: #ef4444;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        
-        .alert-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        
+        .alert-pulse { position: absolute; top: 15px; right: 15px; width: 10px; height: 10px; background: #ef4444; border-radius: 50%; animation: pulse 2s infinite; }
+        .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .alert-reporter { font-weight: 900; font-size: 0.95rem; }
         .alert-time { font-size: 0.75rem; color: #666; }
-        
-        .alert-type {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            margin-bottom: 6px;
-        }
-        
-        .alert-message {
-            font-size: 0.9rem;
-            color: #cbd5e1;
-            line-height: 1.4;
-            margin-bottom: 8px;
-        }
-        
-        .alert-meta {
-            display: flex;
-            gap: 12px;
-            font-size: 0.75rem;
-            color: #666;
-            flex-wrap: wrap;
-        }
-        
-        .chat-section {
-            height: 220px;
-            border-top: 1px solid #333;
-            display: flex;
-            flex-direction: column;
-            flex-shrink: 0;
-        }
-        
-        .chat-header-small {
-            padding: 12px 20px;
-            background: #111;
-            font-size: 0.8rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            border-bottom: 1px solid #333;
-        }
-        
-        .chat-messages-small {
-            flex: 1;
-            overflow-y: auto;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        
-        .chat-msg-small {
-            background: #1a1a1a;
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-        }
-        
+        .alert-type { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: bold; margin-bottom: 6px; }
+        .alert-message { font-size: 0.9rem; color: #cbd5e1; line-height: 1.4; margin-bottom: 8px; }
+        .chat-section { height: 220px; border-top: 1px solid #333; display: flex; flex-direction: column; flex-shrink: 0; }
+        .chat-header-small { padding: 12px 20px; background: #111; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #333; }
+        .chat-messages-small { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .chat-msg-small { background: #1a1a1a; padding: 10px; border-radius: 8px; font-size: 0.85rem; }
         .chat-msg-small .sender { font-weight: bold; color: #3b82f6; font-size: 0.75rem; margin-bottom: 4px; }
-        
-        .chat-input-small {
-            display: flex;
-            padding: 12px;
-            background: #111;
-            gap: 8px;
-            border-top: 1px solid #333;
-        }
-        
-        .chat-input-small input {
-            flex: 1;
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: white;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-        
+        .chat-input-small { display: flex; padding: 12px; background: #111; gap: 8px; border-top: 1px solid #333; }
+        .chat-input-small input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 10px; border-radius: 6px; font-size: 0.9rem; }
         .chat-input-small input:focus { outline: none; border-color: #3b82f6; }
-        
-        .chat-input-small button {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.85);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 20px;
-        }
-        
-        .modal {
-            background: #1a1a1a;
-            padding: 30px;
-            border-radius: 16px;
-            max-width: 500px;
-            width: 100%;
-            border: 1px solid #333;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        
-        .modal h2 {
-            margin: 0 0 20px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.3rem;
-        }
-        
-        .modal-details {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #0a0a0a;
-            border-radius: 8px;
-            border: 1px solid #333;
-        }
-        
+        .chat-input-small button { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+        .modal { background: #1a1a1a; padding: 30px; border-radius: 16px; max-width: 500px; width: 100%; border: 1px solid #333; max-height: 90vh; overflow-y: auto; }
+        .modal h2 { margin: 0 0 20px 0; display: flex; align-items: center; gap: 10px; font-size: 1.3rem; }
+        .modal-details { margin-bottom: 20px; padding: 15px; background: #0a0a0a; border-radius: 8px; border: 1px solid #333; }
         .modal-details p { margin: 8px 0; line-height: 1.5; }
-        
-        .quick-responses {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin: 20px 0;
-        }
-        
-        .quick-responses button {
-            background: #333;
-            border: 1px solid #444;
-            color: white;
-            padding: 10px 16px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-        }
-        
-        .quick-responses button:hover { background: #444; border-color: #555; }
-        
-        .response-input {
-            width: 100%;
-            background: #0a0a0a;
-            border: 1px solid #333;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            resize: vertical;
-            min-height: 80px;
-            font-size: 0.9rem;
-        }
-        
+        .quick-responses { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0; }
+        .quick-responses button { background: #333; border: 1px solid #444; color: white; padding: 10px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+        .quick-responses button:hover { background: #444; }
+        .response-input { width: 100%; background: #0a0a0a; border: 1px solid #333; color: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; resize: vertical; min-height: 80px; font-size: 0.9rem; }
         .response-input:focus { outline: none; border-color: #3b82f6; }
-        
         .modal-actions { display: flex; gap: 10px; }
-        
-        .modal-actions button {
-            flex: 1;
-            padding: 15px;
-            border-radius: 8px;
-            border: none;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-        
+        .modal-actions button { flex: 1; padding: 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 0.9rem; }
         .btn-primary { background: #3b82f6; color: white; }
-        .btn-primary:hover { background: #2563eb; }
         .btn-secondary { background: #333; color: white; }
-        .btn-secondary:hover { background: #444; }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        /* Botón de desbloqueo de audio */
+        .audio-unlock-banner {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: #f59e0b; color: black; padding: 14px 28px; border-radius: 30px;
+            font-weight: 900; font-size: 1rem; cursor: pointer; z-index: 500;
+            box-shadow: 0 4px 20px rgba(245,158,11,0.4); border: none;
+            animation: pulse 1.5s infinite;
         }
-        
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #0a0a0a; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #444; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+<div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback } = React;
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
 
-        const StudioDashboard = () => {
-            const [inRoom, setInRoom] = useState(false);
-            const [roomCode, setRoomCode] = useState('');
-            const [studioName, setStudioName] = useState('');
-            
-            const [reporters, setReporters] = useState({});
-            const [listeningTo, setListeningTo] = useState(null);
-            const [rxLevel, setRxLevel] = useState(0);
-            
-            const [alerts, setAlerts] = useState([]);
-            const [unreadAlerts, setUnreadAlerts] = useState(0);
-            const [selectedAlert, setSelectedAlert] = useState(null);
-            
-            const [chatMessages, setChatMessages] = useState([]);
-            const [chatInput, setChatInput] = useState('');
-            
-            const [studioMicStream, setStudioMicStream] = useState(null);
-            const [studioMicActive, setStudioMicActive] = useState(false);
-            
-            const [alertSent, setAlertSent] = useState({});
-            const [connectionError, setConnectionError] = useState(null);
-            
-            const peerRef = useRef(null);
-            const mqttRef = useRef(null);
-            const audioRef = useRef(null);
-            const analyserRef = useRef(null);
-            const animationFrameRef = useRef(null);
-            const studioMicRef = useRef(null);
-            const audioCtxRef = useRef(null);
-            const listeningToRef = useRef(null);
-            const responseInputRef = useRef(null);
-            const sourceRef = useRef(null);       // FIX 3: track MediaStreamSource node
-            // FIX 5: globalStreams y globalCalls como refs dentro del componente
-            const globalStreams = useRef(new Map());
-            const globalCalls = useRef(new Map());
-            
-            useEffect(() => {
-                setRoomCode(Math.random().toString(36).substring(2, 6).toUpperCase());
-            }, []);
+const StudioDashboard = () => {
+    const [inRoom, setInRoom]               = useState(false);
+    const [roomCode, setRoomCode]           = useState('');
+    const [studioName, setStudioName]       = useState('');
+    const [reporters, setReporters]         = useState({});
+    const [listeningTo, setListeningTo]     = useState(null);
+    const [rxLevel, setRxLevel]             = useState(0);
+    const [alerts, setAlerts]               = useState([]);
+    const [unreadAlerts, setUnreadAlerts]   = useState(0);
+    const [selectedAlert, setSelectedAlert] = useState(null);
+    const [chatMessages, setChatMessages]   = useState([]);
+    const [chatInput, setChatInput]         = useState('');
+    const [studioMicActive, setStudioMicActive] = useState(false);
+    const [alertSent, setAlertSent]         = useState({});
+    const [connectionError, setConnectionError] = useState(null);
+    const [audioBlocked, setAudioBlocked]   = useState(false); // FIX: detectar autoplay bloqueado
 
-            useEffect(() => { listeningToRef.current = listeningTo; }, [listeningTo]);
-            
-            const joinRoom = async () => {
-                if (!roomCode || !studioName) return alert('Completá todos los campos');
+    const peerRef           = useRef(null);
+    const mqttRef           = useRef(null);
+    // FIX: usamos el <audio> del DOM directamente; NO creamos new Audio() en runtime
+    const audioRef          = useRef(null);
+    const analyserRef       = useRef(null);
+    const animationFrameRef = useRef(null);
+    const studioMicRef      = useRef(null);
+    const audioCtxRef       = useRef(null);
+    const listeningToRef    = useRef(null);
+    const responseInputRef  = useRef(null);
+    const sourceRef         = useRef(null);
+    const globalStreams      = useRef(new Map());
+    const globalCalls        = useRef(new Map());
 
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        audio: {
-                            echoCancellation: true,
-                            noiseSuppression: true,
-                            autoGainControl: true
-                        }
-                    });
-                    studioMicRef.current = stream;
-                    setStudioMicStream(stream);
-                    setStudioMicActive(true);
-                } catch (e) {
-                    console.warn('Iniciando sin micrófono local. El retorno no funcionará hasta activarlo.');
-                }
-                
-                const studioPeerId = `studio_${roomCode}`;
-                
-                peerRef.current = new Peer(studioPeerId, {
-                    config: {
-                        iceServers: [
-                            { urls: 'stun:stun.l.google.com:19302' },
-                            { urls: 'stun:stun1.l.google.com:19302' }
-                        ]
-                    }
-                });
-                
-                peerRef.current.on('open', () => {
-                    setConnectionError(null);
-                    initMQTT();
-                    setInRoom(true);
-                });
+    useEffect(() => {
+        setRoomCode(Math.random().toString(36).substring(2,6).toUpperCase());
+    }, []);
 
-                peerRef.current.on('error', (err) => {
-                    console.error('PeerJS error:', err);
-                    setConnectionError('Error de conexión PeerJS. ¿Sala ocupada o servidor caído?');
-                });
-                
-                peerRef.current.on('call', (call) => {
-                    console.log('Incoming call from reporter:', call.peer);
-                    
-                    const answerStream = studioMicRef.current || createEmptyAudioStream();
-                    call.answer(answerStream);
-                    globalCalls.current.set(call.peer, call);
-                    
-                    call.on('stream', (remoteStream) => {
-                        console.log('Got stream from reporter:', call.peer);
-                        globalStreams.current.set(call.peer, remoteStream);
-                        
-                        setReporters(prev => ({
-                            ...prev,
-                            [call.peer]: {
-                                ...prev[call.peer],
-                                hasAudio: true,
-                                streamId: remoteStream.id
-                            }
-                        }));
-                    });
-                    
-                    call.on('close', () => {
-                        globalStreams.current.delete(call.peer);
-                        globalCalls.current.delete(call.peer);
-                        if (listeningToRef.current === call.peer) stopListening();
-                        setReporters(prev => {
-                            const newState = { ...prev };
-                            if (newState[call.peer]) {
-                                newState[call.peer] = { ...newState[call.peer], hasAudio: false };
-                            }
-                            return newState;
-                        });
-                    });
-                });
-            };
-            
-            const createEmptyAudioStream = () => {
-                try {
-                    const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    const ctx = new AudioContext();
-                    const dest = ctx.createMediaStreamDestination();
-                    return dest.stream;
-                } catch (e) {
-                    return new MediaStream();
-                }
-            };
+    useEffect(() => { listeningToRef.current = listeningTo; }, [listeningTo]);
 
-            // FIX 1: toggleStudioMic ahora reemplaza el track en todas las llamadas activas
-            const toggleStudioMic = async () => {
-                if (studioMicActive) {
-                    if (studioMicRef.current) {
-                        studioMicRef.current.getTracks().forEach(t => t.stop());
-                        studioMicRef.current = null;
-                    }
+    // FIX: función centralizada para desbloquear AudioContext con gesto de usuario
+    const resumeAudioContext = useCallback(async () => {
+        if (!audioCtxRef.current) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            audioCtxRef.current = new AudioCtx();
+        }
+        if (audioCtxRef.current.state === 'suspended') {
+            await audioCtxRef.current.resume();
+        }
+    }, []);
 
-                    // Reemplazar track con silencio en todas las conexiones activas
-                    globalCalls.current.forEach(call => {
-                        try {
-                            const pc = call.peerConnection;
-                            if (pc) {
-                                pc.getSenders().forEach(sender => {
-                                    if (sender.track?.kind === 'audio') {
-                                        sender.replaceTrack(null);
-                                    }
-                                });
-                            }
-                        } catch (e) {
-                            console.warn('replaceTrack(null) error:', e);
-                        }
-                    });
+    const joinRoom = async () => {
+        if (!roomCode || !studioName) return alert('Completá todos los campos');
 
-                    setStudioMicStream(null);
-                    setStudioMicActive(false);
-                } else {
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({
-                            audio: {
-                                echoCancellation: true,
-                                noiseSuppression: true,
-                                autoGainControl: true
-                            }
-                        });
-                        studioMicRef.current = stream;
-                        const [newTrack] = stream.getAudioTracks();
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
+            studioMicRef.current = stream;
+            setStudioMicActive(true);
+        } catch(e) {
+            console.warn('Sin micrófono local.');
+        }
 
-                        // Reemplazar track con el nuevo mic en todas las conexiones activas
-                        globalCalls.current.forEach(call => {
-                            try {
-                                const pc = call.peerConnection;
-                                if (pc) {
-                                    pc.getSenders().forEach(sender => {
-                                        if (sender.track?.kind === 'audio' || sender.track === null) {
-                                            sender.replaceTrack(newTrack);
-                                        }
-                                    });
-                                }
-                            } catch (e) {
-                                console.warn('replaceTrack(newTrack) error:', e);
-                            }
-                        });
+        const studioPeerId = `studio_${roomCode}`;
+        peerRef.current = new Peer(studioPeerId, {
+            config: { iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]}
+        });
 
-                        setStudioMicStream(stream);
-                        setStudioMicActive(true);
-                    } catch (e) {
-                        alert('No se pudo acceder al micrófono del estudio');
-                    }
-                }
-            };
-            
-            const initMQTT = () => {
-                const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
-                    clientId: `mqtt_studio_${Math.random().toString(16).substr(2, 8)}`,
-                    reconnectPeriod: 3000,
-                    will: {
-                        topic: `radio/${roomCode}/studio`,
-                        payload: JSON.stringify({ status: 'offline' }),
-                        retain: true
-                    }
-                });
-                
-                mqttRef.current = client;
-                
-                client.on('connect', () => {
-                    setConnectionError(null);
-                    client.subscribe(`radio/${roomCode}/reporters`);
-                    client.subscribe(`radio/${roomCode}/alerts`);
-                    client.subscribe(`radio/${roomCode}/chat`);
-                    
-                    client.publish(`radio/${roomCode}/studio`, JSON.stringify({
-                        name: studioName,
-                        status: 'online',
-                        timestamp: Date.now()
-                    }), { retain: true });
-                });
+        peerRef.current.on('open', () => {
+            setConnectionError(null);
+            initMQTT();
+            setInRoom(true);
+        });
 
-                client.on('error', (err) => {
-                    console.error('MQTT error:', err);
-                    setConnectionError('Error de conexión MQTT. Alertas y chat pueden no funcionar.');
-                });
+        peerRef.current.on('error', err => {
+            console.error('PeerJS error:', err);
+            setConnectionError('Error PeerJS. ¿Sala ocupada o servidor caído?');
+        });
 
-                // FIX 4: usar 'offline' en lugar de 'close' + client.reconnecting (no estándar)
-                client.on('offline', () => {
-                    setConnectionError('Desconectado del broker MQTT. Reconectando...');
-                });
-                
-                client.on('message', (topic, msg) => {
-                    try {
-                        const data = JSON.parse(msg.toString());
-                        
-                        if (topic.includes('/reporters')) {
-                            setReporters(prev => ({ ...prev, [data.id]: { ...prev[data.id], ...data } }));
-                        }
-                        if (topic.includes('/alerts') && !topic.includes('/response')) {
-                            handleNewAlert(data);
-                        }
-                        if (topic.includes('/chat')) {
-                            setChatMessages(prev => [...prev, data].slice(-100));
-                        }
-                    } catch (e) {}
-                });
-            };
-            
-            const handleNewAlert = (alert) => {
-                setAlerts(prev => [alert, ...prev]);
-                setUnreadAlerts(c => c + 1);
-                
-                try {
-                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    const ctx = new AudioCtx();
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.frequency.value = alert.severity === 'high' ? 880 : 440;
-                    gain.gain.setValueAtTime(alert.severity === 'high' ? 0.3 : 0.1, ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (alert.severity === 'high' ? 0.5 : 0.3));
-                    osc.start();
-                    osc.stop(ctx.currentTime + (alert.severity === 'high' ? 0.5 : 0.3));
-                    // Cerrar el contexto temporal luego de reproducir
-                    osc.onended = () => { try { ctx.close(); } catch(e) {} };
-                } catch (e) {}
-            };
-            
-            const listenToReporter = useCallback((reporterId) => {
-                const stream = globalStreams.current.get(reporterId);
-                if (!stream) return;
-                
-                stopListening();
-                setListeningTo(reporterId);
-                
-                if (!audioRef.current) {
-                    audioRef.current = new Audio();
-                    audioRef.current.autoplay = true;
-                }
-                
-                audioRef.current.srcObject = stream;
-                audioRef.current.play().catch(e => {
-                    document.addEventListener('click', function retry() {
-                        audioRef.current.play().catch(() => {});
-                        document.removeEventListener('click', retry);
-                    }, { once: true });
-                });
-                
-                try {
-                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
+        peerRef.current.on('call', call => {
+            const answerStream = studioMicRef.current || createSilentStream();
+            call.answer(answerStream);
+            globalCalls.current.set(call.peer, call);
 
-                    // FIX 3: desconectar el source node anterior antes de crear uno nuevo
-                    if (sourceRef.current) {
-                        try { sourceRef.current.disconnect(); } catch(e) {}
-                        sourceRef.current = null;
-                    }
-                    if (analyserRef.current) {
-                        try { analyserRef.current.disconnect(); } catch(e) {}
-                    }
-                    
-                    const source = audioCtxRef.current.createMediaStreamSource(stream);
-                    sourceRef.current = source;
-                    analyserRef.current = audioCtxRef.current.createAnalyser();
-                    analyserRef.current.fftSize = 256;
-                    source.connect(analyserRef.current);
-                    
-                    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-                    const updateVU = () => {
-                        if (!analyserRef.current) return;
-                        analyserRef.current.getByteFrequencyData(dataArray);
-                        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-                        setRxLevel(avg);
-                        animationFrameRef.current = requestAnimationFrame(updateVU);
-                    };
-                    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-                    updateVU();
-                } catch (e) {}
-            }, []);
-            
-            const stopListening = useCallback(() => {
-                if (audioRef.current) {
-                    audioRef.current.pause();
-                    audioRef.current.srcObject = null;
-                }
-                setListeningTo(null);
-                setRxLevel(0);
-                if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+            call.on('stream', remoteStream => {
+                globalStreams.current.set(call.peer, remoteStream);
+                setReporters(prev => ({ ...prev, [call.peer]: { ...prev[call.peer], hasAudio: true } }));
+            });
 
-                // FIX 3: desconectar source node al dejar de escuchar
-                if (sourceRef.current) {
-                    try { sourceRef.current.disconnect(); } catch(e) {}
-                    sourceRef.current = null;
-                }
-                if (analyserRef.current) {
-                    try { analyserRef.current.disconnect(); } catch (e) {}
-                    analyserRef.current = null;
-                }
-            }, []);
+            call.on('error', err => console.error('Call error:', err));
 
-            // FIX 6: remover un reporter desconectado manualmente de la lista
-            const dismissReporter = (id) => {
-                if (listeningToRef.current === id) stopListening();
-                globalStreams.current.delete(id);
-                globalCalls.current.delete(id);
+            call.on('close', () => {
+                globalStreams.current.delete(call.peer);
+                globalCalls.current.delete(call.peer);
+                if (listeningToRef.current === call.peer) stopListening();
                 setReporters(prev => {
-                    const newState = { ...prev };
-                    delete newState[id];
-                    return newState;
+                    const s = { ...prev };
+                    if (s[call.peer]) s[call.peer] = { ...s[call.peer], hasAudio: false };
+                    return s;
                 });
-            };
-            
-            const sendStudioAlert = (reporterId, type) => {
-                if (!mqttRef.current?.connected) return;
-                
-                mqttRef.current.publish(`radio/${roomCode}/studio_alert`, JSON.stringify({
-                    reporterId: reporterId,
-                    type: type,
-                    from: studioName,
-                    timestamp: Date.now()
-                }));
-                
-                setAlertSent(prev => ({
-                    ...prev,
-                    [reporterId]: { type, time: Date.now() }
-                }));
-                
-                setTimeout(() => {
-                    setAlertSent(prev => {
-                        const newState = { ...prev };
-                        delete newState[reporterId];
-                        return newState;
-                    });
-                }, 3000);
-            };
-            
-            const acknowledgeAlert = (timestamp) => {
-                setAlerts(prev => prev.map(a => a.timestamp === timestamp ? { ...a, acknowledged: true } : a));
-                setUnreadAlerts(c => Math.max(0, c - 1));
-            };
-            
-            const respondToAlert = (message) => {
-                if (!selectedAlert || !mqttRef.current) return;
-                mqttRef.current.publish(`radio/${roomCode}/alerts/response`, JSON.stringify({
-                    to: selectedAlert.reporterId,
-                    from: studioName,
-                    message,
-                    timestamp: Date.now()
-                }));
-                setSelectedAlert(null);
-            };
-            
-            const sendChat = (e) => {
-                e.preventDefault();
-                if (!chatInput.trim() || !mqttRef.current) return;
-                const payload = {
-                    id: Date.now(),
-                    sender: studioName,
-                    text: chatInput.trim(),
-                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                };
-                mqttRef.current.publish(`radio/${roomCode}/chat`, JSON.stringify(payload));
-                setChatMessages(prev => [...prev, payload]);
-                setChatInput('');
-            };
-            
-            // FIX 2: cleanup completo del AudioContext principal
-            useEffect(() => {
-                return () => {
-                    stopListening();
-                    if (peerRef.current) peerRef.current.destroy();
-                    if (mqttRef.current) mqttRef.current.end();
-                    if (studioMicRef.current) studioMicRef.current.getTracks().forEach(t => t.stop());
-                    // FIX 2: cerrar AudioContext al desmontar
-                    if (audioCtxRef.current) {
-                        try { audioCtxRef.current.close(); } catch(e) {}
-                        audioCtxRef.current = null;
-                    }
-                    globalStreams.current.clear();
-                    globalCalls.current.clear();
-                };
-            }, [stopListening]);
-            
-            const getAlertIcon = (type) => {
-                const icons = { ready: '🎤', problem: '⚠️', visual: '👁️', blocked: '🚧', '5min': '⏱️', custom: '✏️' };
-                return icons[type] || '📢';
-            };
-            
-            if (!inRoom) {
-                return (
-                    <div className="lobby-screen">
-                        <div className="lobby-box">
-                            <h1>STREAM<span>RADIO</span></h1>
-                            <p>DASHBOARD DE ESTUDIO RX + IFB + ALERTAS</p>
-                            <input className="lobby-input" placeholder="CÓDIGO DE SALA" value={roomCode} onChange={e => setRoomCode(e.target.value.toUpperCase())} />
-                            <input className="lobby-input" placeholder="NOMBRE DEL ESTUDIO" value={studioName} onChange={e => setStudioName(e.target.value)} />
-                            <button className="lobby-btn" onClick={joinRoom}>ENTRAR AL HUB</button>
-                        </div>
-                    </div>
-                );
-            }
-            
-            return (
-                <div className="dashboard">
-                    <audio ref={audioRef} style={{display: 'none'}} />
-                    <div className="top-bar">
-                        <div className="logo">
-                            STREAM<span>RADIO</span>
-                            <small>RX + IFB + ALERTAS</small>
-                        </div>
-                        <div className="top-status">
-                            {connectionError && <span className="connection-error" onClick={() => setConnectionError(null)} title="Cerrar">⚠️ {connectionError}</span>}
-                            <span className="room-code">SALA: <b>{roomCode}</b></span>
-                            <span className="online-status">● ONLINE</span>
-                        </div>
-                    </div>
-                    
-                    <div className="main-content">
-                        <div className="info-panel">
-                            <h2>📊 Estado del Sistema</h2>
-                            
-                            <div className="info-box">
-                                <div className="info-label">Móviles Conectados</div>
-                                <div className="info-value">{Object.keys(reporters).length}</div>
-                            </div>
-                            
-                            <div className="info-box">
-                                <div className="info-label">En Transmisión</div>
-                                <div className="info-value" style={{color: '#ef4444'}}>
-                                    {Object.values(reporters).filter(r => r.status === 'live').length}
-                                </div>
-                            </div>
-                            
-                            <div className="info-box">
-                                <div className="info-label">Alertas Pendientes</div>
-                                <div className="info-value" style={{color: unreadAlerts > 0 ? '#f59e0b' : '#22c55e'}}>
-                                    {unreadAlerts}
-                                </div>
-                            </div>
-                            
-                            <div className="status-indicator">
-                                <div className="status-dot"></div>
-                                <div className="status-text">RECEPTOR ACTIVO</div>
-                            </div>
-                            
-                            <div className="ifb-control">
-                                <div className="ifb-title">🎙️ Micrófono para Retorno (IFB)</div>
-                                <button className={`mic-btn ${studioMicActive ? 'on' : 'off'}`} onClick={toggleStudioMic}>
-                                    {studioMicActive ? '🔴 MIC ACTIVO (IFB ON)' : '⚫ MIC INACTIVO (IFB OFF)'}
-                                </button>
-                                <div className="mic-hint">
-                                    {studioMicActive ? 'El reportero puede escucharte hablar' : 'Activa para hablar al reportero'}
-                                </div>
-                            </div>
-                            
-                            {listeningTo && (
-                                <div className="listening-info">
-                                    <div className="listening-label">Escuchando</div>
-                                    <div className="listening-name">{reporters[listeningTo]?.name || 'Móvil'}</div>
-                                    <div className="vu-container">
-                                        <div className="vu-bar" style={{width: `${Math.min(rxLevel * 2, 100)}%`}}></div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div className="center-panel">
-                            <div className="tabs">
-                                <button className="tab active">
-                                    📻 Móviles ({Object.keys(reporters).length})
-                                </button>
-                            </div>
-                            
-                            <div className="panel-content">
-                                <div className="rx-grid">
-                                    {Object.keys(reporters).length === 0 && (
-                                        <div className="empty-state">Esperando móviles en la sala...</div>
-                                    )}
-                                    
-                                    {Object.entries(reporters).map(([id, reporter]) => {
-                                        const isListening = listeningTo === id;
-                                        const hasAudio = reporter.hasAudio || globalStreams.current.has(id);
-                                        const isDisconnected = !hasAudio;
-                                        const sentAlert = alertSent[id];
-                                        
-                                        return (
-                                            <div key={id} className={`rx-card ${reporter.status === 'live' ? 'live' : ''} ${isListening ? 'listening' : ''}`}>
-                                                {sentAlert && (
-                                                    <div className="on-air-indicator">
-                                                        {sentAlert.type === 'on_air' ? '🔴 ENVIADO' : '⚠️ ENVIADO'}
-                                                    </div>
-                                                )}
-                                                
-                                                <div className="rx-header">
-                                                    <div className="rx-name">
-                                                        <div className={`led ${reporter.status === 'live' ? 'red' : ''}`}></div>
-                                                        {reporter.name || 'Móvil'}
-                                                        {reporter.status === 'live' && <span className="live-tag">EN VIVO</span>}
-                                                    </div>
-                                                </div>
-                                                
-                                                <div className="rx-actions">
-                                                    {hasAudio ? (
-                                                        isListening ? (
-                                                            <>
-                                                                <button className="rx-btn stop" onClick={stopListening}>⏹ CORTAR</button>
-                                                                <button className="rx-btn play" onClick={() => listenToReporter(id)} style={{background: '#22c55e'}}>↻</button>
-                                                            </>
-                                                        ) : (
-                                                            <button className="rx-btn play" onClick={() => listenToReporter(id)}>▶ ESCUCHAR</button>
-                                                        )
-                                                    ) : (
-                                                        <button className="rx-btn" disabled>SIN AUDIO</button>
-                                                    )}
-                                                </div>
+            });
+        });
+    };
 
-                                                {/* FIX 6: botón para limpiar reporters desconectados */}
-                                                {isDisconnected && (
-                                                    <button className="rx-dismiss" onClick={() => dismissReporter(id)}>
-                                                        ✕ Quitar de la lista
-                                                    </button>
-                                                )}
-                                                
-                                                {isListening && (
-                                                    <div className="alert-actions">
-                                                        <button 
-                                                            className="alert-btn-studio attention"
-                                                            onClick={() => sendStudioAlert(id, 'attention')}
-                                                            disabled={sentAlert?.type === 'attention'}
-                                                        >
-                                                            ⚠️ {sentAlert?.type === 'attention' ? 'ENVIADO' : 'ATENTO'}
-                                                        </button>
-                                                        <button 
-                                                            className="alert-btn-studio on-air"
-                                                            onClick={() => sendStudioAlert(id, 'on_air')}
-                                                            disabled={sentAlert?.type === 'on_air'}
-                                                        >
-                                                            🔴 {sentAlert?.type === 'on_air' ? 'ENVIADO' : 'AL AIRE'}
-                                                        </button>
-                                                    </div>
-                                                )}
-                                                
-                                                {studioMicActive && isListening && (
-                                                    <div className="ifb-status-bar">
-                                                        🎧 Retorno activo: el reportero te escucha
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="alerts-panel">
-                            <div className="alerts-header">
-                                <h2>🚨 Alertas de Campo</h2>
-                                {unreadAlerts > 0 && <span className="unread-badge">{unreadAlerts}</span>}
-                            </div>
-                            
-                            <div className="alerts-list">
-                                {alerts.length === 0 && <div style={{textAlign: 'center', color: '#666', marginTop: 30}}>Sin alertas recientes</div>}
-                                
-                                {alerts.map((alert, i) => (
-                                    <div key={i} className={`alert-card ${alert.severity} ${alert.acknowledged ? 'ack' : ''}`} onClick={() => { acknowledgeAlert(alert.timestamp); setSelectedAlert(alert); }}>
-                                        {!alert.acknowledged && <div className="alert-pulse"></div>}
-                                        <div className="alert-header">
-                                            <span className="alert-reporter">{alert.reporterName}</span>
-                                            <span className="alert-time">{new Date(alert.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                        </div>
-                                        <div className="alert-type" style={{color: alert.severity === 'high' ? '#ef4444' : alert.severity === 'medium' ? '#f59e0b' : '#3b82f6'}}>
-                                            {getAlertIcon(alert.alertId)} {alert.alertLabel}
-                                        </div>
-                                        <div className="alert-message">{alert.message}</div>
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            <div className="chat-section">
-                                <div className="chat-header-small">💬 Chat General</div>
-                                <div className="chat-messages-small">
-                                    {chatMessages.map((m, i) => (
-                                        <div key={i} className="chat-msg-small">
-                                            <div className="sender">{m.sender}</div>
-                                            <div>{m.text}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <form className="chat-input-small" onSubmit={sendChat}>
-                                    <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Mensaje..." />
-                                    <button type="submit">➤</button>
-                                </form>
-                            </div>
-                        </div>
+    const createSilentStream = () => {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            return ctx.createMediaStreamDestination().stream;
+        } catch(e) { return new MediaStream(); }
+    };
+
+    const toggleStudioMic = async () => {
+        if (studioMicActive) {
+            studioMicRef.current?.getTracks().forEach(t => t.stop());
+            studioMicRef.current = null;
+            // Silenciar en todas las conexiones activas
+            globalCalls.current.forEach(call => {
+                try { call.peerConnection?.getSenders().forEach(s => { if (s.track?.kind==='audio') s.replaceTrack(null); }); } catch(e) {}
+            });
+            setStudioMicActive(false);
+        } else {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
+                studioMicRef.current = stream;
+                const [track] = stream.getAudioTracks();
+                globalCalls.current.forEach(call => {
+                    try { call.peerConnection?.getSenders().forEach(s => { if (s.track?.kind==='audio' || !s.track) s.replaceTrack(track); }); } catch(e) {}
+                });
+                setStudioMicActive(true);
+            } catch(e) { alert('No se pudo acceder al micrófono'); }
+        }
+    };
+
+    const initMQTT = () => {
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
+            clientId: `mqtt_studio_${Math.random().toString(16).substr(2,8)}`,
+            reconnectPeriod: 3000,
+            will: { topic: `radio/${roomCode}/studio`, payload: JSON.stringify({status:'offline'}), retain: true }
+        });
+        mqttRef.current = client;
+
+        client.on('connect', () => {
+            setConnectionError(null);
+            client.subscribe(`radio/${roomCode}/reporters`);
+            client.subscribe(`radio/${roomCode}/alerts`);
+            client.subscribe(`radio/${roomCode}/chat`);
+            client.publish(`radio/${roomCode}/studio`, JSON.stringify({ name: studioName, status:'online', timestamp: Date.now() }), { retain: true });
+        });
+        client.on('error', err => { console.error('MQTT:', err); setConnectionError('Error MQTT.'); });
+        client.on('offline', () => setConnectionError('Desconectado del broker. Reconectando...'));
+        client.on('message', (topic, msg) => {
+            try {
+                const data = JSON.parse(msg.toString());
+                if (topic.includes('/reporters')) setReporters(prev => ({ ...prev, [data.id]: { ...prev[data.id], ...data } }));
+                if (topic.includes('/alerts') && !topic.includes('/response')) handleNewAlert(data);
+                if (topic.includes('/chat')) setChatMessages(prev => [...prev, data].slice(-100));
+            } catch(e) {}
+        });
+    };
+
+    const handleNewAlert = alert => {
+        setAlerts(prev => [alert, ...prev]);
+        setUnreadAlerts(c => c + 1);
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.frequency.value = alert.severity === 'high' ? 880 : 440;
+            gain.gain.setValueAtTime(alert.severity === 'high' ? 0.3 : 0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+            osc.start(); osc.stop(ctx.currentTime + 0.5);
+            osc.onended = () => { try { ctx.close(); } catch(e) {} };
+        } catch(e) {}
+    };
+
+    // ─── AUDIO FIX PRINCIPAL ──────────────────────────────────────────────────
+    const stopListening = useCallback(() => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.srcObject = null;
+        }
+        setListeningTo(null);
+        setRxLevel(0);
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        if (sourceRef.current) { try { sourceRef.current.disconnect(); } catch(e) {} sourceRef.current = null; }
+        if (analyserRef.current) { try { analyserRef.current.disconnect(); } catch(e) {} analyserRef.current = null; }
+    }, []);
+
+    const listenToReporter = useCallback(async (reporterId) => {
+        const stream = globalStreams.current.get(reporterId);
+        if (!stream) return;
+
+        stopListening();
+        setListeningTo(reporterId);
+
+        // FIX 1: usar el <audio> del DOM (ref de JSX), no new Audio()
+        // FIX 2: resumir AudioContext ANTES de asignar srcObject
+        const el = audioRef.current;
+        el.srcObject = stream;
+
+        try {
+            // FIX 3: forzar resume del contexto en el gesto de usuario (clic en ESCUCHAR)
+            await resumeAudioContext();
+            await el.play();
+            setAudioBlocked(false);
+        } catch(e) {
+            console.warn('Autoplay bloqueado, mostrando banner');
+            setAudioBlocked(true);
+        }
+
+        // VU meter
+        try {
+            if (sourceRef.current) { try { sourceRef.current.disconnect(); } catch(e) {} sourceRef.current = null; }
+            if (analyserRef.current) { try { analyserRef.current.disconnect(); } catch(e) {} }
+
+            const source = audioCtxRef.current.createMediaStreamSource(stream);
+            sourceRef.current = source;
+            analyserRef.current = audioCtxRef.current.createAnalyser();
+            analyserRef.current.fftSize = 256;
+            source.connect(analyserRef.current);
+
+            const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+            const updateVU = () => {
+                if (!analyserRef.current) return;
+                analyserRef.current.getByteFrequencyData(dataArray);
+                const avg = dataArray.reduce((a,b)=>a+b,0) / dataArray.length;
+                setRxLevel(avg);
+                animationFrameRef.current = requestAnimationFrame(updateVU);
+            };
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+            updateVU();
+        } catch(e) { console.error('VU meter error:', e); }
+    }, [stopListening, resumeAudioContext]);
+
+    // FIX 4: desbloqueo manual de audio con un clic
+    const unlockAudio = async () => {
+        await resumeAudioContext();
+        if (audioRef.current?.srcObject) {
+            try { await audioRef.current.play(); setAudioBlocked(false); } catch(e) {}
+        }
+    };
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const sendStudioAlert = (reporterId, type) => {
+        if (!mqttRef.current?.connected) return;
+        mqttRef.current.publish(`radio/${roomCode}/studio_alert`, JSON.stringify({ reporterId, type, from: studioName, timestamp: Date.now() }));
+        setAlertSent(prev => ({ ...prev, [reporterId]: { type, time: Date.now() } }));
+        setTimeout(() => setAlertSent(prev => { const s={...prev}; delete s[reporterId]; return s; }), 3000);
+    };
+
+    const acknowledgeAlert = ts => {
+        setAlerts(prev => prev.map(a => a.timestamp===ts ? {...a,acknowledged:true} : a));
+        setUnreadAlerts(c => Math.max(0,c-1));
+    };
+
+    const respondToAlert = msg => {
+        if (!selectedAlert || !mqttRef.current) return;
+        mqttRef.current.publish(`radio/${roomCode}/alerts/response`, JSON.stringify({ to: selectedAlert.reporterId, from: studioName, message: msg, timestamp: Date.now() }));
+        setSelectedAlert(null);
+    };
+
+    const sendChat = e => {
+        e.preventDefault();
+        if (!chatInput.trim() || !mqttRef.current) return;
+        const payload = { id: Date.now(), sender: studioName, text: chatInput.trim(), time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) };
+        mqttRef.current.publish(`radio/${roomCode}/chat`, JSON.stringify(payload));
+        setChatMessages(prev => [...prev, payload]);
+        setChatInput('');
+    };
+
+    const dismissReporter = id => {
+        if (listeningToRef.current === id) stopListening();
+        globalStreams.current.delete(id);
+        globalCalls.current.delete(id);
+        setReporters(prev => { const s={...prev}; delete s[id]; return s; });
+    };
+
+    useEffect(() => {
+        return () => {
+            stopListening();
+            if (callRef) {}
+            if (peerRef.current) peerRef.current.destroy();
+            if (mqttRef.current) mqttRef.current.end();
+            if (studioMicRef.current) studioMicRef.current.getTracks().forEach(t=>t.stop());
+            if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch(e) {} audioCtxRef.current = null; }
+            globalStreams.current.clear();
+            globalCalls.current.clear();
+        };
+    }, [stopListening]);
+
+    const getAlertIcon = t => ({ready:'🎤',problem:'⚠️',visual:'👁️',blocked:'🚧','5min':'⏱️',custom:'✏️'}[t]||'📢');
+
+    if (!inRoom) return (
+        <div className="lobby-screen">
+            <div className="lobby-box">
+                <h1>STREAM<span>RADIO</span></h1>
+                <p>DASHBOARD DE ESTUDIO RX + IFB + ALERTAS</p>
+                <input className="lobby-input" placeholder="CÓDIGO DE SALA" value={roomCode} onChange={e=>setRoomCode(e.target.value.toUpperCase())} />
+                <input className="lobby-input" placeholder="NOMBRE DEL ESTUDIO" value={studioName} onChange={e=>setStudioName(e.target.value)} />
+                <button className="lobby-btn" onClick={joinRoom}>ENTRAR AL HUB</button>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="dashboard">
+            {/* FIX: atributos autoPlay y playsInline en el elemento del DOM */}
+            <audio ref={audioRef} autoPlay playsInline style={{display:'none'}} />
+
+            {/* FIX: banner de desbloqueo si el autoplay fue bloqueado por el browser */}
+            {audioBlocked && (
+                <button className="audio-unlock-banner" onClick={unlockAudio}>
+                    🔊 Tocá aquí para activar el audio
+                </button>
+            )}
+
+            <div className="top-bar">
+                <div className="logo">STREAM<span>RADIO</span><small>RX + IFB + ALERTAS</small></div>
+                <div className="top-status">
+                    {connectionError && <span className="connection-error" onClick={()=>setConnectionError(null)}>⚠️ {connectionError}</span>}
+                    <span className="room-code">SALA: <b>{roomCode}</b></span>
+                    <span className="online-status">● ONLINE</span>
+                </div>
+            </div>
+
+            <div className="main-content">
+                <div className="info-panel">
+                    <h2>📊 Estado del Sistema</h2>
+                    <div className="info-box"><div className="info-label">Móviles Conectados</div><div className="info-value">{Object.keys(reporters).length}</div></div>
+                    <div className="info-box"><div className="info-label">En Transmisión</div><div className="info-value" style={{color:'#ef4444'}}>{Object.values(reporters).filter(r=>r.status==='live').length}</div></div>
+                    <div className="info-box"><div className="info-label">Alertas Pendientes</div><div className="info-value" style={{color:unreadAlerts>0?'#f59e0b':'#22c55e'}}>{unreadAlerts}</div></div>
+                    <div className="status-indicator"><div className="status-dot"/><div className="status-text">RECEPTOR ACTIVO</div></div>
+                    <div className="ifb-control">
+                        <div className="ifb-title">🎙️ Micrófono para Retorno (IFB)</div>
+                        <button className={`mic-btn ${studioMicActive?'on':'off'}`} onClick={toggleStudioMic}>
+                            {studioMicActive ? '🔴 MIC ACTIVO (IFB ON)' : '⚫ MIC INACTIVO (IFB OFF)'}
+                        </button>
+                        <div className="mic-hint">{studioMicActive ? 'El reportero puede escucharte' : 'Activá para hablar al reportero'}</div>
                     </div>
-                    
-                    {selectedAlert && (
-                        <div className="modal-overlay" onClick={() => setSelectedAlert(null)}>
-                            <div className="modal" onClick={e => e.stopPropagation()}>
-                                <h2>{getAlertIcon(selectedAlert.alertId)} Alerta de {selectedAlert.reporterName}</h2>
-                                <div className="modal-details">
-                                    <p><strong>Tipo:</strong> {selectedAlert.alertLabel}</p>
-                                    <p><strong>Mensaje:</strong> {selectedAlert.message}</p>
-                                    <p><strong>Estado:</strong> {selectedAlert.isLive ? '🔴 Transmitiendo' : '⚫ Standby'}</p>
-                                </div>
-                                <p style={{marginBottom: 10, fontWeight: 'bold'}}>Respuesta rápida:</p>
-                                <div className="quick-responses">
-                                    {['Recibido, aguardamos', '¿Podés acercarte?', 'Tenemos tu señal', 'Volvé al móvil', 'Buscá mejor señal', 'Estamos al aire en 30s'].map((resp, i) => (
-                                        <button key={i} onClick={() => respondToAlert(resp)}>{resp}</button>
-                                    ))}
-                                </div>
-                                <textarea ref={responseInputRef} className="response-input" placeholder="O escribí respuesta personalizada..." onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); respondToAlert(e.target.value); } }} />
-                                <div className="modal-actions">
-                                    <button className="btn-secondary" onClick={() => setSelectedAlert(null)}>Cerrar</button>
-                                    <button className="btn-primary" onClick={() => respondToAlert(responseInputRef.current?.value ?? '')}>Enviar Respuesta</button>
-                                </div>
-                            </div>
+                    {listeningTo && (
+                        <div className="listening-info">
+                            <div className="listening-label">Escuchando</div>
+                            <div className="listening-name">{reporters[listeningTo]?.name||'Móvil'}</div>
+                            <div className="vu-container"><div className="vu-bar" style={{width:`${Math.min(rxLevel*2,100)}%`}}/></div>
                         </div>
                     )}
                 </div>
-            );
-        };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<StudioDashboard />);
-    </script>
+                <div className="center-panel">
+                    <div className="tabs">
+                        <button className="tab active">📻 Móviles ({Object.keys(reporters).length})</button>
+                    </div>
+                    <div className="panel-content">
+                        <div className="rx-grid">
+                            {Object.keys(reporters).length===0 && <div className="empty-state">Esperando móviles en la sala...</div>}
+                            {Object.entries(reporters).map(([id,reporter]) => {
+                                const isListening = listeningTo===id;
+                                const hasAudio = reporter.hasAudio || globalStreams.current.has(id);
+                                const sentAlert = alertSent[id];
+                                return (
+                                    <div key={id} className={`rx-card ${reporter.status==='live'?'live':''} ${isListening?'listening':''}`}>
+                                        {sentAlert && <div className="on-air-indicator">{sentAlert.type==='on_air'?'🔴 ENVIADO':'⚠️ ENVIADO'}</div>}
+                                        <div className="rx-header">
+                                            <div className="rx-name">
+                                                <div className={`led ${reporter.status==='live'?'red':''}`}/>
+                                                {reporter.name||'Móvil'}
+                                                {reporter.status==='live' && <span className="live-tag">EN VIVO</span>}
+                                            </div>
+                                        </div>
+                                        <div className="rx-actions">
+                                            {hasAudio ? (
+                                                isListening ? (
+                                                    <>
+                                                        <button className="rx-btn stop" onClick={stopListening}>⏹ CORTAR</button>
+                                                        <button className="rx-btn play" onClick={()=>listenToReporter(id)}>↻</button>
+                                                    </>
+                                                ) : (
+                                                    <button className="rx-btn play" onClick={()=>listenToReporter(id)}>▶ ESCUCHAR</button>
+                                                )
+                                            ) : (
+                                                <button className="rx-btn" disabled>SIN AUDIO</button>
+                                            )}
+                                        </div>
+                                        {!hasAudio && <button className="rx-dismiss" onClick={()=>dismissReporter(id)}>✕ Quitar de la lista</button>}
+                                        {isListening && (
+                                            <div className="alert-actions">
+                                                <button className="alert-btn-studio attention" onClick={()=>sendStudioAlert(id,'attention')} disabled={sentAlert?.type==='attention'}>
+                                                    ⚠️ {sentAlert?.type==='attention'?'ENVIADO':'ATENTO'}
+                                                </button>
+                                                <button className="alert-btn-studio on-air" onClick={()=>sendStudioAlert(id,'on_air')} disabled={sentAlert?.type==='on_air'}>
+                                                    🔴 {sentAlert?.type==='on_air'?'ENVIADO':'AL AIRE'}
+                                                </button>
+                                            </div>
+                                        )}
+                                        {studioMicActive && isListening && <div className="ifb-status-bar">🎧 Retorno activo: el reportero te escucha</div>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="alerts-panel">
+                    <div className="alerts-header">
+                        <h2>🚨 Alertas de Campo</h2>
+                        {unreadAlerts>0 && <span className="unread-badge">{unreadAlerts}</span>}
+                    </div>
+                    <div className="alerts-list">
+                        {alerts.length===0 && <div style={{textAlign:'center',color:'#666',marginTop:30}}>Sin alertas recientes</div>}
+                        {alerts.map((alert,i) => (
+                            <div key={i} className={`alert-card ${alert.severity} ${alert.acknowledged?'ack':''}`}
+                                onClick={()=>{ acknowledgeAlert(alert.timestamp); setSelectedAlert(alert); }}>
+                                {!alert.acknowledged && <div className="alert-pulse"/>}
+                                <div className="alert-header">
+                                    <span className="alert-reporter">{alert.reporterName}</span>
+                                    <span className="alert-time">{new Date(alert.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+                                </div>
+                                <div className="alert-type" style={{color:alert.severity==='high'?'#ef4444':alert.severity==='medium'?'#f59e0b':'#3b82f6'}}>
+                                    {getAlertIcon(alert.alertId)} {alert.alertLabel}
+                                </div>
+                                <div className="alert-message">{alert.message}</div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="chat-section">
+                        <div className="chat-header-small">💬 Chat General</div>
+                        <div className="chat-messages-small">
+                            {chatMessages.map((m,i)=>(
+                                <div key={i} className="chat-msg-small">
+                                    <div className="sender">{m.sender}</div>
+                                    <div>{m.text}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <form className="chat-input-small" onSubmit={sendChat}>
+                            <input value={chatInput} onChange={e=>setChatInput(e.target.value)} placeholder="Mensaje..." />
+                            <button type="submit">➤</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            {selectedAlert && (
+                <div className="modal-overlay" onClick={()=>setSelectedAlert(null)}>
+                    <div className="modal" onClick={e=>e.stopPropagation()}>
+                        <h2>{getAlertIcon(selectedAlert.alertId)} Alerta de {selectedAlert.reporterName}</h2>
+                        <div className="modal-details">
+                            <p><strong>Tipo:</strong> {selectedAlert.alertLabel}</p>
+                            <p><strong>Mensaje:</strong> {selectedAlert.message}</p>
+                            <p><strong>Estado:</strong> {selectedAlert.isLive?'🔴 Transmitiendo':'⚫ Standby'}</p>
+                        </div>
+                        <p style={{marginBottom:10,fontWeight:'bold'}}>Respuesta rápida:</p>
+                        <div className="quick-responses">
+                            {['Recibido, aguardamos','¿Podés acercarte?','Tenemos tu señal','Volvé al móvil','Buscá mejor señal','Estamos al aire en 30s'].map((r,i)=>(
+                                <button key={i} onClick={()=>respondToAlert(r)}>{r}</button>
+                            ))}
+                        </div>
+                        <textarea ref={responseInputRef} className="response-input" placeholder="O escribí respuesta personalizada..."
+                            onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); respondToAlert(e.target.value); }}} />
+                        <div className="modal-actions">
+                            <button className="btn-secondary" onClick={()=>setSelectedAlert(null)}>Cerrar</button>
+                            <button className="btn-primary" onClick={()=>respondToAlert(responseInputRef.current?.value??'')}>Enviar Respuesta</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<StudioDashboard />);
+</script>
 </body>
 </html>
