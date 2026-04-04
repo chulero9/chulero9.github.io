@@ -1270,14 +1270,8 @@
                             if (!el) return;
                             el.srcObject = remoteStream;
                             try {
-                                const ctx = await getAudioCtx();
-                                el.muted = true; // Mute element para evitar latencia HTML
+                                el.muted = false;
                                 await el.play();
-
-                                // Routing cero latencia (IFB Retorno)
-                                const source = ctx.createMediaStreamSource(remoteStream);
-                                source.connect(ctx.destination);
-
                                 setAudioBlocked(false);
                                 setIfbConnected(true);
                             } catch (e) {

@@ -1354,20 +1354,23 @@
 
                 try {
                     const ctx = await getAudioCtx();
-                    el.muted = true; // Mute para evitar latencia HTML5
+                    el.muted = false; // DESHACER: Muted mataba el decoding de WebRTC
                     await el.play();
                     setAudioBlocked(false);
 
-                    // VU meter & Realtime audio routing (Cero latencia)
+                    // VU meter solamente
                     if (sourceRef.current) { try { sourceRef.current.disconnect(); } catch (e) { } }
                     if (analyserRef.current) { try { analyserRef.current.disconnect(); } catch (e) { } }
 
-                    const source = ctx.createMediaStreamSource(stream);
+                    // Clonar el stream previene que WebAudio choque con el <audio>
+                    const safeStream = new MediaStream(stream.getAudioTracks());
+                    const source = ctx.createMediaStreamSource(safeStream);
                     const analyser = ctx.createAnalyser();
                     analyser.fftSize = 256;
 
                     source.connect(analyser);
-                    source.connect(ctx.destination); // Salida de audio ultra-rápida
+                    // IMPORTANTE: NO conectamos a ctx.destination porque 'el.play()' ya hace que suene.
+                    // Conectarlo de nuevo generaría un eco insoportable.
 
                     sourceRef.current = source;
                     analyserRef.current = analyser;
