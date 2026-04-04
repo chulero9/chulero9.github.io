@@ -1078,9 +1078,34 @@
             const chatBottomRef = useRef(null);
             const statusRef = useRef(status);
             const inRoomRef = useRef(inRoom);
+            const wakeLockRef = useRef(null);
 
             useEffect(() => { statusRef.current = status; }, [status]);
             useEffect(() => { inRoomRef.current = inRoom; }, [inRoom]);
+
+            // ── Wake Lock (Evitar suspensión de pantalla) ────────────────────────────
+            const requestWakeLock = async () => {
+                try {
+                    if ('wakeLock' in navigator) {
+                        wakeLockRef.current = await navigator.wakeLock.request('screen');
+                        wakeLockRef.current.addEventListener('release', () => {
+                            console.log('Wake Lock liberado');
+                        });
+                    }
+                } catch (err) {
+                    console.error('Wake Lock error:', err);
+                }
+            };
+
+            useEffect(() => {
+                const handleVisibilityChange = () => {
+                    if (document.visibilityState === 'visible' && inRoomRef.current) {
+                        requestWakeLock();
+                    }
+                };
+                document.addEventListener('visibilitychange', handleVisibilityChange);
+                return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+            }, []);
 
             const getAudioCtx = useCallback(async () => {
                 if (!audioCtxVuRef.current) audioCtxVuRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -1142,6 +1167,9 @@
                 if (!roomCode.trim() || !reporterName.trim()) return alert('Completá todos los campos');
                 setConnecting(true);
                 setConnectionError(null);
+
+                // Activar WakeLock para evitar que el OS suspenda el proceso/pantalla
+                await requestWakeLock();
 
                 // 1. Pedir micrófono
                 let stream;
@@ -1368,6 +1396,7 @@
                     if (mqttRef.current) { mqttRef.current.end(); mqttRef.current = null; }
                     if (micStreamRef.current) micStreamRef.current.getTracks().forEach(t => t.stop());
                     if (ifbAudioRef.current) { ifbAudioRef.current.pause(); ifbAudioRef.current.srcObject = null; }
+                    if (wakeLockRef.current) { wakeLockRef.current.release().then(() => wakeLockRef.current = null); }
                 };
             }, []);
 
