@@ -1190,7 +1190,7 @@
                 // Pedir micrófono (para IFB de retorno)
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({
-                        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                     });
                     studioMicRef.current = stream;
                     setStudioMicActive(true);
@@ -1354,17 +1354,21 @@
 
                 try {
                     const ctx = await getAudioCtx();
+                    el.muted = false; // DESHACER: Muted mataba el decoding de WebRTC
                     await el.play();
                     setAudioBlocked(false);
 
-                    // VU meter
+                    // VU meter solamente
                     if (sourceRef.current) { try { sourceRef.current.disconnect(); } catch (e) { } }
                     if (analyserRef.current) { try { analyserRef.current.disconnect(); } catch (e) { } }
 
                     const source = ctx.createMediaStreamSource(stream);
                     const analyser = ctx.createAnalyser();
                     analyser.fftSize = 256;
+
                     source.connect(analyser);
+                    source.connect(ctx.destination); // Salida de audio ultra-rápida
+
                     sourceRef.current = source;
                     analyserRef.current = analyser;
 
@@ -1421,7 +1425,7 @@
                     // Encender: pedir micrófono
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({
-                            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                         });
                         studioMicRef.current = stream;
                         const [track] = stream.getAudioTracks();
