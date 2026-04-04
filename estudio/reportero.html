@@ -1062,7 +1062,7 @@
             const [mqttConnected, setMqttConnected] = useState(false);
             const [ifbConnected, setIfbConnected] = useState(false);
             const [micLevel, setMicLevel] = useState(0);
-            const [micMuted, setMicMuted] = useState(false);
+            const [micMuted, setMicMuted] = useState(true);
             const [mobileSheet, setMobileSheet] = useState(null);
             const [audioBlocked, setAudioBlocked] = useState(false);
             const [studioOnline, setStudioOnline] = useState(false);
@@ -1353,6 +1353,11 @@
                     // No cerramos el audioCtx porque es global
                 };
             }, [inRoom, getAudioCtx]);
+
+            // Sincronizar micrófono con el estado "live/standby"
+            useEffect(() => {
+                setMicMuted(status !== 'live');
+            }, [status]);
 
             // Aplicar mute cuando cambia micMuted
             useEffect(() => { applyMicMute(micMuted); }, [micMuted, applyMicMute]);
