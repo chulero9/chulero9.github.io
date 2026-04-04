@@ -272,30 +272,31 @@ const StudioDashboard = () => {
     const [studioMicActive, setStudioMicActive] = useState(false);
     const [alertSent, setAlertSent]         = useState({});
     const [connectionError, setConnectionError] = useState(null);
-    const [audioBlocked, setAudioBlocked]   = useState(false); // FIX: detectar autoplay bloqueado
+    const [audioBlocked, setAudioBlocked]   = useState(false);
 
-    const peerRef           = useRef(null);
-    const mqttRef           = useRef(null);
-    // FIX: usamos el <audio> del DOM directamente; NO creamos new Audio() en runtime
-    const audioRef          = useRef(null);
-    const analyserRef       = useRef(null);
-    const animationFrameRef = useRef(null);
-    const studioMicRef      = useRef(null);
-    const audioCtxRef       = useRef(null);
-    const listeningToRef    = useRef(null);
-    const responseInputRef  = useRef(null);
-    const sourceRef         = useRef(null);
-    const globalStreams      = useRef(new Map());
+    const peerRef            = useRef(null);
+    const mqttRef            = useRef(null);
+    const audioRef           = useRef(null);
+    const analyserRef        = useRef(null);
+    const animationFrameRef  = useRef(null);
+    const studioMicRef       = useRef(null);
+    const audioCtxRef        = useRef(null);
+    const listeningToRef     = useRef(null);
+    const responseInputRef   = useRef(null);
+    const sourceRef          = useRef(null);
+    const globalStreams       = useRef(new Map());
     const globalCalls        = useRef(new Map());
 
+    // Generar código de sala al montar
     useEffect(() => {
         setRoomCode(Math.random().toString(36).substring(2,6).toUpperCase());
     }, []);
 
+    // Mantener ref sincronizado
     useEffect(() => { listeningToRef.current = listeningTo; }, [listeningTo]);
 
-    // FIX: función centralizada para desbloquear AudioContext con gesto de usuario
-    const resumeAudioContext = useCallback(async () => {
+    // ── AudioContext centralizado ─────────────────────────────────────────────
+    const getAudioCtx = useCallback(async () => {
         if (!audioCtxRef.current) {
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
             audioCtxRef.current = new AudioCtx();
@@ -303,46 +304,71 @@ const StudioDashboard = () => {
         if (audioCtxRef.current.state === 'suspended') {
             await audioCtxRef.current.resume();
         }
+        return audioCtxRef.current;
     }, []);
 
-    const joinRoom = async () => {
-        if (!roomCode || !studioName) return alert('Completá todos los campos');
-
+    // ── Silenciar IFB hacia el reportero ─────────────────────────────────────
+    const createSilentStream = () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const dest = ctx.createMediaStreamDestination();
+            return dest.stream;
+        } catch(e) { return new MediaStream(); }
+    };
+
+    // ── Conectar al hub ───────────────────────────────────────────────────────
+    const joinRoom = async () => {
+        if (!roomCode.trim() || !studioName.trim()) return alert('Completá todos los campos');
+
+        // Pedir micrófono (para IFB de retorno)
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+            });
             studioMicRef.current = stream;
             setStudioMicActive(true);
         } catch(e) {
-            console.warn('Sin micrófono local.');
+            console.warn('Sin micrófono: IFB desactivado.');
+            studioMicRef.current = null;
+            setStudioMicActive(false);
         }
 
         const studioPeerId = `studio_${roomCode}`;
-        peerRef.current = new Peer(studioPeerId, {
+        const peer = new Peer(studioPeerId, {
             config: { iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' }
             ]}
         });
+        peerRef.current = peer;
 
-        peerRef.current.on('open', () => {
+        peer.on('error', err => {
+            console.error('PeerJS:', err);
+            if (err.type === 'unavailable-id') {
+                setConnectionError('Sala ocupada. Cambiá el código e intentá de nuevo.');
+            } else {
+                setConnectionError(`Error PeerJS: ${err.type}`);
+            }
+        });
+
+        peer.on('open', () => {
             setConnectionError(null);
             initMQTT();
             setInRoom(true);
         });
 
-        peerRef.current.on('error', err => {
-            console.error('PeerJS error:', err);
-            setConnectionError('Error PeerJS. ¿Sala ocupada o servidor caído?');
-        });
-
-        peerRef.current.on('call', call => {
+        // Recibir llamadas entrantes de reporteros
+        peer.on('call', call => {
             const answerStream = studioMicRef.current || createSilentStream();
             call.answer(answerStream);
             globalCalls.current.set(call.peer, call);
 
             call.on('stream', remoteStream => {
                 globalStreams.current.set(call.peer, remoteStream);
-                setReporters(prev => ({ ...prev, [call.peer]: { ...prev[call.peer], hasAudio: true } }));
+                setReporters(prev => ({
+                    ...prev,
+                    [call.peer]: { ...prev[call.peer], hasAudio: true }
+                }));
             });
 
             call.on('error', err => console.error('Call error:', err));
@@ -360,41 +386,16 @@ const StudioDashboard = () => {
         });
     };
 
-    const createSilentStream = () => {
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            return ctx.createMediaStreamDestination().stream;
-        } catch(e) { return new MediaStream(); }
-    };
-
-    const toggleStudioMic = async () => {
-        if (studioMicActive) {
-            studioMicRef.current?.getTracks().forEach(t => t.stop());
-            studioMicRef.current = null;
-            // Silenciar en todas las conexiones activas — reemplazar con track silencioso (replaceTrack(null) falla en algunos browsers)
-            const silentTrack = createSilentStream().getAudioTracks()[0];
-            globalCalls.current.forEach(call => {
-                try { call.peerConnection?.getSenders().forEach(s => { if (s.track?.kind==='audio') s.replaceTrack(silentTrack ?? null); }); } catch(e) {}
-            });
-            setStudioMicActive(false);
-        } else {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true } });
-                studioMicRef.current = stream;
-                const [track] = stream.getAudioTracks();
-                globalCalls.current.forEach(call => {
-                    try { call.peerConnection?.getSenders().forEach(s => { if (s.track?.kind==='audio' || !s.track) s.replaceTrack(track); }); } catch(e) {}
-                });
-                setStudioMicActive(true);
-            } catch(e) { alert('No se pudo acceder al micrófono'); }
-        }
-    };
-
+    // ── MQTT ─────────────────────────────────────────────────────────────────
     const initMQTT = () => {
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
             clientId: `mqtt_studio_${Math.random().toString(16).substr(2,8)}`,
             reconnectPeriod: 3000,
-            will: { topic: `radio/${roomCode}/studio`, payload: JSON.stringify({status:'offline'}), retain: true }
+            will: {
+                topic: `radio/${roomCode}/studio`,
+                payload: JSON.stringify({ status:'offline' }),
+                retain: true
+            }
         });
         mqttRef.current = client;
 
@@ -403,26 +404,40 @@ const StudioDashboard = () => {
             client.subscribe(`radio/${roomCode}/reporters`);
             client.subscribe(`radio/${roomCode}/alerts`);
             client.subscribe(`radio/${roomCode}/chat`);
-            client.publish(`radio/${roomCode}/studio`, JSON.stringify({ name: studioName, status:'online', timestamp: Date.now() }), { retain: true });
+            client.publish(
+                `radio/${roomCode}/studio`,
+                JSON.stringify({ name: studioName, status:'online', timestamp: Date.now() }),
+                { retain: true }
+            );
         });
+
         client.on('error', err => { console.error('MQTT:', err); setConnectionError('Error MQTT.'); });
-        client.on('offline', () => setConnectionError('Desconectado del broker. Reconectando...'));
+        client.on('offline', () => setConnectionError('Desconectado. Reconectando...'));
+
         client.on('message', (topic, msg) => {
             try {
                 const data = JSON.parse(msg.toString());
-                if (topic.includes('/reporters')) setReporters(prev => ({ ...prev, [data.id]: { ...prev[data.id], ...data } }));
-                if (topic.includes('/alerts') && !topic.includes('/response')) handleNewAlert(data);
-                if (topic.includes('/chat')) setChatMessages(prev => [...prev, data].slice(-100));
+                if (topic.endsWith('/reporters')) {
+                    setReporters(prev => ({ ...prev, [data.id]: { ...prev[data.id], ...data } }));
+                }
+                if (topic.endsWith('/alerts')) {
+                    handleNewAlert(data);
+                }
+                if (topic.endsWith('/chat')) {
+                    setChatMessages(prev => [...prev, data].slice(-100));
+                }
             } catch(e) {}
         });
     };
 
+    // ── Alerta sonora ─────────────────────────────────────────────────────────
     const handleNewAlert = alert => {
         setAlerts(prev => [alert, ...prev]);
         setUnreadAlerts(c => c + 1);
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
             osc.connect(gain); gain.connect(ctx.destination);
             osc.frequency.value = alert.severity === 'high' ? 880 : 440;
             gain.gain.setValueAtTime(alert.severity === 'high' ? 0.3 : 0.1, ctx.currentTime);
@@ -432,7 +447,7 @@ const StudioDashboard = () => {
         } catch(e) {}
     };
 
-    // ─── AUDIO FIX PRINCIPAL ──────────────────────────────────────────────────
+    // ── Stop escucha ──────────────────────────────────────────────────────────
     const stopListening = useCallback(() => {
         if (audioRef.current) {
             audioRef.current.pause();
@@ -440,132 +455,211 @@ const StudioDashboard = () => {
         }
         setListeningTo(null);
         setRxLevel(0);
-        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-        if (sourceRef.current) { try { sourceRef.current.disconnect(); } catch(e) {} sourceRef.current = null; }
-        if (analyserRef.current) { try { analyserRef.current.disconnect(); } catch(e) {} analyserRef.current = null; }
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+        }
+        if (sourceRef.current) {
+            try { sourceRef.current.disconnect(); } catch(e) {}
+            sourceRef.current = null;
+        }
+        if (analyserRef.current) {
+            try { analyserRef.current.disconnect(); } catch(e) {}
+            analyserRef.current = null;
+        }
     }, []);
 
+    // ── Escuchar reportero ────────────────────────────────────────────────────
     const listenToReporter = useCallback(async (reporterId) => {
         const stream = globalStreams.current.get(reporterId);
-        if (!stream) return;
+        if (!stream) { console.warn('Sin stream para', reporterId); return; }
 
+        // Si ya estaba escuchando a otro, parar
         stopListening();
         setListeningTo(reporterId);
 
-        // FIX 1: usar el <audio> del DOM (ref de JSX), no new Audio()
-        // FIX 2: resumir AudioContext ANTES de asignar srcObject
         const el = audioRef.current;
+        if (!el) return;
+
         el.srcObject = stream;
 
         try {
-            // FIX 3: forzar resume del contexto en el gesto de usuario (clic en ESCUCHAR)
-            await resumeAudioContext();
+            const ctx = await getAudioCtx();
             await el.play();
             setAudioBlocked(false);
-        } catch(e) {
-            console.warn('Autoplay bloqueado, mostrando banner');
-            setAudioBlocked(true);
-        }
 
-        // VU meter
-        try {
-            if (sourceRef.current) { try { sourceRef.current.disconnect(); } catch(e) {} sourceRef.current = null; }
+            // VU meter
+            if (sourceRef.current) { try { sourceRef.current.disconnect(); } catch(e) {} }
             if (analyserRef.current) { try { analyserRef.current.disconnect(); } catch(e) {} }
 
-            const source = audioCtxRef.current.createMediaStreamSource(stream);
+            const source = ctx.createMediaStreamSource(stream);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
             sourceRef.current = source;
-            analyserRef.current = audioCtxRef.current.createAnalyser();
-            analyserRef.current.fftSize = 256;
-            source.connect(analyserRef.current);
+            analyserRef.current = analyser;
 
-            const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
             const updateVU = () => {
                 if (!analyserRef.current) return;
                 analyserRef.current.getByteFrequencyData(dataArray);
-                const avg = dataArray.reduce((a,b)=>a+b,0) / dataArray.length;
+                const avg = dataArray.reduce((a,b) => a+b, 0) / dataArray.length;
                 setRxLevel(avg);
                 animationFrameRef.current = requestAnimationFrame(updateVU);
             };
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
             updateVU();
-        } catch(e) { console.error('VU meter error:', e); }
-    }, [stopListening, resumeAudioContext]);
 
-    // FIX 4: desbloqueo manual de audio con un clic
+        } catch(e) {
+            console.warn('Autoplay bloqueado:', e);
+            setAudioBlocked(true);
+        }
+    }, [stopListening, getAudioCtx]);
+
+    // ── Desbloqueo manual de audio ────────────────────────────────────────────
     const unlockAudio = async () => {
-        await resumeAudioContext();
-        if (audioRef.current?.srcObject) {
-            try { await audioRef.current.play(); setAudioBlocked(false); } catch(e) {}
+        try {
+            await getAudioCtx();
+            const el = audioRef.current;
+            if (el && el.srcObject) {
+                await el.play();
+                setAudioBlocked(false);
+            }
+        } catch(e) { console.warn('unlock failed:', e); }
+    };
+
+    // ── Toggle micrófono del estudio (IFB) ────────────────────────────────────
+    const toggleStudioMic = async () => {
+        if (studioMicActive) {
+            // Apagar: detener tracks y enviar silencio
+            if (studioMicRef.current) {
+                studioMicRef.current.getTracks().forEach(t => t.stop());
+                studioMicRef.current = null;
+            }
+            const silentStream = createSilentStream();
+            const silentTrack  = silentStream.getAudioTracks()[0] || null;
+            globalCalls.current.forEach(call => {
+                try {
+                    call.peerConnection?.getSenders().forEach(sender => {
+                        if (sender.track && sender.track.kind === 'audio') {
+                            sender.replaceTrack(silentTrack);
+                        }
+                    });
+                } catch(e) { console.warn('replaceTrack silent:', e); }
+            });
+            setStudioMicActive(false);
+        } else {
+            // Encender: pedir micrófono
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+                });
+                studioMicRef.current = stream;
+                const [track] = stream.getAudioTracks();
+                globalCalls.current.forEach(call => {
+                    try {
+                        call.peerConnection?.getSenders().forEach(sender => {
+                            if (sender.track && sender.track.kind === 'audio') {
+                                sender.replaceTrack(track);
+                            } else if (!sender.track) {
+                                sender.replaceTrack(track);
+                            }
+                        });
+                    } catch(e) { console.warn('replaceTrack live:', e); }
+                });
+                setStudioMicActive(true);
+            } catch(e) {
+                alert('No se pudo acceder al micrófono');
+            }
         }
     };
-    // ─────────────────────────────────────────────────────────────────────────
 
+    // ── Enviar alerta al reportero ────────────────────────────────────────────
     const sendStudioAlert = (reporterId, type) => {
         if (!mqttRef.current?.connected) return;
-        mqttRef.current.publish(`radio/${roomCode}/studio_alert/${reporterId}`, JSON.stringify({ reporterId, type, from: studioName, timestamp: Date.now() }));
+        mqttRef.current.publish(
+            `radio/${roomCode}/studio_alert/${reporterId}`,
+            JSON.stringify({ reporterId, type, from: studioName, timestamp: Date.now() })
+        );
         setAlertSent(prev => ({ ...prev, [reporterId]: { type, time: Date.now() } }));
-        setTimeout(() => setAlertSent(prev => { const s={...prev}; delete s[reporterId]; return s; }), 3000);
+        setTimeout(() => {
+            setAlertSent(prev => { const s = {...prev}; delete s[reporterId]; return s; });
+        }, 3000);
     };
 
+    // ── Acknowledger alerta ───────────────────────────────────────────────────
     const acknowledgeAlert = ts => {
-        setAlerts(prev => prev.map(a => a.timestamp===ts ? {...a,acknowledged:true} : a));
-        setUnreadAlerts(c => Math.max(0,c-1));
+        setAlerts(prev => prev.map(a => a.timestamp === ts ? { ...a, acknowledged:true } : a));
+        setUnreadAlerts(c => Math.max(0, c-1));
     };
 
+    // ── Responder alerta ──────────────────────────────────────────────────────
     const respondToAlert = msg => {
-        if (!selectedAlert || !mqttRef.current) return;
-        mqttRef.current.publish(`radio/${roomCode}/alerts/response`, JSON.stringify({ to: selectedAlert.reporterId, from: studioName, message: msg, timestamp: Date.now() }));
+        if (!selectedAlert || !mqttRef.current?.connected) return;
+        mqttRef.current.publish(
+            `radio/${roomCode}/alerts/response`,
+            JSON.stringify({ to: selectedAlert.reporterId, from: studioName, message: msg, timestamp: Date.now() })
+        );
         setSelectedAlert(null);
     };
 
+    // ── Chat ──────────────────────────────────────────────────────────────────
     const sendChat = e => {
         e.preventDefault();
-        if (!chatInput.trim() || !mqttRef.current) return;
-        const payload = { id: Date.now(), sender: studioName, text: chatInput.trim(), time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) };
+        if (!chatInput.trim() || !mqttRef.current?.connected) return;
+        const payload = {
+            id: Date.now(), sender: studioName, text: chatInput.trim(),
+            time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
+        };
         mqttRef.current.publish(`radio/${roomCode}/chat`, JSON.stringify(payload));
         setChatMessages(prev => [...prev, payload]);
         setChatInput('');
     };
 
+    // ── Quitar reportero ──────────────────────────────────────────────────────
     const dismissReporter = id => {
         if (listeningToRef.current === id) stopListening();
         globalStreams.current.delete(id);
         globalCalls.current.delete(id);
-        setReporters(prev => { const s={...prev}; delete s[id]; return s; });
+        setReporters(prev => { const s = {...prev}; delete s[id]; return s; });
     };
 
+    // ── Cleanup al desmontar ──────────────────────────────────────────────────
     useEffect(() => {
         return () => {
             stopListening();
-            if (peerRef.current) peerRef.current.destroy();
-            if (mqttRef.current) mqttRef.current.end();
-            if (studioMicRef.current) studioMicRef.current.getTracks().forEach(t=>t.stop());
+            if (peerRef.current) { peerRef.current.destroy(); peerRef.current = null; }
+            if (mqttRef.current) { mqttRef.current.end(); mqttRef.current = null; }
+            if (studioMicRef.current) studioMicRef.current.getTracks().forEach(t => t.stop());
             if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch(e) {} audioCtxRef.current = null; }
             globalStreams.current.clear();
             globalCalls.current.clear();
         };
     }, [stopListening]);
 
-    const getAlertIcon = t => ({ready:'🎤',problem:'⚠️',visual:'👁️',blocked:'🚧','5min':'⏱️',custom:'✏️'}[t]||'📢');
+    const getAlertIcon = t => ({ ready:'🎤', problem:'⚠️', visual:'👁️', blocked:'🚧', '5min':'⏱️', custom:'✏️' }[t] || '📢');
 
+    // ── LOBBY ─────────────────────────────────────────────────────────────────
     if (!inRoom) return (
         <div className="lobby-screen">
             <div className="lobby-box">
                 <h1>STREAM<span>RADIO</span></h1>
                 <p>DASHBOARD DE ESTUDIO RX + IFB + ALERTAS</p>
-                <input className="lobby-input" placeholder="CÓDIGO DE SALA" value={roomCode} onChange={e=>setRoomCode(e.target.value.toUpperCase())} />
-                <input className="lobby-input" placeholder="NOMBRE DEL ESTUDIO" value={studioName} onChange={e=>setStudioName(e.target.value)} />
+                <input className="lobby-input" placeholder="CÓDIGO DE SALA"
+                    value={roomCode} onChange={e => setRoomCode(e.target.value.toUpperCase())} />
+                <input className="lobby-input" placeholder="NOMBRE DEL ESTUDIO"
+                    value={studioName} onChange={e => setStudioName(e.target.value)} />
                 <button className="lobby-btn" onClick={joinRoom}>ENTRAR AL HUB</button>
+                {connectionError && <p style={{marginTop:14,color:'var(--amber)',fontSize:'0.82rem',fontFamily:'var(--font-mono)'}}>{connectionError}</p>}
             </div>
         </div>
     );
 
+    // ── DASHBOARD ────────────────────────────────────────────────────────────
     return (
         <div className="dashboard">
-            {/* FIX: atributos autoPlay y playsInline en el elemento del DOM */}
             <audio ref={audioRef} autoPlay playsInline style={{display:'none'}} />
 
-            {/* FIX: banner de desbloqueo si el autoplay fue bloqueado por el browser */}
             {audioBlocked && (
                 <button className="audio-unlock-banner" onClick={unlockAudio}>
                     🔊 Tocá aquí para activar el audio
@@ -573,56 +667,88 @@ const StudioDashboard = () => {
             )}
 
             <div className="top-bar">
-                <div className="logo">STREAM<span>RADIO</span><small>RX + IFB + ALERTAS</small></div>
+                <div className="logo">STREAM<span>RADIO</span><small>RX · IFB · ALERTAS</small></div>
                 <div className="top-status">
-                    {connectionError && <span className="connection-error" onClick={()=>setConnectionError(null)}>⚠️ {connectionError}</span>}
+                    {connectionError && (
+                        <span className="connection-error" onClick={() => setConnectionError(null)}>⚠️ {connectionError}</span>
+                    )}
                     <span className="room-code">SALA: <b>{roomCode}</b></span>
                     <span className="online-status">● ONLINE</span>
                 </div>
             </div>
 
             <div className="main-content">
+                {/* Panel izquierdo */}
                 <div className="info-panel">
-                    <h2>📊 Estado del Sistema</h2>
-                    <div className="info-box"><div className="info-label">Móviles Conectados</div><div className="info-value">{Object.keys(reporters).length}</div></div>
-                    <div className="info-box"><div className="info-label">En Transmisión</div><div className="info-value" style={{color:'#ef4444'}}>{Object.values(reporters).filter(r=>r.status==='live').length}</div></div>
-                    <div className="info-box"><div className="info-label">Alertas Pendientes</div><div className="info-value" style={{color:unreadAlerts>0?'#f59e0b':'#22c55e'}}>{unreadAlerts}</div></div>
-                    <div className="status-indicator"><div className="status-dot"/><div className="status-text">RECEPTOR ACTIVO</div></div>
-                    <div className="ifb-control">
-                        <div className="ifb-title">🎙️ Micrófono para Retorno (IFB)</div>
-                        <button className={`mic-btn ${studioMicActive?'on':'off'}`} onClick={toggleStudioMic}>
-                            {studioMicActive ? '🔴 MIC ACTIVO (IFB ON)' : '⚫ MIC INACTIVO (IFB OFF)'}
-                        </button>
-                        <div className="mic-hint">{studioMicActive ? 'El reportero puede escucharte' : 'Activá para hablar al reportero'}</div>
+                    <h2>▸ ESTADO DEL SISTEMA</h2>
+                    <div className="info-box">
+                        <div className="info-label">Móviles Conectados</div>
+                        <div className="info-value">{Object.keys(reporters).length}</div>
                     </div>
+                    <div className="info-box">
+                        <div className="info-label">En Transmisión</div>
+                        <div className="info-value" style={{color:'var(--red-live)'}}>
+                            {Object.values(reporters).filter(r => r.status === 'live').length}
+                        </div>
+                    </div>
+                    <div className="info-box">
+                        <div className="info-label">Alertas Pendientes</div>
+                        <div className="info-value" style={{color: unreadAlerts > 0 ? 'var(--amber)' : 'var(--green)'}}>
+                            {unreadAlerts}
+                        </div>
+                    </div>
+                    <div className="status-indicator">
+                        <div className="status-dot"/>
+                        <div className="status-text">RECEPTOR ACTIVO</div>
+                    </div>
+
+                    <div className="ifb-control">
+                        <div className="ifb-title">🎙️ MICRÓFONO IFB</div>
+                        <button className={`mic-btn ${studioMicActive ? 'on' : 'off'}`} onClick={toggleStudioMic}>
+                            {studioMicActive ? '🔴 MIC ACTIVO' : '⚫ MIC INACTIVO'}
+                        </button>
+                        <div className="mic-hint">
+                            {studioMicActive ? 'El reportero te escucha' : 'Activar para hablar al reportero'}
+                        </div>
+                    </div>
+
                     {listeningTo && (
                         <div className="listening-info">
                             <div className="listening-label">Escuchando</div>
-                            <div className="listening-name">{reporters[listeningTo]?.name||'Móvil'}</div>
-                            <div className="vu-container"><div className="vu-bar" style={{width:`${Math.min((rxLevel/128)*100,100)}%`}}/></div>
+                            <div className="listening-name">{reporters[listeningTo]?.name || 'Móvil'}</div>
+                            <div className="vu-container">
+                                <div className="vu-bar" style={{width:`${Math.min((rxLevel/128)*100,100)}%`}}/>
+                            </div>
                         </div>
                     )}
                 </div>
 
+                {/* Panel central */}
                 <div className="center-panel">
                     <div className="tabs">
-                        <button className="tab active">📻 Móviles ({Object.keys(reporters).length})</button>
+                        <button className="tab active">📻 MÓVILES ({Object.keys(reporters).length})</button>
                     </div>
                     <div className="panel-content">
                         <div className="rx-grid">
-                            {Object.keys(reporters).length===0 && <div className="empty-state">Esperando móviles en la sala...</div>}
-                            {Object.entries(reporters).map(([id,reporter]) => {
-                                const isListening = listeningTo===id;
-                                const hasAudio = reporter.hasAudio || globalStreams.current.has(id);
-                                const sentAlert = alertSent[id];
+                            {Object.keys(reporters).length === 0 && (
+                                <div className="empty-state">Esperando móviles en la sala...</div>
+                            )}
+                            {Object.entries(reporters).map(([id, reporter]) => {
+                                const isListening = listeningTo === id;
+                                const hasAudio    = reporter.hasAudio || globalStreams.current.has(id);
+                                const sentAlert   = alertSent[id];
                                 return (
                                     <div key={id} className={`rx-card ${reporter.status==='live'?'live':''} ${isListening?'listening':''}`}>
-                                        {sentAlert && <div className="on-air-indicator">{sentAlert.type==='on_air'?'🔴 ENVIADO':'⚠️ ENVIADO'}</div>}
+                                        {sentAlert && (
+                                            <div className="on-air-indicator">
+                                                {sentAlert.type === 'on_air' ? '🔴 ENVIADO' : '⚠️ ENVIADO'}
+                                            </div>
+                                        )}
                                         <div className="rx-header">
                                             <div className="rx-name">
-                                                <div className={`led ${reporter.status==='live'?'red':''}`}/>
-                                                {reporter.name||'Móvil'}
-                                                {reporter.status==='live' && <span className="live-tag">EN VIVO</span>}
+                                                <div className={`led ${reporter.status==='live' ? 'red' : ''}`}/>
+                                                {reporter.name || 'Móvil'}
+                                                {reporter.status === 'live' && <span className="live-tag">EN VIVO</span>}
                                             </div>
                                         </div>
                                         <div className="rx-actions">
@@ -630,27 +756,37 @@ const StudioDashboard = () => {
                                                 isListening ? (
                                                     <>
                                                         <button className="rx-btn stop" onClick={stopListening}>⏹ CORTAR</button>
-                                                        <button className="rx-btn play" onClick={()=>listenToReporter(id)}>↻</button>
+                                                        <button className="rx-btn play" onClick={() => listenToReporter(id)}>↻ RE-ESCUCHAR</button>
                                                     </>
                                                 ) : (
-                                                    <button className="rx-btn play" onClick={()=>listenToReporter(id)}>▶ ESCUCHAR</button>
+                                                    <button className="rx-btn play" onClick={() => listenToReporter(id)}>▶ ESCUCHAR</button>
                                                 )
                                             ) : (
                                                 <button className="rx-btn" disabled>SIN AUDIO</button>
                                             )}
                                         </div>
-                                        {!hasAudio && <button className="rx-dismiss" onClick={()=>dismissReporter(id)}>✕ Quitar de la lista</button>}
+                                        {!hasAudio && (
+                                            <button className="rx-dismiss" onClick={() => dismissReporter(id)}>✕ Quitar de la lista</button>
+                                        )}
                                         {isListening && (
                                             <div className="alert-actions">
-                                                <button className="alert-btn-studio attention" onClick={()=>sendStudioAlert(id,'attention')} disabled={sentAlert?.type==='attention'}>
-                                                    ⚠️ {sentAlert?.type==='attention'?'ENVIADO':'ATENTO'}
+                                                <button
+                                                    className="alert-btn-studio attention"
+                                                    onClick={() => sendStudioAlert(id, 'attention')}
+                                                    disabled={sentAlert?.type === 'attention'}>
+                                                    ⚠️ {sentAlert?.type === 'attention' ? 'ENVIADO' : 'ATENTO'}
                                                 </button>
-                                                <button className="alert-btn-studio on-air" onClick={()=>sendStudioAlert(id,'on_air')} disabled={sentAlert?.type==='on_air'}>
-                                                    🔴 {sentAlert?.type==='on_air'?'ENVIADO':'AL AIRE'}
+                                                <button
+                                                    className="alert-btn-studio on-air"
+                                                    onClick={() => sendStudioAlert(id, 'on_air')}
+                                                    disabled={sentAlert?.type === 'on_air'}>
+                                                    🔴 {sentAlert?.type === 'on_air' ? 'ENVIADO' : 'AL AIRE'}
                                                 </button>
                                             </div>
                                         )}
-                                        {studioMicActive && isListening && <div className="ifb-status-bar">🎧 Retorno activo: el reportero te escucha</div>}
+                                        {studioMicActive && isListening && (
+                                            <div className="ifb-status-bar">🎧 Retorno activo: el reportero te escucha</div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -658,22 +794,26 @@ const StudioDashboard = () => {
                     </div>
                 </div>
 
+                {/* Panel derecho - Alertas */}
                 <div className="alerts-panel">
                     <div className="alerts-header">
-                        <h2>🚨 Alertas de Campo</h2>
-                        {unreadAlerts>0 && <span className="unread-badge">{unreadAlerts}</span>}
+                        <h2>🚨 ALERTAS DE CAMPO</h2>
+                        {unreadAlerts > 0 && <span className="unread-badge">{unreadAlerts}</span>}
                     </div>
                     <div className="alerts-list">
-                        {alerts.length===0 && <div style={{textAlign:'center',color:'#666',marginTop:30}}>Sin alertas recientes</div>}
-                        {alerts.map((alert,i) => (
-                            <div key={i} className={`alert-card ${alert.severity} ${alert.acknowledged?'ack':''}`}
-                                onClick={()=>{ acknowledgeAlert(alert.timestamp); setSelectedAlert(alert); }}>
+                        {alerts.length === 0 && (
+                            <div style={{textAlign:'center',color:'var(--text-3)',marginTop:30,fontFamily:'var(--font-mono)',fontSize:'0.8rem'}}>Sin alertas recientes</div>
+                        )}
+                        {alerts.map((alert, i) => (
+                            <div key={i}
+                                className={`alert-card ${alert.severity} ${alert.acknowledged ? 'ack' : ''}`}
+                                onClick={() => { acknowledgeAlert(alert.timestamp); setSelectedAlert(alert); }}>
                                 {!alert.acknowledged && <div className="alert-pulse"/>}
                                 <div className="alert-header">
                                     <span className="alert-reporter">{alert.reporterName}</span>
                                     <span className="alert-time">{new Date(alert.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
                                 </div>
-                                <div className="alert-type" style={{color:alert.severity==='high'?'#ef4444':alert.severity==='medium'?'#f59e0b':'#3b82f6'}}>
+                                <div className="alert-type" style={{color: alert.severity==='high'?'var(--red-live)':alert.severity==='medium'?'var(--amber)':'var(--ice-dim)'}}>
                                     {getAlertIcon(alert.alertId)} {alert.alertLabel}
                                 </div>
                                 <div className="alert-message">{alert.message}</div>
@@ -681,9 +821,9 @@ const StudioDashboard = () => {
                         ))}
                     </div>
                     <div className="chat-section">
-                        <div className="chat-header-small">💬 Chat General</div>
+                        <div className="chat-header-small">💬 CHAT GENERAL</div>
                         <div className="chat-messages-small">
-                            {chatMessages.map((m,i)=>(
+                            {chatMessages.map((m, i) => (
                                 <div key={i} className="chat-msg-small">
                                     <div className="sender">{m.sender}</div>
                                     <div>{m.text}</div>
@@ -691,33 +831,35 @@ const StudioDashboard = () => {
                             ))}
                         </div>
                         <form className="chat-input-small" onSubmit={sendChat}>
-                            <input value={chatInput} onChange={e=>setChatInput(e.target.value)} placeholder="Mensaje..." />
+                            <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Mensaje..." />
                             <button type="submit">➤</button>
                         </form>
                     </div>
                 </div>
             </div>
 
+            {/* Modal de alerta */}
             {selectedAlert && (
-                <div className="modal-overlay" onClick={()=>setSelectedAlert(null)}>
-                    <div className="modal" onClick={e=>e.stopPropagation()}>
+                <div className="modal-overlay" onClick={() => setSelectedAlert(null)}>
+                    <div className="modal" onClick={e => e.stopPropagation()}>
                         <h2>{getAlertIcon(selectedAlert.alertId)} Alerta de {selectedAlert.reporterName}</h2>
                         <div className="modal-details">
                             <p><strong>Tipo:</strong> {selectedAlert.alertLabel}</p>
                             <p><strong>Mensaje:</strong> {selectedAlert.message}</p>
-                            <p><strong>Estado:</strong> {selectedAlert.isLive?'🔴 Transmitiendo':'⚫ Standby'}</p>
+                            <p><strong>Estado:</strong> {selectedAlert.isLive ? '🔴 Transmitiendo' : '⚫ Standby'}</p>
                         </div>
-                        <p style={{marginBottom:10,fontWeight:'bold'}}>Respuesta rápida:</p>
+                        <p style={{marginBottom:10,fontWeight:'bold',fontSize:'0.85rem',color:'var(--text-2)'}}>Respuesta rápida:</p>
                         <div className="quick-responses">
-                            {['Recibido, aguardamos','¿Podés acercarte?','Tenemos tu señal','Volvé al móvil','Buscá mejor señal','Estamos al aire en 30s'].map((r,i)=>(
-                                <button key={i} onClick={()=>respondToAlert(r)}>{r}</button>
+                            {['Recibido, aguardamos','¿Podés acercarte?','Tenemos tu señal','Volvé al móvil','Buscá mejor señal','Estamos al aire en 30s'].map((r, i) => (
+                                <button key={i} onClick={() => respondToAlert(r)}>{r}</button>
                             ))}
                         </div>
-                        <textarea ref={responseInputRef} className="response-input" placeholder="O escribí respuesta personalizada..."
-                            onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); respondToAlert(e.target.value); }}} />
+                        <textarea ref={responseInputRef} className="response-input"
+                            placeholder="O escribí respuesta personalizada..."
+                            onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); respondToAlert(e.target.value); }}} />
                         <div className="modal-actions">
-                            <button className="btn-secondary" onClick={()=>setSelectedAlert(null)}>Cerrar</button>
-                            <button className="btn-primary" onClick={()=>respondToAlert(responseInputRef.current?.value??'')}>Enviar Respuesta</button>
+                            <button className="btn-secondary" onClick={() => setSelectedAlert(null)}>Cerrar</button>
+                            <button className="btn-primary" onClick={() => respondToAlert(responseInputRef.current?.value ?? '')}>Enviar Respuesta</button>
                         </div>
                     </div>
                 </div>

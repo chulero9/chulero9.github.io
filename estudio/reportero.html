@@ -187,65 +187,69 @@
 const { useState, useEffect, useRef, useCallback } = React;
 
 const ALERT_TYPES = [
-    { id:'ready',   label:'Listo',        severity:'normal', icon:'🎤' },
-    { id:'problem', label:'Problema',     severity:'high',   icon:'⚠️' },
-    { id:'visual',  label:'Visual',       severity:'medium', icon:'👁️' },
-    { id:'blocked', label:'Bloqueado',    severity:'high',   icon:'🚧' },
-    { id:'5min',    label:'5 min',        severity:'medium', icon:'⏱️' },
-    { id:'custom',  label:'Personalizado',severity:'normal', icon:'✏️' },
+    { id:'ready',   label:'Listo',         severity:'normal', icon:'🎤' },
+    { id:'problem', label:'Problema',      severity:'high',   icon:'⚠️' },
+    { id:'visual',  label:'Visual',        severity:'medium', icon:'👁️' },
+    { id:'blocked', label:'Bloqueado',     severity:'high',   icon:'🚧' },
+    { id:'5min',    label:'5 min',         severity:'medium', icon:'⏱️' },
+    { id:'custom',  label:'Personalizado', severity:'normal', icon:'✏️' },
 ];
 
 const ReporterDashboard = () => {
-    const [inRoom, setInRoom]                       = useState(false);
-    const [connecting, setConnecting]               = useState(false);
-    const [roomCode, setRoomCode]                   = useState('');
-    const [reporterName, setReporterName]           = useState('');
-    const [status, setStatus]                       = useState('standby');
-    const [studioAlert, setStudioAlert]             = useState(null);
-    const [unreadStudioAlert, setUnreadStudioAlert] = useState(false);
-    const [responses, setResponses]                 = useState([]);
-    const [chatMessages, setChatMessages]           = useState([]);
-    const [chatInput, setChatInput]                 = useState('');
-    const [connectionError, setConnectionError]     = useState(null);
+    const [inRoom, setInRoom]                         = useState(false);
+    const [connecting, setConnecting]                 = useState(false);
+    const [roomCode, setRoomCode]                     = useState('');
+    const [reporterName, setReporterName]             = useState('');
+    const [status, setStatus]                         = useState('standby');
+    const [studioAlert, setStudioAlert]               = useState(null);
+    const [unreadStudioAlert, setUnreadStudioAlert]   = useState(false);
+    const [responses, setResponses]                   = useState([]);
+    const [chatMessages, setChatMessages]             = useState([]);
+    const [chatInput, setChatInput]                   = useState('');
+    const [connectionError, setConnectionError]       = useState(null);
     const [customAlertMessage, setCustomAlertMessage] = useState('');
-    const [mqttConnected, setMqttConnected]         = useState(false);
-    const [ifbConnected, setIfbConnected]           = useState(false);
-    const [micLevel, setMicLevel]                   = useState(0);
-    const [micMuted, setMicMuted]                   = useState(false);
-    const [mobileSheet, setMobileSheet]             = useState(null);
-    const [audioBlocked, setAudioBlocked]           = useState(false);
-    const [studioOnline, setStudioOnline]           = useState(false);
+    const [mqttConnected, setMqttConnected]           = useState(false);
+    const [ifbConnected, setIfbConnected]             = useState(false);
+    const [micLevel, setMicLevel]                     = useState(0);
+    const [micMuted, setMicMuted]                     = useState(false);
+    const [mobileSheet, setMobileSheet]               = useState(null);
+    const [audioBlocked, setAudioBlocked]             = useState(false);
+    const [studioOnline, setStudioOnline]             = useState(false);
 
-    const peerRef           = useRef(null);
-    const mqttRef           = useRef(null);
-    const callRef           = useRef(null);
-    const micStreamRef      = useRef(null);
-    // FIX: ref al <audio> del DOM para el IFB — no creamos new Audio() en runtime
-    const ifbAudioRef       = useRef(null);
-    const analyserRef       = useRef(null);
-    const animationFrameRef = useRef(null);
-    const audioCtxVuRef     = useRef(null);
-    const chatBottomRef     = useRef(null);
-    const statusRef         = useRef(status);
+    const peerRef            = useRef(null);
+    const mqttRef            = useRef(null);
+    const callRef            = useRef(null);
+    const micStreamRef       = useRef(null);
+    const ifbAudioRef        = useRef(null);
+    const analyserRef        = useRef(null);
+    const animationFrameRef  = useRef(null);
+    const audioCtxVuRef      = useRef(null);
+    const chatBottomRef      = useRef(null);
+    const statusRef          = useRef(status);
 
     useEffect(() => { statusRef.current = status; }, [status]);
 
+    // ── Publicar estado del reportero ────────────────────────────────────────
     const publishReporterStatus = useCallback((s) => {
         if (!mqttRef.current?.connected || !peerRef.current) return;
-        mqttRef.current.publish(`radio/${roomCode}/reporters`, JSON.stringify({
-            id: peerRef.current.id, name: reporterName, status: s
-        }));
+        mqttRef.current.publish(
+            `radio/${roomCode}/reporters`,
+            JSON.stringify({ id: peerRef.current.id, name: reporterName, status: s })
+        );
     }, [roomCode, reporterName]);
 
+    // ── Mute/unmute micrófono ─────────────────────────────────────────────────
     const applyMicMute = useCallback((muted) => {
         micStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = !muted; });
         if (muted) setMicLevel(0);
     }, []);
 
+    // ── Beep de alerta del estudio ────────────────────────────────────────────
     const playAlertBeep = useCallback((type) => {
         try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+            const osc  = ctx.createOscillator();
+            const gain = ctx.createGain();
             osc.connect(gain); gain.connect(ctx.destination);
             osc.frequency.value = type === 'on_air' ? 880 : 660;
             gain.gain.setValueAtTime(0.3, ctx.currentTime);
@@ -256,26 +260,32 @@ const ReporterDashboard = () => {
         } catch(e) {}
     }, []);
 
-    // ─── IFB AUDIO UNLOCK ────────────────────────────────────────────────────
-    // FIX: función centralizada para desbloquear el IFB y reanudar AudioContext
+    // ── Activar IFB manualmente (desbloqueo de autoplay) ─────────────────────
     const tryPlayIFB = useCallback(async () => {
         const el = ifbAudioRef.current;
-        if (!el || !el.srcObject) return;
+        if (!el) return;
+        // Si no hay stream asignado todavía, solo marcar que el usuario interactuó
+        if (!el.srcObject) {
+            setAudioBlocked(false);
+            return;
+        }
         try {
             await el.play();
             setAudioBlocked(false);
             setIfbConnected(true);
         } catch(e) {
-            console.warn('IFB autoplay bloqueado:', e);
+            console.warn('IFB play failed:', e);
             setAudioBlocked(true);
         }
     }, []);
-    // ─────────────────────────────────────────────────────────────────────────
 
+    // ── Conectar a la sala ────────────────────────────────────────────────────
     const joinRoom = async () => {
-        if (!roomCode || !reporterName) return alert('Completá todos los campos');
+        if (!roomCode.trim() || !reporterName.trim()) return alert('Completá todos los campos');
         setConnecting(true);
+        setConnectionError(null);
 
+        // 1. Pedir micrófono
         let stream;
         try {
             stream = await navigator.mediaDevices.getUserMedia({
@@ -289,14 +299,17 @@ const ReporterDashboard = () => {
             return;
         }
 
+        // 2. Crear peer con ID único
         const peerId = `reporter_${roomCode}_${Math.random().toString(36).substr(2,9)}`;
-        peerRef.current = new Peer(peerId, {
+        const peer = new Peer(peerId, {
             config: { iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' }
             ]}
         });
+        peerRef.current = peer;
 
+        // 3. MQTT
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt', {
             clientId: `mqtt_reporter_${Math.random().toString(16).substr(2,8)}`,
             reconnectPeriod: 3000
@@ -309,45 +322,62 @@ const ReporterDashboard = () => {
             client.subscribe(`radio/${roomCode}/alerts/response`);
             client.subscribe(`radio/${roomCode}/chat`);
             client.subscribe(`radio/${roomCode}/studio`);
+            // Suscripción al topic específico de alertas del estudio hacia este reportero
+            // (también se suscribe en peer.on('open') cuando tenemos el peerId)
         });
+
         client.on('error', err => { console.error('MQTT:', err); setConnectionError('Error MQTT.'); });
-        client.on('offline', () => setConnectionError('Desconectado del broker. Reconectando...'));
+        client.on('offline', () => setConnectionError('Desconectado. Reconectando...'));
+
         client.on('message', (topic, msg) => {
             try {
                 const data = JSON.parse(msg.toString());
-                if (topic.includes('studio_alert') && data.reporterId === peerRef.current?.id) {
+
+                // Alerta del estudio dirigida a este reportero
+                if (topic.includes('/studio_alert')) {
                     setStudioAlert({ type: data.type, from: data.from });
                     setUnreadStudioAlert(true);
                     playAlertBeep(data.type);
                     setTimeout(() => setStudioAlert(null), 5000);
                 }
-                if (topic.includes('alerts/response') && data.to === peerRef.current?.id) {
-                    setResponses(prev => [{ ...data, time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) }, ...prev].slice(0,50));
+                // Respuesta del estudio a una alerta enviada
+                if (topic.endsWith('/alerts/response') && data.to === peerRef.current?.id) {
+                    setResponses(prev => [{
+                        ...data,
+                        time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
+                    }, ...prev].slice(0, 50));
                 }
-                if (topic.includes('/chat')) {
+                // Chat general
+                if (topic.endsWith('/chat')) {
                     setChatMessages(prev => [...prev, data].slice(-100));
                 }
-                if (topic.includes('/studio') && !topic.includes('studio_alert')) {
+                // Estado del estudio online/offline
+                if (topic.endsWith('/studio')) {
                     setStudioOnline(data.status === 'online');
                 }
             } catch(e) {}
         });
 
-        // FIX: setInRoom(true) SOLO dentro de peer.on('open')
-        peerRef.current.on('open', () => {
+        // 4. PeerJS: cuando abre conexión, llamar al estudio
+        peer.on('open', () => {
             setConnectionError(null);
             setConnecting(false);
             setInRoom(true);
 
-            // Suscribir al topic de alertas específico para este reportero
+            // Suscribir al topic de alertas específico para este peerId
             if (mqttRef.current?.connected) {
-                mqttRef.current.subscribe(`radio/${roomCode}/studio_alert/${peerRef.current.id}`);
+                mqttRef.current.subscribe(`radio/${roomCode}/studio_alert/${peer.id}`);
             }
 
-            const call = peerRef.current.call(`studio_${roomCode}`, micStreamRef.current);
+            // Llamar al estudio
+            const call = peer.call(`studio_${roomCode}`, micStreamRef.current);
+            if (!call) {
+                setConnectionError('No se pudo llamar al estudio. ¿Está conectado?');
+                return;
+            }
             callRef.current = call;
 
-            // FIX: IFB — asignamos srcObject al <audio> del DOM y llamamos play()
+            // IFB: recibir audio del estudio
             call.on('stream', async (remoteStream) => {
                 const el = ifbAudioRef.current;
                 if (!el) return;
@@ -357,24 +387,27 @@ const ReporterDashboard = () => {
                     setAudioBlocked(false);
                     setIfbConnected(true);
                 } catch(e) {
-                    console.warn('IFB autoplay bloqueado, esperando gesto de usuario');
+                    console.warn('IFB autoplay bloqueado, mostrando banner');
                     setAudioBlocked(true);
                     setIfbConnected(false);
                 }
             });
 
             call.on('error', err => console.error('Call error:', err));
-            call.on('close', () => { setIfbConnected(false); callRef.current = null; });
+            call.on('close', () => {
+                setIfbConnected(false);
+                callRef.current = null;
+            });
         });
 
-        peerRef.current.on('error', err => {
-            console.error('PeerJS error:', err);
+        peer.on('error', err => {
+            console.error('PeerJS:', err);
             setConnecting(false);
-            setConnectionError('Error PeerJS. Verificá que el estudio esté abierto.');
+            setConnectionError('Error PeerJS. ¿El estudio está conectado con ese código?');
         });
     };
 
-    // Heartbeat con statusRef para evitar stale closure
+    // ── Heartbeat de estado ───────────────────────────────────────────────────
     useEffect(() => {
         if (!inRoom || !mqttConnected || !peerRef.current) return;
         publishReporterStatus(status);
@@ -382,18 +415,16 @@ const ReporterDashboard = () => {
         return () => clearInterval(t);
     }, [inRoom, status, mqttConnected, publishReporterStatus]);
 
-    // FIX: VU meter — useEffect solo depende de [inRoom], no de micMuted
-    // Esto evita recrear AudioContext cada vez que el usuario mutea
+    // ── VU Meter del micrófono ────────────────────────────────────────────────
     useEffect(() => {
         if (!inRoom || !micStreamRef.current) return;
         let ctx;
         try {
             ctx = new (window.AudioContext || window.webkitAudioContext)();
             audioCtxVuRef.current = ctx;
-            // FIX: resume() para asegurar que el contexto no esté suspended
             ctx.resume();
 
-            const source = ctx.createMediaStreamSource(micStreamRef.current);
+            const source  = ctx.createMediaStreamSource(micStreamRef.current);
             const analyser = ctx.createAnalyser();
             analyser.fftSize = 256;
             source.connect(analyser);
@@ -403,53 +434,61 @@ const ReporterDashboard = () => {
             const tick = () => {
                 if (!analyserRef.current) return;
                 analyserRef.current.getByteFrequencyData(data);
-                // FIX: escala correcta /128 (rango 0-255)
-                const avg = data.reduce((a,b)=>a+b,0) / data.length;
+                const avg = data.reduce((a,b) => a+b, 0) / data.length;
                 setMicLevel(avg);
                 animationFrameRef.current = requestAnimationFrame(tick);
             };
             tick();
-        } catch(e) { console.error('VU meter error:', e); }
+        } catch(e) { console.error('VU error:', e); }
 
         return () => {
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
             if (analyserRef.current) { try { analyserRef.current.disconnect(); } catch(e) {} analyserRef.current = null; }
             if (audioCtxVuRef.current) { try { audioCtxVuRef.current.close(); } catch(e) {} audioCtxVuRef.current = null; }
         };
-    }, [inRoom]); // ← solo inRoom, micMuted se gestiona vía track.enabled
+    }, [inRoom]);
 
+    // Aplicar mute cuando cambia micMuted
     useEffect(() => { applyMicMute(micMuted); }, [micMuted, applyMicMute]);
 
-    // Scroll automático al último mensaje
+    // Scroll automático al último chat
     useEffect(() => {
         chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [chatMessages]);
 
-    const sendAlert = (alertType, customMsg='') => {
+    // ── Enviar alerta al estudio ──────────────────────────────────────────────
+    const sendAlert = (alertType, customMsg = '') => {
         if (!mqttRef.current?.connected || !peerRef.current) return;
-        mqttRef.current.publish(`radio/${roomCode}/alerts`, JSON.stringify({
-            reporterId: peerRef.current.id,
-            reporterName,
-            alertId: alertType.id,
-            alertLabel: alertType.label,
-            message: alertType.id==='custom' ? (customMsg||'Mensaje personalizado') : alertType.label,
-            severity: alertType.severity,
-            timestamp: Date.now(),
-            isLive: status==='live'
-        }));
-        if (alertType.id==='custom') setCustomAlertMessage('');
+        mqttRef.current.publish(
+            `radio/${roomCode}/alerts`,
+            JSON.stringify({
+                reporterId:   peerRef.current.id,
+                reporterName,
+                alertId:      alertType.id,
+                alertLabel:   alertType.label,
+                message:      alertType.id === 'custom' ? (customMsg || 'Mensaje personalizado') : alertType.label,
+                severity:     alertType.severity,
+                timestamp:    Date.now(),
+                isLive:       status === 'live'
+            })
+        );
+        if (alertType.id === 'custom') setCustomAlertMessage('');
     };
 
+    // ── Chat ──────────────────────────────────────────────────────────────────
     const sendChat = e => {
         e.preventDefault();
-        if (!chatInput.trim() || !mqttRef.current) return;
-        const payload = { id: Date.now(), sender: reporterName, text: chatInput.trim(), time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) };
+        if (!chatInput.trim() || !mqttRef.current?.connected) return;
+        const payload = {
+            id: Date.now(), sender: reporterName, text: chatInput.trim(),
+            time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})
+        };
         mqttRef.current.publish(`radio/${roomCode}/chat`, JSON.stringify(payload));
         setChatMessages(prev => [...prev, payload]);
         setChatInput('');
     };
 
-    // FIX: cleanup en orden correcto: call → peer → mqtt → mic → ifb audio
+    // ── Cleanup ───────────────────────────────────────────────────────────────
     useEffect(() => {
         return () => {
             if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
@@ -458,35 +497,38 @@ const ReporterDashboard = () => {
             if (callRef.current) { try { callRef.current.close(); } catch(e) {} callRef.current = null; }
             if (peerRef.current) { peerRef.current.destroy(); peerRef.current = null; }
             if (mqttRef.current) { mqttRef.current.end(); mqttRef.current = null; }
-            if (micStreamRef.current) { micStreamRef.current.getTracks().forEach(t=>t.stop()); }
+            if (micStreamRef.current) micStreamRef.current.getTracks().forEach(t => t.stop());
             if (ifbAudioRef.current) { ifbAudioRef.current.pause(); ifbAudioRef.current.srcObject = null; }
         };
     }, []);
 
+    // ── LOBBY ─────────────────────────────────────────────────────────────────
     if (!inRoom) return (
         <div className="lobby-screen">
             <div className="lobby-box">
                 <h1>STREAM<span>RADIO</span></h1>
                 <p>REPORTERO / MÓVIL</p>
-                <input className="lobby-input" placeholder="CÓDIGO DE SALA" value={roomCode} onChange={e=>setRoomCode(e.target.value.toUpperCase())} disabled={connecting} />
-                <input className="lobby-input" placeholder="NOMBRE DEL REPORTERO" value={reporterName} onChange={e=>setReporterName(e.target.value)} style={{textTransform:'none'}} disabled={connecting} />
+                <input className="lobby-input" placeholder="CÓDIGO DE SALA"
+                    value={roomCode} onChange={e => setRoomCode(e.target.value.toUpperCase())} disabled={connecting} />
+                <input className="lobby-input" placeholder="NOMBRE DEL REPORTERO"
+                    value={reporterName} onChange={e => setReporterName(e.target.value)}
+                    style={{textTransform:'none'}} disabled={connecting} />
                 <button className="lobby-btn" onClick={joinRoom} disabled={connecting}>
                     {connecting ? 'CONECTANDO...' : 'CONECTAR'}
                 </button>
-                {connectionError && <p style={{marginTop:15,color:'#f59e0b',fontSize:'0.85rem'}}>{connectionError}</p>}
+                {connectionError && <p style={{marginTop:14,color:'var(--amber)',fontSize:'0.82rem',fontFamily:'var(--font-mono)'}}>{connectionError}</p>}
             </div>
         </div>
     );
 
     const VU_SEGMENTS = 8;
-    const vuActiveCount = Math.min(VU_SEGMENTS, Math.ceil((micLevel/128)*VU_SEGMENTS));
+    const vuActiveCount = Math.min(VU_SEGMENTS, Math.ceil((micLevel / 128) * VU_SEGMENTS));
 
+    // ── DASHBOARD ─────────────────────────────────────────────────────────────
     return (
         <>
-        {/* FIX: <audio> en el DOM con autoPlay + playsInline para iOS */}
         <audio ref={ifbAudioRef} autoPlay playsInline style={{display:'none'}} />
 
-        {/* FIX: banner de desbloqueo si autoplay fue bloqueado */}
         {audioBlocked && (
             <button className="audio-unlock-banner" onClick={tryPlayIFB}>
                 🔊 Tocá aquí para activar el retorno (IFB)
@@ -498,58 +540,86 @@ const ReporterDashboard = () => {
             <div className="top-bar">
                 <div className="logo">STREAM<span>RADIO</span><small>REPORTERO</small></div>
                 <div className="top-status">
-                    {connectionError && <span className="connection-error" onClick={()=>setConnectionError(null)}>⚠️ {connectionError}</span>}
+                    {connectionError && (
+                        <span className="connection-error" onClick={() => setConnectionError(null)}>⚠️ {connectionError}</span>
+                    )}
                     <span className="room-code">SALA: <b>{roomCode}</b></span>
                     <span className="online-status">● CONECTADO</span>
                 </div>
             </div>
             <div className="main-content">
+                {/* Panel izquierdo */}
                 <div className="info-panel">
-                    <h2>📊 Estado</h2>
-                    <div className="info-box"><div className="info-label">Modo</div><div className="info-value">{status==='live'?'EN VIVO':'STANDBY'}</div></div>
-                    <div className={`status-indicator ${status}`}>
-                        <div className={`status-dot ${status==='live'?'red':'green'}`}/>
-                        <span className="status-text">{status==='live'?'🔴 TRANSMITIENDO':'⚫ STANDBY'}</span>
+                    <h2>▸ ESTADO</h2>
+                    <div className="info-box">
+                        <div className="info-label">Modo</div>
+                        <div className="info-value">{status === 'live' ? 'EN VIVO' : 'STANDBY'}</div>
                     </div>
-                    <button className={`status-toggle ${status}`} style={{marginTop:15}} onClick={()=>setStatus(s=>s==='standby'?'live':'standby')}>
-                        {status==='standby'?'⚫ Pasar a EN VIVO':'🔴 Volver a STANDBY'}
+                    <div className={`status-indicator ${status}`}>
+                        <div className={`status-dot ${status==='live' ? 'red' : 'green'}`}/>
+                        <span className="status-text">{status==='live' ? '🔴 TRANSMITIENDO' : '⚫ STANDBY'}</span>
+                    </div>
+                    <button
+                        className={`status-toggle ${status}`}
+                        style={{marginTop:14}}
+                        onClick={() => setStatus(s => s === 'standby' ? 'live' : 'standby')}>
+                        {status === 'standby' ? '▶ PASAR A EN VIVO' : '⏹ VOLVER A STANDBY'}
                     </button>
                     <div className="ifb-control">
-                        <div className="ifb-title">🎧 Retorno (IFB)</div>
-                        <div className="ifb-status">{ifbConnected?'Retorno activo — escuchás al estudio':'Esperando retorno del estudio...'}</div>
+                        <div className="ifb-title">🎧 RETORNO (IFB)</div>
+                        <div className="ifb-status">
+                            {ifbConnected ? '● Retorno activo — escuchás al estudio' : '○ Esperando retorno del estudio...'}
+                        </div>
                     </div>
                     <div className="info-box" style={{marginTop:12}}>
                         <div className="info-label">Estudio</div>
-                        <div style={{fontSize:'1rem',fontWeight:700,color:studioOnline?'#22c55e':'#ef4444'}}>
-                            {studioOnline?'● ONLINE':'● OFFLINE'}
+                        <div style={{fontSize:'0.95rem',fontWeight:700,color:studioOnline?'var(--green)':'var(--red-live)',fontFamily:'var(--font-mono)'}}>
+                            {studioOnline ? '● ONLINE' : '● OFFLINE'}
                         </div>
                     </div>
                 </div>
+
+                {/* Panel central */}
                 <div className="center-panel">
-                    <div className="tabs"><button className="tab active">📢 Enviar alerta</button></div>
+                    <div className="tabs">
+                        <button className="tab active">📢 ENVIAR ALERTA</button>
+                    </div>
                     <div className="panel-content">
                         {studioAlert && (
                             <div className={`studio-alert-banner ${studioAlert.type}`}>
-                                {studioAlert.type==='attention'?'⚠️ ATENTO':'🔴 AL AIRE'} — {studioAlert.from}
+                                {studioAlert.type === 'attention' ? '⚠️ ATENTO' : '🔴 AL AIRE'} — {studioAlert.from}
                             </div>
                         )}
-                        <p style={{marginBottom:15,color:'#94a3b8',fontSize:'0.85rem'}}>Tocá para enviar alerta al estudio:</p>
+                        <p style={{marginBottom:14,color:'var(--text-2)',fontSize:'0.82rem',fontFamily:'var(--font-mono)'}}>Tocá para enviar alerta al estudio:</p>
                         <div className="alert-grid">
-                            {ALERT_TYPES.filter(a=>a.id!=='custom').map(a=>(
-                                <button key={a.id} className={`alert-btn ${a.severity}`} onClick={()=>sendAlert(a)}>{a.icon} {a.label}</button>
+                            {ALERT_TYPES.filter(a => a.id !== 'custom').map(a => (
+                                <button key={a.id} className={`alert-btn ${a.severity}`} onClick={() => sendAlert(a)}>
+                                    {a.icon} {a.label}
+                                </button>
                             ))}
                         </div>
-                        <div style={{marginTop:20}}>
-                            <input className="lobby-input" placeholder="Alerta personalizada..." value={customAlertMessage} onChange={e=>setCustomAlertMessage(e.target.value)} style={{marginBottom:10,textTransform:'none'}} />
-                            <button className="alert-btn" onClick={()=>sendAlert(ALERT_TYPES.find(a=>a.id==='custom'),customAlertMessage)}>✏️ Enviar personalizada</button>
+                        <div style={{marginTop:18}}>
+                            <input className="lobby-input"
+                                placeholder="Alerta personalizada..."
+                                value={customAlertMessage}
+                                onChange={e => setCustomAlertMessage(e.target.value)}
+                                style={{marginBottom:10,textTransform:'none'}} />
+                            <button className="alert-btn"
+                                onClick={() => sendAlert(ALERT_TYPES.find(a => a.id==='custom'), customAlertMessage)}>
+                                ✏️ Enviar personalizada
+                            </button>
                         </div>
                     </div>
                 </div>
+
+                {/* Panel derecho */}
                 <div className="alerts-panel">
-                    <div className="alerts-header"><h2>📩 Respuestas del estudio</h2></div>
+                    <div className="alerts-header"><h2>📩 RESPUESTAS DEL ESTUDIO</h2></div>
                     <div className="responses-list">
-                        {responses.length===0 && <div style={{textAlign:'center',color:'#666',marginTop:30}}>Sin respuestas aún</div>}
-                        {responses.map((r,i)=>(
+                        {responses.length === 0 && (
+                            <div style={{textAlign:'center',color:'var(--text-3)',marginTop:30,fontFamily:'var(--font-mono)',fontSize:'0.8rem'}}>Sin respuestas aún</div>
+                        )}
+                        {responses.map((r, i) => (
                             <div key={i} className="response-card">
                                 <div className="from">{r.from}</div>
                                 <div className="msg">{r.message}</div>
@@ -558,9 +628,9 @@ const ReporterDashboard = () => {
                         ))}
                     </div>
                     <div className="chat-section">
-                        <div className="chat-header-small">💬 Chat</div>
+                        <div className="chat-header-small">💬 CHAT</div>
                         <div className="chat-messages-small">
-                            {chatMessages.map((m,i)=>(
+                            {chatMessages.map((m, i) => (
                                 <div key={i} className="chat-msg-small">
                                     <div className="sender">{m.sender}</div>
                                     <div>{m.text}</div>
@@ -569,7 +639,7 @@ const ReporterDashboard = () => {
                             <div ref={chatBottomRef}/>
                         </div>
                         <form className="chat-input-small" onSubmit={sendChat}>
-                            <input value={chatInput} onChange={e=>setChatInput(e.target.value)} placeholder="Mensaje..."/>
+                            <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Mensaje..."/>
                             <button type="submit">➤</button>
                         </form>
                     </div>
@@ -580,51 +650,72 @@ const ReporterDashboard = () => {
         {/* ── MOBILE ── */}
         <div className="mobile-broadcast">
             <div className="mobile-header-bar">
-                <span className={`mobile-header-status ${status==='live'?'live':''}`}>{status==='live'?'EN VIVO':'STANDBY'}</span>
-                <div className={`mobile-retorno-pill ${ifbConnected?'':'off'}`}>
-                    <span>🎧</span><span>{ifbConnected?'RETORNO OK':'SIN RETORNO'}</span>
+                <span className={`mobile-header-status ${status==='live' ? 'live' : ''}`}>
+                    {status === 'live' ? '🔴 EN VIVO' : '⚫ STANDBY'}
+                </span>
+                <div className={`mobile-retorno-pill ${ifbConnected ? '' : 'off'}`}>
+                    <span>🎧</span>
+                    <span>{ifbConnected ? 'RETORNO OK' : 'SIN RETORNO'}</span>
                 </div>
             </div>
+
             {studioAlert && (
                 <div className={`studio-alert-banner ${studioAlert.type}`} style={{marginBottom:16}}>
-                    {studioAlert.type==='attention'?'⚠️ ATENTO':'🔴 AL AIRE'} — {studioAlert.from}
+                    {studioAlert.type === 'attention' ? '⚠️ ATENTO' : '🔴 AL AIRE'} — {studioAlert.from}
                 </div>
             )}
+
             <div className="mobile-vu-container">
                 <div className="mobile-vu-meter">
-                    {Array.from({length:VU_SEGMENTS}).map((_,i)=>(
-                        <div key={i} className={`mobile-vu-segment ${i<vuActiveCount?(i>=VU_SEGMENTS-2?'peaking':'active'):''}`}/>
+                    {Array.from({length: VU_SEGMENTS}).map((_, i) => (
+                        <div key={i} className={`mobile-vu-segment ${i < vuActiveCount ? (i >= VU_SEGMENTS-2 ? 'peaking' : 'active') : ''}`}/>
                     ))}
                 </div>
-                <div className="mobile-vu-badge">{micMuted?'🔇 MIC EN SILENCIO':'🎙️ 48KHZ / MONO'}</div>
+                <div className="mobile-vu-badge">{micMuted ? '🔇 MIC EN SILENCIO' : '🎙️ 48KHZ · MONO'}</div>
             </div>
-            <button className={`mobile-btn-al-aire ${status==='live'?'live':''}`} onClick={()=>setStatus(s=>s==='standby'?'live':'standby')}>
-                <span className="icon">{status==='live'?'⏹':'▶'}</span>
-                <span className="label">Al aire</span>
-                <span className="sublabel">{status==='live'?'Transmitiendo al estudio':'Listo para salir al aire'}</span>
+
+            <button
+                className={`mobile-btn-al-aire ${status==='live' ? 'live' : ''}`}
+                onClick={() => setStatus(s => s === 'standby' ? 'live' : 'standby')}>
+                <span className="icon">{status === 'live' ? '⏹' : '▶'}</span>
+                <span className="label">{status === 'live' ? 'EN VIVO' : 'AL AIRE'}</span>
+                <span className="sublabel">{status === 'live' ? 'Transmitiendo al estudio' : 'Listo para salir al aire'}</span>
             </button>
-            <button className="mobile-btn-notificar" onClick={()=>{ setMobileSheet('alerts'); setUnreadStudioAlert(false); }}>
+
+            <button className="mobile-btn-notificar"
+                onClick={() => { setMobileSheet('alerts'); setUnreadStudioAlert(false); }}>
                 {unreadStudioAlert && <span className="mobile-alert-badge">!</span>}
                 🚨 NOTIFICAR AL CONTROL
             </button>
+
             <div className="mobile-bottom-nav">
-                <button className={`mobile-nav-btn ${mobileSheet==='chat'?'active':''}`} onClick={()=>setMobileSheet(mobileSheet==='chat'?null:'chat')}>💬</button>
-                <button className={`mobile-nav-btn ${micMuted?'':'active'}`} onClick={()=>setMicMuted(m=>!m)}>{micMuted?'🔇':'🎙️'}</button>
-                <button className={`mobile-nav-btn ${ifbConnected?'active':''}`} onClick={ifbConnected ? undefined : tryPlayIFB} title="Retorno IFB">🎧</button>
-                <button className="mobile-nav-btn" onClick={()=>{ if(confirm('¿Desconectar?')) window.location.reload(); }}>🚪</button>
+                <button className={`mobile-nav-btn ${mobileSheet==='chat' ? 'active' : ''}`}
+                    onClick={() => setMobileSheet(mobileSheet === 'chat' ? null : 'chat')}>💬</button>
+                <button className={`mobile-nav-btn ${micMuted ? '' : 'active'}`}
+                    onClick={() => setMicMuted(m => !m)}>
+                    {micMuted ? '🔇' : '🎙️'}
+                </button>
+                <button className={`mobile-nav-btn ${ifbConnected ? 'active' : ''}`}
+                    onClick={ifbConnected ? undefined : tryPlayIFB}
+                    title="Retorno IFB">🎧</button>
+                <button className="mobile-nav-btn"
+                    onClick={() => { if (confirm('¿Desconectar?')) window.location.reload(); }}>🚪</button>
             </div>
         </div>
 
-        <div className={`mobile-sheet-overlay ${mobileSheet?'open':''}`} onClick={()=>setMobileSheet(null)}/>
-        <div className={`mobile-sheet ${mobileSheet?'open':''}`}>
-            <div className="mobile-sheet-handle" onClick={()=>setMobileSheet(null)}/>
+        {/* ── SHEET MOBILE ── */}
+        <div className={`mobile-sheet-overlay ${mobileSheet ? 'open' : ''}`} onClick={() => setMobileSheet(null)}/>
+        <div className={`mobile-sheet ${mobileSheet ? 'open' : ''}`}>
+            <div className="mobile-sheet-handle" onClick={() => setMobileSheet(null)}/>
             <div className="mobile-sheet-content">
-                {mobileSheet==='chat' && (
+                {mobileSheet === 'chat' && (
                     <>
-                        <div className="mobile-sheet-header">💬 Chat</div>
-                        <div className="chat-messages-small" style={{maxHeight:200,marginBottom:15}}>
-                            {chatMessages.length===0 && <div style={{color:'#666',padding:20}}>Sin mensajes</div>}
-                            {chatMessages.map((m,i)=>(
+                        <div className="mobile-sheet-header">💬 CHAT</div>
+                        <div className="chat-messages-small" style={{maxHeight:200,marginBottom:14}}>
+                            {chatMessages.length === 0 && (
+                                <div style={{color:'var(--text-3)',padding:20,fontFamily:'var(--font-mono)',fontSize:'0.8rem'}}>Sin mensajes</div>
+                            )}
+                            {chatMessages.map((m, i) => (
                                 <div key={i} className="chat-msg-small">
                                     <div className="sender">{m.sender}</div>
                                     <div>{m.text}</div>
@@ -633,29 +724,41 @@ const ReporterDashboard = () => {
                             <div ref={chatBottomRef}/>
                         </div>
                         <form className="chat-input-small" onSubmit={sendChat}>
-                            <input value={chatInput} onChange={e=>setChatInput(e.target.value)} placeholder="Mensaje..."/>
+                            <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Mensaje..."/>
                             <button type="submit">➤</button>
                         </form>
                     </>
                 )}
-                {mobileSheet==='alerts' && (
+                {mobileSheet === 'alerts' && (
                     <>
-                        <div className="mobile-sheet-header">🚨 Notificar al control</div>
+                        <div className="mobile-sheet-header">🚨 NOTIFICAR AL CONTROL</div>
                         {studioAlert && (
-                            <div className={`studio-alert-banner ${studioAlert.type}`} style={{marginBottom:15}}>
-                                {studioAlert.type==='attention'?'⚠️ ATENTO':'🔴 AL AIRE'} — {studioAlert.from}
+                            <div className={`studio-alert-banner ${studioAlert.type}`} style={{marginBottom:14}}>
+                                {studioAlert.type === 'attention' ? '⚠️ ATENTO' : '🔴 AL AIRE'} — {studioAlert.from}
                             </div>
                         )}
-                        <div className="alert-grid" style={{marginBottom:15}}>
-                            {ALERT_TYPES.filter(a=>a.id!=='custom').map(a=>(
-                                <button key={a.id} className={`alert-btn ${a.severity}`} onClick={()=>{ sendAlert(a); setMobileSheet(null); }}>{a.icon} {a.label}</button>
+                        <div className="alert-grid" style={{marginBottom:14}}>
+                            {ALERT_TYPES.filter(a => a.id !== 'custom').map(a => (
+                                <button key={a.id} className={`alert-btn ${a.severity}`}
+                                    onClick={() => { sendAlert(a); setMobileSheet(null); }}>
+                                    {a.icon} {a.label}
+                                </button>
                             ))}
                         </div>
-                        <input className="lobby-input" placeholder="Alerta personalizada..." value={customAlertMessage} onChange={e=>setCustomAlertMessage(e.target.value)} style={{marginBottom:10,textTransform:'none'}}/>
-                        <button className="alert-btn" onClick={()=>{ sendAlert(ALERT_TYPES.find(a=>a.id==='custom'),customAlertMessage); setMobileSheet(null); }}>✏️ Enviar personalizada</button>
-                        <div className="mobile-sheet-header" style={{marginTop:25}}>📩 Respuestas</div>
-                        {responses.length===0 && <div style={{color:'#666',padding:10}}>Sin respuestas</div>}
-                        {responses.slice(0,5).map((r,i)=>(
+                        <input className="lobby-input"
+                            placeholder="Alerta personalizada..."
+                            value={customAlertMessage}
+                            onChange={e => setCustomAlertMessage(e.target.value)}
+                            style={{marginBottom:10,textTransform:'none'}} />
+                        <button className="alert-btn"
+                            onClick={() => { sendAlert(ALERT_TYPES.find(a => a.id==='custom'), customAlertMessage); setMobileSheet(null); }}>
+                            ✏️ Enviar personalizada
+                        </button>
+                        <div className="mobile-sheet-header" style={{marginTop:22}}>📩 RESPUESTAS</div>
+                        {responses.length === 0 && (
+                            <div style={{color:'var(--text-3)',padding:'10px 0',fontFamily:'var(--font-mono)',fontSize:'0.8rem'}}>Sin respuestas</div>
+                        )}
+                        {responses.slice(0, 5).map((r, i) => (
                             <div key={i} className="response-card" style={{marginBottom:10}}>
                                 <div className="from">{r.from}</div>
                                 <div className="msg">{r.message}</div>
