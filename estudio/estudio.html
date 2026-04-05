@@ -1122,7 +1122,6 @@
             const [studioName, setStudioName] = useState('');
             const [reporters, setReporters] = useState({});
             const [listenState, setListenState] = useState({});
-            const [rxLevels, setRxLevels] = useState({});
             const [peerStats, setPeerStats] = useState({});
             const [alerts, setAlerts] = useState([]);
             const [unreadAlerts, setUnreadAlerts] = useState(0);
@@ -1330,7 +1329,6 @@
 
                         setListenState(prev => { const s = { ...prev }; delete s[call.peer]; return s; });
                         setPeerStats(prev => { const s = { ...prev }; delete s[call.peer]; return s; });
-                        setRxLevels(prev => { const s = { ...prev }; delete s[call.peer]; return s; });
 
                         setReporters(prev => {
                             const s = { ...prev };
@@ -1402,20 +1400,20 @@
                 } catch (e) { }
             };
 
-            // ── Efecto de VU Meters Múltiples ─────────────────────────────────────────
+            // ── Efecto de VU Meters Múltiples (Directo a DOM) ────────────────────────
             useEffect(() => {
                 const updateVUs = () => {
-                    const newLevels = {};
-                    let updated = false;
                     for (const peer in analysersRef.current) {
                         const analyser = analysersRef.current[peer];
                         const dataArray = new Uint8Array(analyser.frequencyBinCount);
                         analyser.getByteFrequencyData(dataArray);
                         const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-                        newLevels[peer] = avg;
-                        updated = true;
+                        
+                        const el = document.getElementById(`vu-${peer}`);
+                        if (el) {
+                            el.style.width = `${Math.min((avg / 128) * 100, 100)}%`;
+                        }
                     }
-                    if (updated) setRxLevels(newLevels);
                     animationFrameRef.current = requestAnimationFrame(updateVUs);
                 };
                 animationFrameRef.current = requestAnimationFrame(updateVUs);
@@ -1656,7 +1654,6 @@
                                         const isListening = ls.isListening;
                                         const hasAudio = reporter.hasAudio || globalStreams.current.has(id);
                                         const sentAlert = alertSent[id];
-                                        const lvl = rxLevels[id] || 0;
                                         const stats = peerStats[id];
 
                                         return (
@@ -1683,7 +1680,7 @@
                                                 {isListening && (
                                                     <div style={{ marginBottom: 14 }}>
                                                         <div className="vu-container" style={{ height: 4, marginBottom: 8 }}>
-                                                            <div className="vu-bar" style={{ width: `${Math.min((lvl / 128) * 100, 100)}%` }} />
+                                                            <div id={`vu-${id}`} className="vu-bar" style={{ width: '0%' }} />
                                                         </div>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                             <span style={{ fontSize: '0.7rem', color: 'var(--text-2)', fontFamily: 'var(--font-mono)' }}>VOLUMEN</span>
