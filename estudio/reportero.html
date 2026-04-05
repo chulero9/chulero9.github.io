@@ -1066,6 +1066,9 @@
             const [mobileSheet, setMobileSheet] = useState(null);
             const [audioBlocked, setAudioBlocked] = useState(false);
             const [studioOnline, setStudioOnline] = useState(false);
+            const [recording, setRecording] = useState(false);
+            const [highFidelity, setHighFidelity] = useState(false);
+            const [peerStats, setPeerStats] = useState(null);
 
             const peerRef = useRef(null);
             const mqttRef = useRef(null);
@@ -1076,6 +1079,8 @@
             const animationFrameRef = useRef(null);
             const audioCtxVuRef = useRef(null);
             const chatBottomRef = useRef(null);
+            const mediaRecorderRef = useRef(null);
+            const recordedChunksRef = useRef([]);
             const statusRef = useRef(status);
             const inRoomRef = useRef(inRoom);
             const wakeLockRef = useRef(null);
@@ -1127,6 +1132,67 @@
                 micStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = !muted; });
                 if (muted) setMicLevel(0);
             }, []);
+
+            // ── Grabación de Respaldo Local ───────────────────────────────────────────
+            const toggleRecording = () => {
+                if (recording) {
+                    mediaRecorderRef.current?.stop();
+                    setRecording(false);
+                } else {
+                    if (!micStreamRef.current) return alert("Pida permisos de micrófono primero");
+                    try {
+                        recordedChunksRef.current = [];
+                        const mr = new MediaRecorder(micStreamRef.current, { mimeType: 'audio/webm' });
+                        mr.ondataavailable = e => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
+                        mr.onstop = () => {
+                            const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = url;
+                            a.download = `StreamRadio_${reporterName.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.webm`;
+                            document.body.appendChild(a);
+                            a.click();
+                            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+                        };
+                        mediaRecorderRef.current = mr;
+                        mr.start(1000);
+                        setRecording(true);
+                    } catch (e) {
+                        alert("No se pudo iniciar la grabación: " + e.message);
+                    }
+                }
+            };
+
+            // ── Modo Alta Fidelidad ───────────────────────────────────────────────────
+            const toggleFidelity = async () => {
+                const nextMode = !highFidelity;
+                try {
+                    if (micStreamRef.current) micStreamRef.current.getTracks().forEach(t => t.stop());
+                    
+                    const newConstraints = nextMode 
+                        ? { echoCancellation: false, noiseSuppression: false, autoGainControl: false } 
+                        : { echoCancellation: true, noiseSuppression: false, autoGainControl: true };
+
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: newConstraints });
+                    micStreamRef.current = stream;
+                    applyMicMute(micMuted);
+
+                    if (callRef.current && callRef.current.peerConnection) {
+                        const sender = callRef.current.peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
+                        if (sender) sender.replaceTrack(stream.getAudioTracks()[0]);
+                    }
+
+                    if (analyserRef.current && audioCtxVuRef.current) {
+                         const source = audioCtxVuRef.current.createMediaStreamSource(stream);
+                         source.connect(analyserRef.current);
+                    }
+
+                    setHighFidelity(nextMode);
+                } catch(e) {
+                    alert('Error cambiando modo de fidelidad: ' + e.message);
+                }
+            };
 
             // ── Beep de alerta del estudio ────────────────────────────────────────────
             const playAlertBeep = useCallback(async (type) => {
@@ -1299,11 +1365,34 @@
 
                         call.on('error', err => console.error('Call error:', err));
                         call.on('close', () => {
+                            if (call.statsInterval) clearInterval(call.statsInterval);
                             setIfbConnected(false);
                             callRef.current = null;
                             // Intentar reconexión si seguimos en sala
                             setTimeout(() => { if (inRoomRef.current && peerRef.current && !peerRef.current.disconnected) makeCall(); }, 2500);
                         });
+
+                        // Monitor Stats
+                        if (call.statsInterval) clearInterval(call.statsInterval);
+                        call.statsInterval = setInterval(async () => {
+                            if (call.peerConnection) {
+                                try {
+                                    const stats = await call.peerConnection.getStats();
+                                    let rtt = 0;
+                                    let fractionLost = 0;
+                                    stats.forEach(report => {
+                                        if (report.type === 'remote-inbound-rtp') {
+                                           rtt = report.roundTripTime * 1000 || rtt;
+                                           fractionLost = report.fractionLost || fractionLost;
+                                        }
+                                        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                                           rtt = report.currentRoundTripTime * 1000 || rtt;
+                                        }
+                                    });
+                                    setPeerStats({ rtt, packetLoss: fractionLost });
+                                } catch (e) {}
+                            }
+                        }, 2000);
                     };
                     makeCall();
                 });
@@ -1457,6 +1546,7 @@
                                     <span className="connection-error" onClick={() => setConnectionError(null)}>⚠️ {connectionError}</span>
                                 )}
                                 <span className="room-code">SALA: <b>{roomCode}</b></span>
+                                {peerStats && <span className="online-status" style={{color: 'var(--text-3)', marginLeft: 10, background: 'transparent', padding: 0}}>📶 {peerStats.rtt.toFixed(0)}ms {peerStats.packetLoss > 0 ? '⚠️' : ''}</span>}
                                 <span className="online-status">● CONECTADO</span>
                             </div>
                         </div>
@@ -1489,6 +1579,19 @@
                                     <div style={{ fontSize: '0.95rem', fontWeight: 700, color: studioOnline ? 'var(--green)' : 'var(--red-live)', fontFamily: 'var(--font-mono)' }}>
                                         {studioOnline ? '● ONLINE' : '● OFFLINE'}
                                     </div>
+                                </div>
+                                <div className="info-box" style={{ marginTop: 12 }}>
+                                    <div className="info-label" style={{marginBottom: 8}}>Opciones Avanzadas</div>
+                                    <button 
+                                        onClick={toggleFidelity}
+                                        style={{ width: '100%', padding: '8px', background: highFidelity ? 'var(--blue)' : 'var(--bg-card)', color: 'white', border: '1px solid var(--border)', borderRadius: 4, marginTop: 5, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
+                                        {highFidelity ? '🎧 ALTA FIDELIDAD' : '🎙️ ESTÁNDAR'}
+                                    </button>
+                                    <button 
+                                        onClick={toggleRecording}
+                                        style={{ width: '100%', padding: '8px', background: recording ? '#8B0000' : 'var(--bg-card)', color: 'white', border: '1px solid var(--border)', borderRadius: 4, marginTop: 5, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
+                                        {recording ? '⏹ DETENER GRABACIÓN' : '⏺ GRABAR LOCAL'}
+                                    </button>
                                 </div>
                             </div>
 
@@ -1566,6 +1669,7 @@
                             <span className={`mobile-header-status ${status === 'live' ? 'live' : ''}`}>
                                 {status === 'live' ? '🔴 EN VIVO' : '⚫ STANDBY'}
                             </span>
+                            {peerStats && <span style={{fontSize: '0.7rem', color: 'var(--text-3)'}}>📶 {peerStats.rtt.toFixed(0)}ms</span>}
                             <div className={`mobile-retorno-pill ${ifbConnected ? '' : 'off'}`}>
                                 <span>🎧</span>
                                 <span>{ifbConnected ? 'RETORNO OK' : 'SIN RETORNO'}</span>
@@ -1600,6 +1704,19 @@
                             {unreadStudioAlert && <span className="mobile-alert-badge">!</span>}
                             🚨 NOTIFICAR AL CONTROL
                         </button>
+
+                        <div style={{ display: 'flex', gap: 10, margin: '15px 20px' }}>
+                            <button 
+                                onClick={toggleFidelity}
+                                style={{ flex: 1, padding: '12px', background: highFidelity ? 'var(--blue)' : 'var(--bg-box)', color: 'white', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 600 }}>
+                                {highFidelity ? '🎧 HI-FI' : '🎙️ ESTÁNDAR'}
+                            </button>
+                            <button 
+                                onClick={toggleRecording}
+                                style={{ flex: 1, padding: '12px', background: recording ? '#8B0000' : 'var(--bg-box)', color: 'white', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 600 }}>
+                                {recording ? '⏹ DETENER' : '⏺ GRABAR'}
+                            </button>
+                        </div>
 
                         <div className="mobile-bottom-nav">
                             <button className={`mobile-nav-btn ${mobileSheet === 'chat' ? 'active' : ''}`}

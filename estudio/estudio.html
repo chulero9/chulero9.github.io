@@ -1121,8 +1121,9 @@
             const [roomCode, setRoomCode] = useState('');
             const [studioName, setStudioName] = useState('');
             const [reporters, setReporters] = useState({});
-            const [listeningTo, setListeningTo] = useState(null);
-            const [rxLevel, setRxLevel] = useState(0);
+            const [listenState, setListenState] = useState({});
+            const [rxLevels, setRxLevels] = useState({});
+            const [peerStats, setPeerStats] = useState({});
             const [alerts, setAlerts] = useState([]);
             const [unreadAlerts, setUnreadAlerts] = useState(0);
             const [selectedAlert, setSelectedAlert] = useState(null);
@@ -1135,24 +1136,47 @@
 
             const peerRef = useRef(null);
             const mqttRef = useRef(null);
-            const audioRef = useRef(null);
-            const analyserRef = useRef(null);
-            const animationFrameRef = useRef(null);
             const studioMicRef = useRef(null);
             const audioCtxRef = useRef(null);
-            const listeningToRef = useRef(null);
             const responseInputRef = useRef(null);
-            const sourceRef = useRef(null);
             const globalStreams = useRef(new Map());
             const globalCalls = useRef(new Map());
+            const audioElementsRef = useRef({});
+            const analysersRef = useRef({});
+            const animationFrameRef = useRef(null);
 
             // Generar código de sala al montar
             useEffect(() => {
                 setRoomCode(Math.random().toString(36).substring(2, 6).toUpperCase());
             }, []);
 
-            // Mantener ref sincronizado
-            useEffect(() => { listeningToRef.current = listeningTo; }, [listeningTo]);
+            // ── PTT (Push-to-Talk) ────────────────────────────────────────────────────
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        if (studioMicRef.current) {
+                            studioMicRef.current.getAudioTracks().forEach(t => { t.enabled = true; });
+                            setStudioMicActive(true);
+                        }
+                    }
+                };
+                const handleKeyUp = (e) => {
+                    if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        if (studioMicRef.current) {
+                            studioMicRef.current.getAudioTracks().forEach(t => { t.enabled = false; });
+                            setStudioMicActive(false);
+                        }
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                window.addEventListener('keyup', handleKeyUp);
+                return () => {
+                    window.removeEventListener('keydown', handleKeyDown);
+                    window.removeEventListener('keyup', handleKeyUp);
+                };
+            }, []);
 
             // ── AudioContext centralizado ─────────────────────────────────────────────
             const getAudioCtx = useCallback(async () => {
@@ -1232,14 +1256,12 @@
                     call.answer(answerStream);
                     globalCalls.current.set(call.peer, call);
 
-                    // Monitor de ICE para atrapar desconexiones "fantasma" que no disparan evento close()
                     if (call.peerConnection) {
                         call.peerConnection.addEventListener('iceconnectionstatechange', () => {
                             const state = call.peerConnection.iceConnectionState;
                             if (state === 'failed' || state === 'disconnected' || state === 'closed') {
                                 setTimeout(() => {
                                     if (call.peerConnection && ['failed', 'disconnected', 'closed'].includes(call.peerConnection.iceConnectionState)) {
-                                        console.warn(`ICE dropped for ${call.peer}. Forcing cleanup.`);
                                         call.close();
                                     }
                                 }, 4000);
@@ -1247,20 +1269,69 @@
                         });
                     }
 
-                    call.on('stream', remoteStream => {
+                    // Stats interval
+                    call.statsInterval = setInterval(async () => {
+                        if (call.peerConnection) {
+                            try {
+                                const stats = await call.peerConnection.getStats();
+                                let rtt = 0;
+                                let fractionLost = 0;
+                                stats.forEach(report => {
+                                    if (report.type === 'remote-inbound-rtp') rtt = report.roundTripTime * 1000 || rtt;
+                                    if (report.type === 'candidate-pair' && report.state === 'succeeded') rtt = report.currentRoundTripTime * 1000 || rtt;
+                                    if (report.type === 'inbound-rtp' && report.kind === 'audio') fractionLost = report.fractionLost || 0;
+                                });
+                                setPeerStats(prev => ({...prev, [call.peer]: { rtt, packetLoss: fractionLost }}));
+                            } catch (e) {}
+                        }
+                    }, 2000);
+
+                    call.on('stream', async remoteStream => {
                         globalStreams.current.set(call.peer, remoteStream);
                         setReporters(prev => ({
                             ...prev,
                             [call.peer]: { ...prev[call.peer], hasAudio: true }
                         }));
+                        setListenState(prev => ({...prev, [call.peer]: { isListening: false, volume: 1 }}));
+
+                        // Setup audio element per reporter
+                        const el = new Audio();
+                        el.srcObject = remoteStream;
+                        el.muted = true;
+                        el.play().catch(e => setAudioBlocked(true));
+                        audioElementsRef.current[call.peer] = el;
+
+                        try {
+                            const ctx = await getAudioCtx();
+                            const safeStream = new MediaStream(remoteStream.getAudioTracks());
+                            const source = ctx.createMediaStreamSource(safeStream);
+                            const analyser = ctx.createAnalyser();
+                            analyser.fftSize = 256;
+                            source.connect(analyser);
+                            analysersRef.current[call.peer] = analyser;
+                        } catch (e) {}
                     });
 
                     call.on('error', err => console.error('Call error:', err));
 
                     call.on('close', () => {
+                        clearInterval(call.statsInterval);
                         globalStreams.current.delete(call.peer);
                         globalCalls.current.delete(call.peer);
-                        if (listeningToRef.current === call.peer) stopListening();
+                        
+                        if (audioElementsRef.current[call.peer]) {
+                            audioElementsRef.current[call.peer].pause();
+                            audioElementsRef.current[call.peer].srcObject = null;
+                            delete audioElementsRef.current[call.peer];
+                        }
+                        if (analysersRef.current[call.peer]) {
+                            delete analysersRef.current[call.peer];
+                        }
+
+                        setListenState(prev => { const s = { ...prev }; delete s[call.peer]; return s; });
+                        setPeerStats(prev => { const s = { ...prev }; delete s[call.peer]; return s; });
+                        setRxLevels(prev => { const s = { ...prev }; delete s[call.peer]; return s; });
+
                         setReporters(prev => {
                             const s = { ...prev };
                             if (s[call.peer]) s[call.peer] = { ...s[call.peer], hasAudio: false };
@@ -1331,91 +1402,64 @@
                 } catch (e) { }
             };
 
-            // ── Stop escucha ──────────────────────────────────────────────────────────
-            const stopListening = useCallback(() => {
-                if (audioRef.current) {
-                    audioRef.current.pause();
-                    audioRef.current.srcObject = null;
-                }
-                setListeningTo(null);
-                setRxLevel(0);
-                if (animationFrameRef.current) {
-                    cancelAnimationFrame(animationFrameRef.current);
-                    animationFrameRef.current = null;
-                }
-                if (sourceRef.current) {
-                    try { sourceRef.current.disconnect(); } catch (e) { }
-                    sourceRef.current = null;
-                }
-                if (analyserRef.current) {
-                    try { analyserRef.current.disconnect(); } catch (e) { }
-                    analyserRef.current = null;
-                }
+            // ── Efecto de VU Meters Múltiples ─────────────────────────────────────────
+            useEffect(() => {
+                const updateVUs = () => {
+                    const newLevels = {};
+                    let updated = false;
+                    for (const peer in analysersRef.current) {
+                        const analyser = analysersRef.current[peer];
+                        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                        analyser.getByteFrequencyData(dataArray);
+                        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+                        newLevels[peer] = avg;
+                        updated = true;
+                    }
+                    if (updated) setRxLevels(newLevels);
+                    animationFrameRef.current = requestAnimationFrame(updateVUs);
+                };
+                animationFrameRef.current = requestAnimationFrame(updateVUs);
+                return () => cancelAnimationFrame(animationFrameRef.current);
             }, []);
 
-            // ── Escuchar reportero ────────────────────────────────────────────────────
-            const listenToReporter = useCallback(async (reporterId) => {
-                const stream = globalStreams.current.get(reporterId);
-                if (!stream) { console.warn('Sin stream para', reporterId); return; }
+            // ── Controles de Escucha ──────────────────────────────────────────────────
+            const toggleListening = async (id) => {
+                setListenState(prev => {
+                    const st = prev[id] || { isListening: false, volume: 1 };
+                    const nextListening = !st.isListening;
+                    
+                    if (audioElementsRef.current[id]) {
+                        audioElementsRef.current[id].muted = !nextListening;
+                        if (nextListening && audioElementsRef.current[id].paused) {
+                            audioElementsRef.current[id].play().catch(e => setAudioBlocked(true));
+                        }
+                    }
+                    
+                    // Desbloquear audio ctx si es necesario
+                    getAudioCtx();
+                    
+                    return {...prev, [id]: {...st, isListening: nextListening}};
+                });
+            };
 
-                // Si ya estaba escuchando a otro, parar
-                stopListening();
-                setListeningTo(reporterId);
-
-                const el = audioRef.current;
-                if (!el) return;
-
-                el.srcObject = stream;
-
-                try {
-                    const ctx = await getAudioCtx();
-                    el.muted = false; // DESHACER: Muted mataba el decoding de WebRTC
-                    await el.play();
-                    setAudioBlocked(false);
-
-                    // VU meter solamente
-                    if (sourceRef.current) { try { sourceRef.current.disconnect(); } catch (e) { } }
-                    if (analyserRef.current) { try { analyserRef.current.disconnect(); } catch (e) { } }
-
-                    // Clonar el stream previene que WebAudio choque con el <audio>
-                    const safeStream = new MediaStream(stream.getAudioTracks());
-                    const source = ctx.createMediaStreamSource(safeStream);
-                    const analyser = ctx.createAnalyser();
-                    analyser.fftSize = 256;
-
-                    source.connect(analyser);
-                    // IMPORTANTE: NO conectamos a ctx.destination porque 'el.play()' ya hace que suene.
-                    // Conectarlo de nuevo generaría un eco insoportable.
-
-                    sourceRef.current = source;
-                    analyserRef.current = analyser;
-
-                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                    const updateVU = () => {
-                        if (!analyserRef.current) return;
-                        analyserRef.current.getByteFrequencyData(dataArray);
-                        const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-                        setRxLevel(avg);
-                        animationFrameRef.current = requestAnimationFrame(updateVU);
-                    };
-                    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-                    updateVU();
-
-                } catch (e) {
-                    console.warn('Autoplay bloqueado:', e);
-                    setAudioBlocked(true);
+            const changeVolume = (id, vol) => {
+                if (audioElementsRef.current[id]) {
+                    audioElementsRef.current[id].volume = vol;
                 }
-            }, [stopListening, getAudioCtx]);
+                setListenState(prev => ({...prev, [id]: {...prev[id], volume: vol}}));
+            };
 
             // ── Desbloqueo manual de audio ────────────────────────────────────────────
             const unlockAudio = async () => {
                 try {
                     await getAudioCtx();
-                    const el = audioRef.current;
-                    if (el && el.srcObject) {
-                        await el.play();
-                        setAudioBlocked(false);
+                    for (const key in audioElementsRef.current) {
+                        const el = audioElementsRef.current[key];
+                        if (el && el.srcObject && el.paused) {
+                            el.play().catch(e => {});
+                        }
                     }
+                    setAudioBlocked(false);
                 } catch (e) { console.warn('unlock failed:', e); }
             };
 
@@ -1498,24 +1542,29 @@
 
             // ── Quitar reportero ──────────────────────────────────────────────────────
             const dismissReporter = id => {
-                if (listeningToRef.current === id) stopListening();
                 globalStreams.current.delete(id);
-                globalCalls.current.delete(id);
+                if (globalCalls.current.get(id)) globalCalls.current.get(id).close(); // Esto disparará el evento 'close' para limpieza
                 setReporters(prev => { const s = { ...prev }; delete s[id]; return s; });
             };
 
             // ── Cleanup al desmontar ──────────────────────────────────────────────────
             useEffect(() => {
                 return () => {
-                    stopListening();
+                    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+                    for(const key in audioElementsRef.current) {
+                        audioElementsRef.current[key].pause();
+                        audioElementsRef.current[key].srcObject = null;
+                    }
                     if (peerRef.current) { peerRef.current.destroy(); peerRef.current = null; }
                     if (mqttRef.current) { mqttRef.current.end(); mqttRef.current = null; }
                     if (studioMicRef.current) studioMicRef.current.getTracks().forEach(t => t.stop());
                     if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch (e) { } audioCtxRef.current = null; }
                     globalStreams.current.clear();
                     globalCalls.current.clear();
+                    audioElementsRef.current = {};
+                    analysersRef.current = {};
                 };
-            }, [stopListening]);
+            }, []);
 
             const getAlertIcon = t => ({ ready: '🎤', problem: '⚠️', visual: '👁️', blocked: '🚧', '5min': '⏱️', custom: '✏️' }[t] || '📢');
 
@@ -1538,7 +1587,6 @@
             // ── DASHBOARD ────────────────────────────────────────────────────────────
             return (
                 <div className="dashboard">
-                    <audio ref={audioRef} autoPlay playsInline style={{ display: 'none' }} />
 
                     {audioBlocked && (
                         <button className="audio-unlock-banner" onClick={unlockAudio}>
@@ -1588,19 +1636,9 @@
                                     {studioMicActive ? '🔴 MIC ACTIVO' : '⚫ MIC INACTIVO'}
                                 </button>
                                 <div className="mic-hint">
-                                    {studioMicActive ? 'El reportero te escucha' : 'Activar para hablar al reportero'}
+                                    {studioMicActive ? 'El reportero te escucha' : 'Mantené ESPACIO pulsado para hablar'}
                                 </div>
                             </div>
-
-                            {listeningTo && (
-                                <div className="listening-info">
-                                    <div className="listening-label">Escuchando</div>
-                                    <div className="listening-name">{reporters[listeningTo]?.name || 'Móvil'}</div>
-                                    <div className="vu-container">
-                                        <div className="vu-bar" style={{ width: `${Math.min((rxLevel / 128) * 100, 100)}%` }} />
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {/* Panel central */}
@@ -1614,9 +1652,13 @@
                                         <div className="empty-state">Esperando móviles en la sala...</div>
                                     )}
                                     {Object.entries(reporters).map(([id, reporter]) => {
-                                        const isListening = listeningTo === id;
+                                        const ls = listenState[id] || { isListening: false, volume: 1 };
+                                        const isListening = ls.isListening;
                                         const hasAudio = reporter.hasAudio || globalStreams.current.has(id);
                                         const sentAlert = alertSent[id];
+                                        const lvl = rxLevels[id] || 0;
+                                        const stats = peerStats[id];
+
                                         return (
                                             <div key={id} className={`rx-card ${reporter.status === 'live' ? 'live' : ''} ${isListening ? 'listening' : ''}`}>
                                                 {sentAlert && (
@@ -1624,23 +1666,39 @@
                                                         {sentAlert.type === 'on_air' ? '🔴 ENVIADO' : '⚠️ ENVIADO'}
                                                     </div>
                                                 )}
-                                                <div className="rx-header">
+                                                <div className="rx-header" style={{ marginBottom: 8 }}>
                                                     <div className="rx-name">
                                                         <div className={`led ${reporter.status === 'live' ? 'red' : ''}`} />
                                                         {reporter.name || 'Móvil'}
                                                         {reporter.status === 'live' && <span className="live-tag">EN VIVO</span>}
                                                     </div>
                                                 </div>
+                                                
+                                                {stats && (
+                                                    <div style={{ fontSize: '0.65rem', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', marginBottom: 10 }}>
+                                                        📶 {stats.rtt.toFixed(0)}ms {stats.packetLoss > 0 ? `· ⚠️ PÉRDIDA ${(stats.packetLoss*100).toFixed(1)}%` : ''}
+                                                    </div>
+                                                )}
+                                                
+                                                {isListening && (
+                                                    <div style={{ marginBottom: 14 }}>
+                                                        <div className="vu-container" style={{ height: 4, marginBottom: 8 }}>
+                                                            <div className="vu-bar" style={{ width: `${Math.min((lvl / 128) * 100, 100)}%` }} />
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                            <span style={{ fontSize: '0.7rem', color: 'var(--text-2)', fontFamily: 'var(--font-mono)' }}>VOLUMEN</span>
+                                                            <input type="range" min="0" max="1" step="0.05" value={ls.volume} 
+                                                                onChange={e => changeVolume(id, parseFloat(e.target.value))}
+                                                                style={{ flex: 1, accentColor: 'var(--amber)' }} />
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 <div className="rx-actions">
                                                     {hasAudio ? (
-                                                        isListening ? (
-                                                            <>
-                                                                <button className="rx-btn stop" onClick={stopListening}>⏹ CORTAR</button>
-                                                                <button className="rx-btn play" onClick={() => listenToReporter(id)}>↻ RE-ESCUCHAR</button>
-                                                            </>
-                                                        ) : (
-                                                            <button className="rx-btn play" onClick={() => listenToReporter(id)}>▶ ESCUCHAR</button>
-                                                        )
+                                                        <button className={`rx-btn ${isListening ? 'stop' : 'play'}`} onClick={() => toggleListening(id)}>
+                                                            {isListening ? '⏹ MUTEAR' : '▶ ESCUCHAR'}
+                                                        </button>
                                                     ) : (
                                                         <button className="rx-btn" disabled>SIN AUDIO</button>
                                                     )}
@@ -1664,8 +1722,10 @@
                                                         </button>
                                                     </div>
                                                 )}
-                                                {studioMicActive && isListening && (
-                                                    <div className="ifb-status-bar">🎧 Retorno activo: el reportero te escucha</div>
+                                                {studioMicActive && (
+                                                    <div className="ifb-status-bar" style={{ borderColor: 'transparent', opacity: 0.8, marginTop: 5, padding: 4 }}>
+                                                        🎧 Retorno PTT activo
+                                                    </div>
                                                 )}
                                             </div>
                                         );
