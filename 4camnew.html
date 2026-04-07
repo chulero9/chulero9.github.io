@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StreamCall PRO</title>
+
+    <!-- Librerías Externas -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+
+    <!-- Tailwind (Generación en Vivo) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    animation: { 'pulse-red': 'pulseRed 2s infinite' },
+                    keyframes: {
+                        pulseRed: {
+                            '0%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0.4)' },
+                            '70%': { boxShadow: '0 0 0 10px rgba(239, 68, 68, 0)' },
+                            '100%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+        body {
+            background-color: #050505;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        body.obs-mode {
+            background-color: transparent !important;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px 16px;
+            font-weight: 900;
+            font-size: 0.875rem;
+            border-radius: 8px;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            text-transform: uppercase;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: scale(1.02);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-blue {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.39);
+        }
+
+        .btn-blue:hover {
+            background: #2563eb;
+        }
+
+        .btn-green {
+            background: #10b981;
+            color: black;
+            box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.39);
+        }
+
+        .btn-red {
+            background: #ef4444;
+            color: white;
+            box-shadow: 0 4px 14px 0 rgba(239, 68, 68, 0.39);
+        }
+
+        .btn-gray {
+            background: #1e293b;
+            color: white;
+            border: 1px solid #334155;
+        }
+
+        .btn-gray:hover {
+            background: #334155;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        /* ===== GUEST VIEW: CONTROLES MÓVIL ADAPTABLES ===== */
+
+        /* Safe-area para iPhone (notch + home bar) y Android (navigation bar) */
+        .guest-controls-bar {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            /* Respeta la barra home de iPhone y Android nav bar */
+            bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+        }
+
+        .guest-gain-panel {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+        }
+
+        .guest-vu-wrap {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 101;
+        }
+
+        /* Botones de control del Guest: tamaño mínimo de toque 48px (Apple HIG / Material Design) */
+        .guest-ctrl-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            /* Mínimo 48×48px para dedos */
+            min-width: 48px;
+            min-height: 48px;
+            width: 56px;
+            height: 56px;
+            font-size: 1.4rem;
+            /* Icono más grande en móvil */
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .guest-ctrl-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* Pantallas más grandes (tablet / desktop): botones un poco más compactos */
+        @media (min-width: 640px) {
+            .guest-ctrl-btn {
+                width: 52px;
+                height: 52px;
+                font-size: 1.25rem;
+            }
+        }
+
+        /* Pantallas muy pequeñas (iPhone SE, 320px): compactar horizontalmente */
+        @media (max-width: 370px) {
+            .guest-ctrl-btn {
+                width: 46px;
+                height: 46px;
+                font-size: 1.2rem;
+            }
+
+            .guest-controls-bar {
+                gap: 0.35rem !important;
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+            }
+        }
+
+        /* Slider range touch-friendly */
+        .touch-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            accent-color: #10b981;
+            touch-action: pan-x;
+        }
+
+        .touch-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+            cursor: pointer;
+        }
+
+        .touch-slider::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #10b981;
+            border: none;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root" class="w-full h-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- GLOBAL CONFIGURATION --- //
+        // Se añaden servidores STUN redundantes y servidores TURN públicos gratuitos (OpenRelay Metered).
+        // El TURN es vital para garantizar conexión al 100% en redes NAT estrictas (4G/5G empresarial) y evitar fallos por cortafuegos.
+        const PEER_CONFIG = {
+            config: {
+                'iceServers': [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' }, // Redundancia STUN
+                    {
+                        urls: "turn:openrelay.metered.ca:80",  // Servidor TURN principal (TCP/UDP)
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    },
+                    {
+                        urls: "turn:openrelay.metered.ca:443", // TURN por puerto seguro HTTPS (Pasa firewalls)
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    }
+                ]
+            }
+        };
+        const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+        const MQTT_TOPIC_PREFIX = 'sc_pro_v2_tally_sec_'; // Ofuscación de Tópico para mayor seguridad
+
+        const getTallyTopic = (roomName, slotId) => `${MQTT_TOPIC_PREFIX}${roomName.toUpperCase()}/${slotId}`;
+
+        let sharedAudioCtx = null;
+        const getAudioContext = () => {
+            if (!sharedAudioCtx) sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+            if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume();
+            return sharedAudioCtx;
+        };
+
+        // Detección de iOS/Safari
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+        // getUserMedia con cadena de fallback para máxima compatibilidad iOS/Android
+        const getMediaStreamSafe = async (videoConstraints, audioDeviceId) => {
+            // iOS Safari NO soporta sampleRate ni channelCount como constraints → los omitimos siempre en iOS
+            const audioFull = {
+                deviceId: audioDeviceId ? { ideal: audioDeviceId } : undefined,
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                ...((!isIOS && !isSafari) ? { sampleRate: 48000, channelCount: 1 } : {})
+            };
+            const audioBasic = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+            const audioMinimal = true; // Último recurso
+
+            // Intentar con constraints completas, luego degradar
+            for (const audioC of [audioFull, audioBasic, audioMinimal]) {
+                try {
+                    return await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: audioC });
+                } catch (e) {
+                    console.warn('[StreamCall] getUserMedia fallback:', e.name, e.message);
+                    if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') throw e; // No reintentar si denegaron permiso
+                }
+            }
+            throw new Error('No se pudo acceder a c\u00e1mara/micr\u00f3fono en ning\u00fan modo.');
+        };
+
+        // =========================================================
+        // === PARCHE SDP: OPUS 64kbps + FEC IN-BAND ==============
+        // =========================================================
+        // WebRTC usa Opus a ~32kbps por defecto. Este parche lo intercepta
+        // antes de que se env\u00ede al Director y lo sube a 64kbps con FEC
+        // (reenv\u00edo de paquetes perdidos), crucial para redes 4G/LTE.
+        (() => {
+            const _origSLD = RTCPeerConnection.prototype.setLocalDescription;
+            RTCPeerConnection.prototype.setLocalDescription = function (desc, ...rest) {
+                if (desc && desc.sdp) {
+                    try {
+                        let sdp = desc.sdp;
+                        // Buscar payload type de Opus
+                        const opusMatch = sdp.match(/a=rtpmap:(\d+) opus\/48000\/2/i);
+                        if (opusMatch) {
+                            const pt = opusMatch[1];
+                            const extras = 'maxaveragebitrate=64000;useinbandfec=1;stereo=0;sprop-stereo=0';
+                            if (sdp.includes(`a=fmtp:${pt} `)) {
+                                // Agregar par\u00e1metros a l\u00ednea fmtp existente (sin duplicar)
+                                sdp = sdp.replace(
+                                    new RegExp(`(a=fmtp:${pt} )([^\\r\\n]+)`),
+                                    (_, prefix, existing) => existing.includes('maxaveragebitrate')
+                                        ? `${prefix}${existing}`
+                                        : `${prefix}${existing};${extras}`
+                                );
+                            } else {
+                                // Inyectar nueva l\u00ednea fmtp 
+                                sdp = sdp.replace(
+                                    `a=rtpmap:${pt} opus/48000/2`,
+                                    `a=rtpmap:${pt} opus/48000/2\r\na=fmtp:${pt} ${extras}`
+                                );
+                            }
+                            desc = new RTCSessionDescription({ type: desc.type, sdp });
+                        }
+                    } catch (e) { console.warn('[SDP Patch Opus]', e); }
+                }
+                return _origSLD.call(this, desc, ...rest);
+            };
+        })();
+
+        // =========================================================
+        // === CADENA DE PROCESAMIENTO DE AUDIO PROFESIONAL =======
+        // =========================================================
+        // Mic raw \u2192 High-Pass Filter (80Hz) \u2192 DynamicsCompressor \u2192 GainNode \u2192 Out
+        //
+        // - HPF: elimina ruido de manejo, viento, vibraci\u00f3n (debajo 80Hz)
+        // - Compresor: nivela la voz, previene saturaci\u00f3n en consonantes fuertes
+        // - Gain: potenci\u00f3metro virtual ajustable en tiempo real desde pantalla
+        const buildAudioChain = (rawStream, initialGain) => {
+            const ctx = getAudioContext();
+            const source = ctx.createMediaStreamSource(rawStream);
+
+            // Filtro paso-alto: corta frecuencias bajo 80Hz
+            const hpf = ctx.createBiquadFilter();
+            hpf.type = 'highpass';
+            hpf.frequency.value = 80;
+            hpf.Q.value = 0.707; // Butterworth (plano, sin resonancia)
+
+            // Compresor din\u00e1mico: normaliza la voz sin efecto de radio
+            const compressor = ctx.createDynamicsCompressor();
+            compressor.threshold.value = -22;   // Comprimir desde -22 dBFS
+            compressor.knee.value = 8;           // Rodilla suave (transici\u00f3n natural)
+            compressor.ratio.value = 3.5;        // 3.5:1 (voz clara, no agresiva)
+            compressor.attack.value = 0.003;     // 3ms: r\u00e1pido para plosivos (p, b, t)
+            compressor.release.value = 0.25;     // 250ms: release natural de voz
+
+            // Ganancia ajustable por el usuario (potenci\u00f3metro virtual del mic)
+            const gainNode = ctx.createGain();
+            gainNode.gain.value = initialGain != null ? initialGain : 1.0;
+
+            // Salida: stream de audio procesado
+            const destination = ctx.createMediaStreamDestination();
+
+            // Cadena: mic \u2192 HPF \u2192 compresor \u2192 ganancia \u2192 salida
+            source.connect(hpf);
+            hpf.connect(compressor);
+            compressor.connect(gainNode);
+            gainNode.connect(destination);
+
+            return { ctx, source, hpf, compressor, gainNode, destination };
+        };
+
+        const takeSnapshot = (stream, fileName) => {
+            if (!stream) { alert("No hay señal de video activa para capturar."); return; }
+            const video = document.createElement('video');
+            video.muted = true;
+            video.playsInline = true;
+            video.srcObject = stream;
+            video.play().then(() => {
+                setTimeout(() => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth || 1280;
+                    canvas.height = video.videoHeight || 720;
+                    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const link = document.createElement('a');
+                    link.download = `${fileName}_${new Date().getTime()}.png`;
+                    link.href = canvas.toDataURL('image/png', 1.0);
+                    link.click();
+                    video.srcObject = null;
+                }, 500); // 500ms allows frame stabilization
+            }).catch(e => alert("Error tomando foto: " + e.message));
+        };
+
+        // --- COMMON COMPONENTS --- //
+        const VideoPlayer = ({ stream, muted, volume, className, style }) => {
+            const videoRef = useRef(null);
+            useEffect(() => {
+                if (videoRef.current && stream) {
+                    videoRef.current.srcObject = stream;
+                    const playPromise = videoRef.current.play();
+                    if (playPromise !== undefined) playPromise.catch(e => console.warn("Auto-play constraint", e));
+                }
+            }, [stream]);
+            // Aplicar volumen del PFL en tiempo real sin re-montar el video
+            useEffect(() => {
+                if (videoRef.current && volume !== undefined) {
+                    videoRef.current.volume = Math.max(0, Math.min(1, volume));
+                }
+            }, [volume]);
+            return <video ref={videoRef} className={className} style={style} autoPlay playsInline muted={muted}></video>;
+        };
+
+        const VUMeter = ({ stream, wrapperClass }) => {
+            const barRef = useRef(null);
+            useEffect(() => {
+                if (!stream || stream.getAudioTracks().length === 0) return;
+                let anim, source;
+                try {
+                    const ctx = getAudioContext();
+                    if (ctx.state === 'running') {
+                        const analyser = ctx.createAnalyser();
+                        source = ctx.createMediaStreamSource(stream);
+                        source.connect(analyser);
+                        const data = new Uint8Array(analyser.frequencyBinCount);
+
+                        const tick = () => {
+                            if (!stream.active) return;
+                            analyser.getByteFrequencyData(data);
+                            let sum = 0;
+                            for (let i = 0; i < data.length; i++) sum += data[i];
+                            const level = Math.min((sum / data.length) * 2.5, 100);
+                            if (barRef.current) barRef.current.style.width = level + '%';
+                            anim = requestAnimationFrame(tick);
+                        };
+                        tick();
+                    }
+                } catch (e) { console.error('AudioContext error', e); }
+                return () => { if (anim) cancelAnimationFrame(anim); if (source) source.disconnect(); };
+            }, [stream]);
+
+            return (
+                <div className={wrapperClass || "w-full h-1.5 bg-black border-t border-slate-700 relative z-20"}>
+                    <div ref={barRef} className="h-full w-0 transition-all duration-[50ms] ease-linear bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-500"></div>
+                </div>
+            );
+        };
+
+        // --- LOBBY VIEW --- //
+        const Lobby = ({ initialRoom }) => {
+            const [room, setRoom] = useState(initialRoom || '');
+            const [camCount, setCamCount] = useState('3');
+            const handleJoin = () => { if (room.trim()) window.location.href = `?mode=director&room=${room.toUpperCase()}&camcount=${camCount}`; };
+
+            return (
+                <div className="flex flex-col items-center justify-center h-full bg-slate-900 p-5 text-center">
+                    <div className="glass-panel p-10 rounded-2xl max-w-md w-full flex flex-col items-center">
+                        <div className="bg-blue-500/10 p-4 text-4xl mb-6 rounded-full ring-1 ring-blue-500/30">🎥</div>
+                        <h1 className="text-3xl font-black mb-2 uppercase tracking-tighter bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">StreamCall PRO</h1>
+                        <p className="text-slate-400 text-sm font-medium mb-8">Centro de Control de Broadcasting</p>
+
+                        <label className="w-full text-left text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 pl-2">ID DE SALA</label>
+                        <input
+                            value={room}
+                            onChange={(e) => setRoom(e.target.value.toUpperCase())}
+                            placeholder="EJ. ABCD"
+                            className="w-full bg-slate-950 border border-slate-700 text-white p-4 rounded-xl text-lg text-center font-bold mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase tracking-widest placeholder-slate-600"
+                        />
+
+                        <label className="w-full text-left text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 pl-2">Número de Cámaras (Modulares)</label>
+                        <select value={camCount} onChange={(e) => setCamCount(e.target.value)} className="w-full bg-slate-950 border border-slate-700 text-white p-4 rounded-xl text-lg text-center font-bold mb-8 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                            <option value="1">1 CÁMARA (SINGLE)</option>
+                            <option value="2">2 CÁMARAS (DUO)</option>
+                            <option value="3">3 CÁMARAS (TRIO)</option>
+                            <option value="4">4 CÁMARAS (CCTV MATRIX)</option>
+                        </select>
+
+                        <button onClick={handleJoin} className="btn btn-blue py-4 text-lg w-full rounded-xl group hover:shadow-[0_0_30px_rgba(59,130,246,0.5)]">⚙️ ABRIR DIRECTOR</button>
+                    </div>
+                    <div className="mt-8 text-xs text-slate-500 flex flex-col items-center gap-2"><span className="font-mono">v3.0 • Premium HTML Integrado</span></div>
+                </div>
+            );
+        };
+
+        // --- DIRECTOR VIEW --- //
+        const DirectorView = ({ roomName, cameraCount = 3 }) => {
+            const getInitialSlots = () => {
+                const s = {};
+                for (let i = 1; i <= cameraCount; i++) s[i] = { connected: false, tally: 'idle', stream: null };
+                return s;
+            };
+            const [slots, setSlots] = useState(getInitialSlots());
+
+            const [audioDevices, setAudioDevices] = useState([]);
+            const [selectedAudio, setSelectedAudio] = useState('');
+            const [talkbackActive, setTalkbackActive] = useState(false);
+            const [audioUnlocked, setAudioUnlocked] = useState(false);
+            const [pflVolume, setPflVolume] = useState(80); // Volumen del monitor PFL (0-100)
+            const [globalPrompter, setGlobalPrompter] = useState('');
+
+            // DVR State
+            const getInitialRecordState = () => {
+                const s = {};
+                for (let i = 1; i <= cameraCount; i++) s[i] = false;
+                return s;
+            };
+            const [recordingState, setRecordingState] = useState(getInitialRecordState());
+            const recordersRef = useRef({});
+            const chunksRef = useRef({});
+
+            // Audio Monitor State
+            const getInitialMonitorState = () => {
+                const s = {};
+                for (let i = 1; i <= cameraCount; i++) s[i] = false;
+                return s;
+            };
+            const [monitorState, setMonitorState] = useState(getInitialMonitorState());
+
+            const toggleMonitor = (slotId) => {
+                setMonitorState(prev => ({ ...prev, [slotId]: !prev[slotId] }));
+            };
+
+            const talkbackRef = useRef(false);
+            const ifbTimeoutRef = useRef(null);
+            const peer = useRef(null);
+            const mqttClient = useRef(null);
+            const returnStreamRef = useRef(null);
+
+            const initDirector = () => {
+                setAudioUnlocked(true);
+                getAudioContext(); // Desbloqueo interactivo (Policy)
+                mqttClient.current = mqtt.connect(MQTT_BROKER);
+
+                navigator.mediaDevices.enumerateDevices().then(devs => {
+                    const audios = devs.filter(d => d.kind === 'audioinput');
+                    setAudioDevices(audios);
+                    if (audios.length > 0) setSelectedAudio(audios[0].deviceId);
+                });
+
+                peer.current = new Peer(`sc_dir_${roomName.toUpperCase()}`, PEER_CONFIG);
+
+                // Manejo Automático de Microcortes de Red (Signaling):
+                // Si el WebSocket se cae por cambio de red, se reinicializa sin recargar la página.
+                peer.current.on('disconnected', () => {
+                    console.warn(`[DIRECTOR] Desconectado del servidor Signaling. Reconectando transparentemente...`);
+                    if (!peer.current.destroyed) peer.current.reconnect();
+                });
+                peer.current.on('error', (err) => {
+                    console.error(`[DIRECTOR] Error en PeerJS:`, err.type, err);
+                    if (err.type === 'network' || err.type === 'disconnected') {
+                        setTimeout(() => { if (!peer.current.destroyed) peer.current.reconnect(); }, 2000);
+                    } else if (err.type === 'unavailable-id') {
+                        alert(`🛑 SALA BLOQUEADA: Ya existe una emisión activa o fantasma con la sala "${roomName.toUpperCase()}". Refresca la página en unos segundos o ingresa con una Sala distinta.`);
+                    }
+                });
+
+                peer.current.on('call', (call) => {
+                    const match = call.peer.match(/_(\d+)$/);
+                    if (match) {
+                        const slotId = parseInt(match[1]);
+                        if (slotId >= 1 && slotId <= cameraCount) {
+                            call.answer();
+
+                            // Vigilante ICE para el Director (Desconecta llamadas zombie si cae el móvil intermitentemente)
+                            const checkIce = () => {
+                                if (call.peerConnection && (call.peerConnection.iceConnectionState === 'disconnected' || call.peerConnection.iceConnectionState === 'failed' || call.peerConnection.iceConnectionState === 'closed')) {
+                                    console.warn(`[DIRECTOR] Conexión ICE con Móvil ${slotId} congelada. Cerrando para invocar nueva señal...`);
+                                    call.close();
+                                }
+                            };
+                            if (call.peerConnection) call.peerConnection.addEventListener('iceconnectionstatechange', checkIce);
+
+                            call.on('stream', (stream) => {
+                                setSlots(prev => ({ ...prev, [slotId]: { ...prev[slotId], connected: true, stream: stream } }));
+                                if (talkbackRef.current && returnStreamRef.current) {
+                                    setTimeout(() => { peer.current.call(`sc_guest_${roomName.toUpperCase()}_${slotId}`, returnStreamRef.current); }, 1500);
+                                }
+                            });
+                            call.on('close', () => {
+                                if (call.peerConnection) call.peerConnection.removeEventListener('iceconnectionstatechange', checkIce);
+                                setSlots(prev => ({ ...prev, [slotId]: { ...prev[slotId], connected: false, stream: null } }));
+                            });
+                        }
+                    }
+                });
+            };
+
+            useEffect(() => {
+                const handleUnload = () => {
+                    peer.current?.destroy();
+                    Object.values(recordersRef.current).forEach(r => r?.stop());
+                    if (returnStreamRef.current) returnStreamRef.current.getTracks().forEach(t => t.stop());
+                    if (sharedAudioCtx && sharedAudioCtx.state === 'running') sharedAudioCtx.close();
+                };
+                window.addEventListener('beforeunload', handleUnload);
+
+                return () => {
+                    peer.current?.destroy();
+                    mqttClient.current?.end();
+                    window.removeEventListener('beforeunload', handleUnload);
+                };
+            }, []);
+
+            const toggleRecord = (slotId) => {
+                if (recordingState[slotId]) {
+                    recordersRef.current[slotId]?.stop();
+                    setRecordingState(prev => ({ ...prev, [slotId]: false }));
+                    mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'DIRECTOR_REC', state: false }), { retain: true });
+                } else {
+                    const stream = slots[slotId].stream;
+                    if (!stream) { alert("No hay video para grabar en el CH " + slotId); return; }
+                    chunksRef.current[slotId] = [];
+                    let mime = MediaRecorder.isTypeSupported('video/webm; codecs=vp8,opus') ? 'video/webm; codecs=vp8,opus' : 'video/webm';
+                    if (MediaRecorder.isTypeSupported('video/mp4')) mime = 'video/mp4';
+
+                    try {
+                        const recorder = new MediaRecorder(stream, { mimeType: mime });
+                        recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current[slotId].push(e.data); };
+                        recorder.onstop = () => {
+                            const blob = new Blob(chunksRef.current[slotId], { type: mime });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Dir_Rec_Cam${slotId}_${new Date().getTime()}.${mime.includes('mp4') ? 'mp4' : 'webm'}`;
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                        };
+                        recorder.start(1000);
+                        recordersRef.current[slotId] = recorder;
+                        setRecordingState(prev => ({ ...prev, [slotId]: true }));
+                        mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'DIRECTOR_REC', state: true }), { retain: true });
+                    } catch (err) { alert("Error grabando: " + err.message); }
+                }
+            };
+
+            const handleTally = (slotId, state) => {
+                setSlots(prev => ({ ...prev, [slotId]: { ...prev[slotId], tally: state } }));
+                mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'TALLY', value: state }), { retain: true });
+            };
+
+            const handleRemoteQuality = (slotId, q) => {
+                mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'QUALITY', value: q }), { retain: false });
+                alert(`Orden de cambio a ${q}p enviada al Móvil ${slotId}`);
+            };
+
+            const sendPrompterToAll = () => {
+                if (!globalPrompter.trim()) return;
+                Array.from({ length: cameraCount }, (_, i) => i + 1).forEach(slotId => mqttClient.current?.publish(getTallyTopic(roomName, slotId), JSON.stringify({ type: 'PROMPTER', value: globalPrompter }), { retain: true }));
+                setGlobalPrompter('');
+            };
+
+            const toggleReturnAll = async () => {
+                if (talkbackActive) {
+                    returnStreamRef.current?.getTracks().forEach(t => t.stop());
+                    setTalkbackActive(false);
+                    talkbackRef.current = false;
+                    if (ifbTimeoutRef.current) clearTimeout(ifbTimeoutRef.current);
+                } else {
+                    try {
+                        // ✅ Solo audio (sin video) — evita eco y latencia extra en el IFB
+                        const s = await navigator.mediaDevices.getUserMedia({
+                            audio: {
+                                deviceId: selectedAudio ? { exact: selectedAudio } : undefined,
+                                echoCancellation: true,   // Cancela eco si hay altavoces monitoreando
+                                noiseSuppression: true,   // Reduce ruido de fondo del director
+                                autoGainControl: true,    // Normaliza el nivel de voz
+                                sampleRate: 48000,
+                                channelCount: 1
+                            },
+                            video: false  // ❌ No se necesita video para IFB de audio
+                        });
+                        returnStreamRef.current = s;
+                        setTalkbackActive(true);
+                        talkbackRef.current = true;
+
+                        let delay = 0;
+                        Array.from({ length: cameraCount }, (_, i) => i + 1).forEach(slotId => {
+                            if (slots[slotId].connected) {
+                                setTimeout(() => { peer.current.call(`sc_guest_${roomName.toUpperCase()}_${slotId}`, s); }, delay);
+                                delay += 300;
+                            }
+                        });
+
+                        ifbTimeoutRef.current = setTimeout(() => {
+                            if (talkbackRef.current) {
+                                returnStreamRef.current?.getTracks().forEach(t => t.stop());
+                                setTalkbackActive(false);
+                                talkbackRef.current = false;
+                            }
+                        }, 10000); // 10 Segundos exactos de IFB auto-cerrado
+                    } catch (e) { alert("Error al abrir micrófono del Director: " + e.message); }
+                }
+            };
+
+            const copyLink = (mode, slotId) => {
+                const url = `${window.location.origin}${window.location.pathname}?mode=${mode}&room=${roomName}&slot=${slotId}`;
+                navigator.clipboard.writeText(url);
+                alert(`Enlace ${mode.toUpperCase()} (Móvil ${slotId}) copiado.`);
+            };
+
+            if (!audioUnlocked) return (
+                <div className="flex items-center justify-center p-10 h-screen bg-slate-900">
+                    <div className="glass-panel p-10 rounded-2xl flex flex-col items-center">
+                        <h2 className="text-xl font-bold mb-4">Iniciar Emisión del Director</h2>
+                        <p className="text-slate-400 mb-8 text-center text-sm">Debes reaccionar a esta pantalla para encender el audio.</p>
+                        <button className="btn btn-blue py-3 px-8 text-lg rounded-xl" onClick={initDirector}>INICIAR SALA {roomName}</button>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="flex flex-col h-screen bg-slate-950">
+                    <header className="bg-slate-900 border-b border-slate-800 p-4 flex justify-between items-center shadow-md z-10 flex-wrap gap-4">
+                        <div>
+                            <h2 className="text-2xl font-black bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent uppercase tracking-tighter">StreamCall PRO</h2>
+                            <span className="inline-block mt-1 bg-blue-500/20 text-blue-400 text-xs py-1 px-2 rounded font-bold uppercase ring-1 ring-blue-500/50">Sala: {roomName.toUpperCase()}</span>
+                        </div>
+
+                        <div className="flex-1 flex gap-2 mx-4 max-w-xl hidden lg:flex">
+                            <input
+                                value={globalPrompter}
+                                onChange={e => setGlobalPrompter(e.target.value)}
+                                placeholder="Escribe un mensaje de Teleprompter / IFB..."
+                                className="flex-1 bg-slate-950 border border-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder-slate-600"
+                            />
+                            <button onClick={sendPrompterToAll} className="btn-green !w-auto !px-6 py-2 font-black text-sm uppercase rounded-lg border-none flex-shrink-0">ENVIAR IFB</button>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row items-center gap-4">
+                            <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
+                                <span className="text-slate-400 mx-2 text-sm">🎤</span>
+                                <select value={selectedAudio} onChange={e => setSelectedAudio(e.target.value)} className="bg-transparent text-white text-sm outline-none w-40 cursor-pointer p-1">
+                                    {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId} className="bg-slate-900">{d.label || 'Mic. Predeterminado'}</option>)}
+                                </select>
+                            </div>
+                            {/* Control de volumen del monitor PFL */}
+                            <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-lg border border-slate-700" title="Volumen Monitor PFL">
+                                <span className="text-slate-400 text-sm mx-1">🔊</span>
+                                <input
+                                    type="range" min="0" max="100" value={pflVolume}
+                                    onChange={e => setPflVolume(parseInt(e.target.value))}
+                                    className="w-20 accent-emerald-500 cursor-pointer"
+                                    title={`PFL: ${pflVolume}%`}
+                                />
+                                <span className="text-slate-400 text-xs font-bold w-8">{pflVolume}%</span>
+                            </div>
+                            <button className={`btn ${talkbackActive ? 'btn-red animate-pulse' : 'btn-blue'} !w-auto !px-6`} onClick={toggleReturnAll}>
+                                {talkbackActive ? '🔴 CORTAR IFB GLOBAL' : '🎙️ IFB GLOBAL'}
+                            </button>
+                        </div>
+                    </header>
+
+                    <main className={`flex-1 overflow-y-auto p-4 grid gap-6 align-content-center w-full mx-auto
+                        ${cameraCount === 1 ? 'grid-cols-1 max-w-5xl' :
+                            cameraCount === 2 ? 'grid-cols-1 lg:grid-cols-2 max-w-7xl' :
+                                cameraCount === 4 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2 max-w-[1700px]' :
+                                    'grid-cols-1 md:grid-cols-2 xl:grid-cols-3 max-w-full'}`}>
+                        {Array.from({ length: cameraCount }, (_, i) => i + 1).map(slotId => (
+                            <div key={slotId} className={`glass-panel border-2 rounded-xl flex flex-col overflow-hidden relative min-h-[350px] transition-colors duration-300
+                                ${slots[slotId].tally === 'live' ? 'border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.2)]' :
+                                    slots[slotId].tally === 'prev' ? 'border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.2)]' : 'border-slate-800'}`}>
+
+                                <div className="flex-1 bg-black relative flex flex-col items-center justify-center overflow-hidden border-b border-slate-800">
+                                    {slots[slotId].stream ? (
+                                        <VideoPlayer stream={slots[slotId].stream} muted={!monitorState[slotId]} volume={monitorState[slotId] ? pflVolume / 100 : 0} className="w-full h-full object-contain absolute z-10" />
+                                    ) : (
+                                        <div className="absolute flex flex-col items-center justify-center text-slate-600 gap-3 z-0 animate-pulse">
+                                            <span className="text-4xl opacity-50">📱</span>
+                                            <span className="font-bold tracking-widest text-sm text-slate-500">ESPERANDO SEÑAL</span>
+                                        </div>
+                                    )}
+                                    <div className="absolute top-3 left-3 z-20 flex gap-2">
+                                        <span className={`text-[10px] font-black px-2 py-1 rounded bg-black/80 backdrop-blur-sm border 
+                                            ${slots[slotId].connected ? 'text-emerald-400 border-emerald-500/50' : 'text-red-400 border-red-500/50'}`}>
+                                            {slots[slotId].connected ? 'ONLINE' : 'OFFLINE'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {slots[slotId].connected && <VUMeter stream={slots[slotId].stream} />}
+
+                                <div className="p-3 bg-slate-900/90 flex flex-col xl:flex-row justify-between items-center gap-4">
+                                    <div className="flex flex-col gap-2 w-full xl:w-auto xl:max-w-[200px]">
+                                        <span className="font-black text-white text-xl tracking-tight text-center xl:text-left">CH {slotId}</span>
+                                        <div className="flex gap-1 w-full">
+                                            <button className={`flex-1 py-1.5 text-xs font-bold rounded-md border-2 transition-all ${slots[slotId].tally === 'idle' ? 'border-slate-500 text-white bg-slate-800' : 'border-transparent text-slate-500 hover:bg-slate-800'}`} onClick={() => handleTally(slotId, 'idle')}>OFF</button>
+                                            <button className={`flex-1 py-1.5 text-xs font-bold rounded-md border-2 transition-all ${slots[slotId].tally === 'prev' ? 'border-emerald-500 text-emerald-400 bg-emerald-500/20' : 'border-transparent text-slate-500 hover:bg-slate-800'}`} onClick={() => handleTally(slotId, 'prev')}>PREV</button>
+                                            <button className={`flex-1 py-1.5 text-xs font-bold rounded-md border-2 transition-all ${slots[slotId].tally === 'live' ? 'border-red-500 text-red-400 bg-red-500/20 animate-pulse-red' : 'border-transparent text-slate-500 hover:bg-slate-800'}`} onClick={() => handleTally(slotId, 'live')}>AIRE</button>
+                                        </div>
+                                        <select onChange={(e) => handleRemoteQuality(slotId, e.target.value)} className="w-full bg-slate-950 text-[10px] text-slate-400 font-bold p-1 rounded outline-none border border-slate-700 cursor-pointer text-center" defaultValue="">
+                                            <option value="" disabled>⚙️ Forzar Calidad Remota</option>
+                                            <option value="360">Forzar 360p</option>
+                                            <option value="720">Forzar 720p</option>
+                                            <option value="1080">Forzar 1080p</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2 w-full xl:flex-1 justify-center xl:justify-end">
+                                        <button className="flex-1 btn btn-gray !py-3 !px-2 !min-w-[65px] flex-col items-center justify-center gap-1.5 transition-transform hover:scale-105" onClick={() => copyLink('obs', slotId)} title="Enlace OBS">
+                                            <span className="text-[10px] uppercase font-black text-slate-300 tracking-wider">OBS</span>
+                                            <span className="text-2xl drop-shadow-md">🖥️</span>
+                                        </button>
+                                        <button className="flex-1 btn btn-gray !py-3 !px-2 !min-w-[65px] flex-col items-center justify-center gap-1.5 transition-transform hover:scale-105" onClick={() => copyLink('guest', slotId)} title="Enlace Móvil">
+                                            <span className="text-[10px] uppercase font-black text-slate-300 tracking-wider">MÓVIL</span>
+                                            <span className="text-2xl drop-shadow-md">📱</span>
+                                        </button>
+                                        <button className={`flex-1 btn ${monitorState[slotId] ? 'btn-green ring-2 ring-emerald-500 ring-offset-2 ring-offset-slate-900' : 'btn-gray bg-slate-800'} !py-3 !px-2 !min-w-[65px] flex-col items-center justify-center gap-1.5 transition-transform hover:scale-105`} onClick={() => toggleMonitor(slotId)} title="Monitorear Audio PFL">
+                                            <span className="text-[10px] uppercase font-black tracking-wider text-slate-300">PFL</span>
+                                            <span className="text-2xl drop-shadow-md">{monitorState[slotId] ? '🔊' : '🔇'}</span>
+                                        </button>
+                                        <button className={`flex-1 btn ${recordingState[slotId] ? 'btn-red animate-[pulse_1.5s_infinite] shadow-[0_0_15px_rgba(239,68,68,0.5)] border-red-500' : 'btn-gray'} !py-3 !px-2 !min-w-[65px] flex-col items-center justify-center gap-1.5 transition-transform hover:scale-105`} onClick={() => toggleRecord(slotId)} title="Grabar ISO">
+                                            <span className="text-[10px] uppercase font-black tracking-wider text-slate-300">REC</span>
+                                            <span className="text-2xl drop-shadow-md">{recordingState[slotId] ? '⏹️' : '🔴'}</span>
+                                        </button>
+                                        <button className="flex-1 btn btn-blue !py-3 !px-2 !min-w-[65px] flex-col items-center justify-center gap-1.5 transition-transform hover:scale-105" onClick={() => takeSnapshot(slots[slotId].stream, `Dir_Cam${slotId}`)} title="Capturar Foto">
+                                            <span className="text-[10px] uppercase font-black text-white tracking-wider">FOTO</span>
+                                            <span className="text-2xl drop-shadow-md">📸</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </main>
+                </div>
+            );
+        };
+
+        // --- GUEST VIEW --- //
+        const GuestView = ({ roomName, slotId }) => {
+            const [joined, setJoined] = useState(false);
+            const [quality, setQuality] = useState('720');
+            const [tally, setTally] = useState('idle');
+            const [prompterText, setPrompterText] = useState('');
+            const [isDirectorRecording, setIsDirectorRecording] = useState(false);
+            const [micMuted, setMicMuted] = useState(false);
+            const [camOff, setCamOff] = useState(false);
+            const [returnStream, setReturnStream] = useState(null);
+            const [facingMode, setFacingMode] = useState('user');
+            // Selector de micrófono para el Móvil/Guest
+            const [audioDevices, setAudioDevices] = useState([]);
+            const [selectedMic, setSelectedMic] = useState('');
+            const [showMicSelector, setShowMicSelector] = useState(false);
+            const [hasHeadphones, setHasHeadphones] = useState(false); // Detección de auriculares
+            const [returnAudioActive, setReturnAudioActive] = useState(false);
+
+            // DVR State
+            const [isRecording, setIsRecording] = useState(false);
+            const recorderRef = useRef(null);
+            const chunksRef = useRef([]);
+
+            const peer = useRef(null);
+            const mqttClient = useRef(null);
+            const prompterTimeoutRef = useRef(null);
+            const localStream = useRef(null);
+            const [myStreamState, setMyStreamState] = useState(null);
+            const returnAudioNodeRef = useRef(null); // Web Audio nodo para IFB (evita eco en iPhone)
+            const [micGain, setMicGain] = useState(1.0);    // Ganancia mic: 1.0=0dB, 2.0=+6dB, 0.5=-6dB
+            const audioChainRef = useRef(null);              // Nodos de la cadena Web Audio del mic
+            const rawStreamRef = useRef(null);               // Stream raw del mic (antes de procesar)
+
+            const toggleRecording = () => {
+                if (isRecording) {
+                    recorderRef.current?.stop();
+                    setIsRecording(false);
+                } else {
+                    if (!localStream.current) return;
+                    chunksRef.current = [];
+                    let mime = MediaRecorder.isTypeSupported('video/webm; codecs=vp8,opus') ? 'video/webm; codecs=vp8,opus' : 'video/webm';
+                    if (MediaRecorder.isTypeSupported('video/mp4')) mime = 'video/mp4';
+
+                    try {
+                        const recorder = new MediaRecorder(localStream.current, { mimeType: mime });
+                        recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+                        recorder.onstop = () => {
+                            const blob = new Blob(chunksRef.current, { type: mime });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `Mobile_Rec_${roomName}_${new Date().getTime()}.${mime.includes('mp4') ? 'mp4' : 'webm'}`;
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                        };
+                        recorder.start(1000);
+                        recorderRef.current = recorder;
+                        setIsRecording(true);
+                    } catch (e) { alert("Error al grabar: " + e.message); }
+                }
+            };
+
+            const applyRemoteQuality = async (newQuality) => {
+                setQuality(newQuality);
+                try {
+                    const res = { '360': [640, 360], '720': [1280, 720], '1080': [1920, 1080] };
+                    if (localStream.current) {
+                        const oldVideoTrack = localStream.current.getVideoTracks()[0];
+                        if (oldVideoTrack) oldVideoTrack.stop();
+                    }
+                    const newVideoState = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: res[newQuality][0] }, height: { ideal: res[newQuality][1] },
+                            facingMode: facingMode, frameRate: { ideal: 30, max: 60 }, aspectRatio: { ideal: 1.777778 }
+                        }
+                    });
+                    const newVideoTrack = newVideoState.getVideoTracks()[0];
+                    if (peer.current) {
+                        Object.values(peer.current.connections).forEach(connArray => {
+                            connArray.forEach(connection => {
+                                if (connection.peerConnection) {
+                                    const videoSender = connection.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                                    if (videoSender) videoSender.replaceTrack(newVideoTrack);
+                                }
+                            });
+                        });
+                    }
+                    if (localStream.current) {
+                        const oldVideoTracks = localStream.current.getVideoTracks();
+                        oldVideoTracks.forEach(t => localStream.current.removeTrack(t));
+                        localStream.current.addTrack(newVideoTrack);
+                        setMyStreamState(new MediaStream(localStream.current.getTracks()));
+                    }
+                } catch (e) { console.error("Error QA Remoto", e); }
+            };
+
+            const switchCamera = async () => {
+                const nextMode = facingMode === 'user' ? 'environment' : 'user';
+                try {
+                    const res = { '360': [640, 360], '720': [1280, 720], '1080': [1920, 1080] };
+
+                    // 1. Detener video anterior
+                    if (localStream.current) {
+                        const oldVideoTrack = localStream.current.getVideoTracks()[0];
+                        if (oldVideoTrack) oldVideoTrack.stop();
+                    }
+
+                    setFacingMode(nextMode);
+
+                    // 2. Obtener nuevo video
+                    const newVideoState = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: res[quality][0] },
+                            height: { ideal: res[quality][1] },
+                            facingMode: nextMode,
+                            frameRate: { ideal: 30, max: 60 },
+                            aspectRatio: { ideal: 1.777778 }
+                        }
+                    });
+                    const newVideoTrack = newVideoState.getVideoTracks()[0];
+
+                    // ============================================================
+                    // 🍎 iOS REAR CAMERA AUDIO FIX
+                    // ============================================================
+                    // Al cambiar de cámara, iOS cambia el modo de AudioSession:
+                    //   Cámara Frontal → VoiceChat (AEC activo y calibrado)
+                    //   Cámara Trasera → VideoRecording (AEC desactivado o mal calibrado)
+                    //
+                    // Esto provoca eco y audio sucio porque el micrófono trasero
+                    // no tiene referencia del altavoz para cancelar el eco.
+                    //
+                    // SOLUCIÓN: Re-adquirir el micrófono DESPUÉS de cambiar la cámara.
+                    // Esto fuerza a iOS a reinicializar su AudioSession con el modo
+                    // correcto para la nueva posición de cámara.
+                    // ============================================================
+                    if (isIOS) {
+                        try {
+                            // Detener el track de audio raw anterior
+                            if (rawStreamRef.current) {
+                                rawStreamRef.current.getAudioTracks().forEach(t => { try { t.stop(); } catch (ex) { } });
+                            }
+
+                            // Re-adquirir audio — esto resetea el AudioSession de iOS
+                            const newAudioOnly = await navigator.mediaDevices.getUserMedia({
+                                audio: {
+                                    deviceId: selectedMic ? { ideal: selectedMic } : undefined,
+                                    echoCancellation: true,
+                                    noiseSuppression: true,
+                                    autoGainControl: true
+                                    // NOTA: NO incluimos sampleRate ni channelCount en iOS
+                                },
+                                video: false
+                            });
+
+                            // Reconstruir la cadena Web Audio con el nuevo track del mic
+                            if (audioChainRef.current) {
+                                try { audioChainRef.current.source.disconnect(); } catch (ex) { }
+                            }
+                            const newRawStream = new MediaStream(newAudioOnly.getAudioTracks());
+                            rawStreamRef.current = newRawStream;
+
+                            const newChain = buildAudioChain(newRawStream, micGain);
+                            audioChainRef.current = newChain;
+
+                            const newProcessedAudioTrack = newChain.destination.stream.getAudioTracks()[0];
+
+                            // Quitar audio viejo del stream procesado, añadir el nuevo
+                            localStream.current.getAudioTracks().forEach(t => localStream.current.removeTrack(t));
+                            localStream.current.addTrack(newProcessedAudioTrack);
+
+                            // Reemplazar audio track en la conexión WebRTC
+                            if (peer.current) {
+                                Object.values(peer.current.connections).forEach(connArray => {
+                                    connArray.forEach(connection => {
+                                        if (connection.peerConnection) {
+                                            const audioSender = connection.peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
+                                            if (audioSender) audioSender.replaceTrack(newProcessedAudioTrack).catch(ex => console.warn('[iOS Audio Switch]', ex));
+                                        }
+                                    });
+                                });
+                            }
+
+                            console.log(`[MÓVIL] AudioSession reiniciada para cámara ${nextMode === 'environment' ? 'TRASERA' : 'FRONTAL'}`);
+                        } catch (audioErr) {
+                            console.warn('[MÓVIL] No se pudo reiniciar audio en cambio de cámara:', audioErr.message);
+                            // Fallback: continuar sin reiniciar audio (mejor que fallar del todo)
+                        }
+                    }
+
+                    // 3. Reemplazar video track en la conexión WebRTC
+                    if (peer.current) {
+                        Object.values(peer.current.connections).forEach(connArray => {
+                            connArray.forEach(connection => {
+                                if (connection.peerConnection) {
+                                    const videoSender = connection.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                                    if (videoSender) videoSender.replaceTrack(newVideoTrack);
+                                }
+                            });
+                        });
+                    }
+
+                    // 4. Actualizar el stream local con el nuevo video
+                    if (localStream.current) {
+                        const oldVideoTracks = localStream.current.getVideoTracks();
+                        oldVideoTracks.forEach(t => localStream.current.removeTrack(t));
+                        localStream.current.addTrack(newVideoTrack);
+                        setMyStreamState(new MediaStream(localStream.current.getTracks()));
+                    }
+                } catch (e) { alert("Error al girar cámara: " + e.message); }
+            };
+
+            useEffect(() => {
+                if (!joined) return;
+                const mkTopic = getTallyTopic(roomName, slotId);
+                const mq = mqtt.connect(MQTT_BROKER);
+                mqttClient.current = mq;
+                mq.on('connect', () => { mq.subscribe(mkTopic); });
+                mq.on('message', (t, msg) => {
+                    if (t === mkTopic) {
+                        try {
+                            const data = JSON.parse(msg.toString());
+                            if (data.type === 'DIRECTOR_REC') setIsDirectorRecording(data.state);
+                            else if (data.state !== undefined) setTally(data.state);
+                            else if (data.type === 'TALLY') setTally(data.value);
+                            else if (data.type === 'PROMPTER') {
+                                setPrompterText(data.value);
+                                if (prompterTimeoutRef.current) clearTimeout(prompterTimeoutRef.current);
+                                if (data.value) prompterTimeoutRef.current = setTimeout(() => setPrompterText(''), 10000);
+                            }
+                            else if (data.type === 'QUALITY') applyRemoteQuality(data.value);
+                        } catch (e) { }
+                    }
+                });
+
+                const init = async () => {
+                    try {
+                        const res = { '360': [640, 360], '720': [1280, 720], '1080': [1920, 1080] };
+                        // Enumerar micrófonos disponibles en el móvil
+                        const devs = await navigator.mediaDevices.enumerateDevices();
+                        const mics = devs.filter(d => d.kind === 'audioinput');
+                        const speakers = devs.filter(d => d.kind === 'audiooutput');
+                        setAudioDevices(mics);
+                        if (mics.length > 0 && !selectedMic) setSelectedMic(mics[0].deviceId);
+
+                        // En iOS detectamos auriculares por el número de dispositivos de salida
+                        // (Con auriculares suele haber 2+, sin ellos solo 1: altavoz interno)
+                        if (isIOS && speakers.length > 1) setHasHeadphones(true);
+
+                        // 🍎 iOS FIX: Usar cadena de fallback de constraints compatible
+                        const videoC = {
+                            width: { ideal: res[quality][0] },
+                            height: { ideal: res[quality][1] },
+                            facingMode: facingMode,
+                            frameRate: { ideal: 30, max: 60 },
+                            aspectRatio: { ideal: 1.777778 }
+                        };
+                        const rawStream = await getMediaStreamSafe(videoC, selectedMic);
+                        rawStreamRef.current = rawStream;
+
+                        // 🎤 Construir cadena de procesamiento de audio profesional
+                        // Si falla en alg\u00fan browser/dispositivo antiguo, usamos el stream directo.
+                        let processedStream = rawStream;
+                        try {
+                            const chain = buildAudioChain(rawStream, micGain);
+                            audioChainRef.current = chain;
+                            // Combinar video del stream original + audio procesado de Web Audio
+                            processedStream = new MediaStream([
+                                ...rawStream.getVideoTracks(),
+                                ...chain.destination.stream.getAudioTracks()
+                            ]);
+                            console.log('[M\u00d3VIL] Audio chain activa: HPF + Compressor + Gain');
+                        } catch (chainErr) {
+                            console.warn('[M\u00d3VIL] Fallback - audio chain no disponible:', chainErr.message);
+                        }
+
+                        localStream.current = processedStream;
+                        setMyStreamState(processedStream);
+
+                        const baseId = roomName.toUpperCase();
+                        peer.current = new Peer(`sc_guest_${baseId}_${slotId}`, PEER_CONFIG);
+
+                        let currentCall = null;
+                        const callDirector = () => {
+                            if (!localStream.current || peer.current.disconnected) return;
+                            console.log(`[MÓVIL ${slotId}] Llamando a Director...`);
+                            currentCall = peer.current.call(`sc_dir_${baseId}`, localStream.current);
+                            if (currentCall) {
+                                const checkIce = () => {
+                                    if (currentCall.peerConnection && (currentCall.peerConnection.iceConnectionState === 'disconnected' || currentCall.peerConnection.iceConnectionState === 'failed' || currentCall.peerConnection.iceConnectionState === 'closed')) {
+                                        console.warn(`[MÓVIL ${slotId}] Fallo en Enlace ICE del Video. Reactivando automáticamente...`);
+                                        currentCall.close(); // Fuerza el close que dispara el reintento
+                                    }
+                                };
+                                currentCall.peerConnection.addEventListener('iceconnectionstatechange', checkIce);
+                                currentCall.on('close', () => {
+                                    if (currentCall.peerConnection) currentCall.peerConnection.removeEventListener('iceconnectionstatechange', checkIce);
+                                    if (!peer.current.destroyed) setTimeout(callDirector, 2500); // Re-Llamada sin fin si se corta
+                                });
+                            }
+                        };
+
+                        // Protección anti-desconexión en Móviles (vital al cambiar de antena WiFi <-> 4G)
+                        peer.current.on('disconnected', () => {
+                            console.warn(`[MÓVIL ${slotId}] Desconectado de Signaling. Intentando revivir conexión...`);
+                            if (!peer.current.destroyed) {
+                                peer.current.reconnect();
+                                setTimeout(callDirector, 3000); // Intenta mandar imagen de nuevo al recuperar red
+                            }
+                        });
+                        peer.current.on('error', (err) => {
+                            console.error(`[MÓVIL ${slotId}] Error PeerJS:`, err.type, err);
+                            if (err.type === 'peer-unavailable') {
+                                // Director no existe o refrescó la página. Pausar y reintentar llamada hasta que aparezca.
+                                setTimeout(callDirector, 3000);
+                            } else if (err.type === 'network' || err.type === 'disconnected' || err.type === 'server-error') {
+                                setTimeout(() => { if (!peer.current.destroyed) peer.current.reconnect(); }, 2000);
+                            } else if (err.type === 'unavailable-id') {
+                                alert(`🛑 CÁMARA EN USO: Este Móvil CH${slotId} chocó con un ID existente (fantasma). Cambia de Sala.`);
+                            }
+                        });
+
+                        peer.current.on('open', () => { setTimeout(callDirector, 500); });
+                        peer.current.on('connection', (conn) => {
+                            conn.on('data', (data) => { if (data === 'WAKE_UP_OBS' && localStream.current) peer.current.call(`sc_obs_${baseId}_${slotId}`, localStream.current); });
+                        });
+                        peer.current.on('call', (c) => {
+                            c.answer();
+                            c.on('stream', (rem) => {
+                                setReturnStream(rem);
+                                setReturnAudioActive(true);
+                                // 🍎 iOS FIX: Reproducir IFB de retorno a través de Web Audio API
+                                // Esto enruta el audio al earpiece (auricular del teléfono) en lugar del altavoz,
+                                // eliminando el eco causado por el altavoz capturado por el micrófono.
+                                try {
+                                    const ctx = getAudioContext();
+                                    // Desconectar nodo anterior si existe
+                                    if (returnAudioNodeRef.current) {
+                                        try { returnAudioNodeRef.current.disconnect(); } catch (e) { }
+                                    }
+                                    const source = ctx.createMediaStreamSource(rem);
+                                    // Conectar directo a destination (salida de sistema)
+                                    // En iOS con WebAudio, esto usa el earpiece en vez del speaker
+                                    source.connect(ctx.destination);
+                                    returnAudioNodeRef.current = source;
+                                } catch (e) {
+                                    console.warn('[MÓVIL] Fallback: usando VideoPlayer para IFB', e);
+                                }
+                            });
+                            c.on('close', () => { setReturnAudioActive(false); });
+                        });
+                    } catch (e) { alert("Error de cámara/mic"); }
+                };
+                init();
+
+                const handleUnload = () => {
+                    peer.current?.destroy();
+                    if (localStream.current) localStream.current.getTracks().forEach(t => t.stop());
+                };
+                window.addEventListener('beforeunload', handleUnload);
+
+                return () => {
+                    peer.current?.destroy();
+                    mq.end();
+                    window.removeEventListener('beforeunload', handleUnload);
+                    // Limpiar cadena de procesamiento del mic
+                    if (audioChainRef.current) {
+                        try { audioChainRef.current.source.disconnect(); } catch (e) { }
+                        audioChainRef.current = null;
+                    }
+                    // Detener stream raw del mic (el audio track original)
+                    if (rawStreamRef.current) {
+                        rawStreamRef.current.getAudioTracks().forEach(t => { try { t.stop(); } catch (e) { } });
+                        rawStreamRef.current = null;
+                    }
+                    // Limpiar nodo de audio del IFB de retorno
+                    if (returnAudioNodeRef.current) {
+                        try { returnAudioNodeRef.current.disconnect(); } catch (e) { }
+                        returnAudioNodeRef.current = null;
+                    }
+                };
+            }, [joined]); // Intentionally omitting constraints changes
+
+            // Ajuste de ganancia en tiempo real (sin reconectar, suavizado 30ms)
+            React.useEffect(() => {
+                const chain = audioChainRef.current;
+                if (chain && chain.gainNode) {
+                    chain.gainNode.gain.setTargetAtTime(
+                        micGain,
+                        chain.ctx.currentTime,
+                        0.03  // 30ms de suavizado para evitar clicks
+                    );
+                }
+            }, [micGain]);
+
+            const toggleMic = () => { if (localStream.current) { const t = localStream.current.getAudioTracks()[0]; if (t) { t.enabled = !t.enabled; setMicMuted(!t.enabled); } } };
+            const toggleCam = () => { if (localStream.current) { const t = localStream.current.getVideoTracks()[0]; if (t) { t.enabled = !t.enabled; setCamOff(!t.enabled); } } };
+
+            if (!joined) return (
+                <div className="flex flex-col items-center justify-center h-full bg-slate-900 p-5 text-center">
+                    <div className="glass-panel p-10 rounded-2xl max-w-sm w-full flex flex-col items-center">
+                        <div className="bg-emerald-500/10 p-4 rounded-full mb-6 text-2xl ring-1 ring-emerald-500/30">🚪</div>
+                        <h2 className="text-xl font-black mb-2 text-white uppercase tracking-widest bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">SALA: {roomName}</h2>
+                        <h3 className="text-3xl font-black mb-6 text-emerald-400 uppercase tracking-widest drop-shadow-lg">MÓVIL {slotId}</h3>
+
+                        <p className="text-slate-400 text-sm mb-2 font-medium">Resolución de Envío:</p>
+                        <select className="w-full bg-slate-950 border-2 border-slate-700 text-white p-4 rounded-xl text-lg text-center font-bold mb-4 outline-none focus:ring-2 focus:ring-emerald-500" value={quality} onChange={e => setQuality(e.target.value)}>
+                            <option value="360">360p (DATOS BAJOS)</option>
+                            <option value="720">720p (ESTÁNDAR)</option>
+                            <option value="1080">1080p (WIFI HQ)</option>
+                        </select>
+
+                        {/* Selector de Micrófono */}
+                        <div className="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl mb-6 flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-slate-400 text-xs font-bold uppercase tracking-widest">🎤 Micrófono</span>
+                                <button
+                                    className="text-xs text-blue-400 font-bold underline"
+                                    onClick={async () => {
+                                        // Solicitar permisos primero para obtener labels reales
+                                        try {
+                                            const tmp = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                                            tmp.getTracks().forEach(t => t.stop());
+                                        } catch (e) { }
+                                        const devs = await navigator.mediaDevices.enumerateDevices();
+                                        const mics = devs.filter(d => d.kind === 'audioinput');
+                                        setAudioDevices(mics);
+                                        if (mics.length > 0 && !selectedMic) setSelectedMic(mics[0].deviceId);
+                                        setShowMicSelector(true);
+                                    }}
+                                >Detectar</button>
+                            </div>
+                            {showMicSelector && audioDevices.length > 0 ? (
+                                <select
+                                    value={selectedMic}
+                                    onChange={e => setSelectedMic(e.target.value)}
+                                    className="w-full bg-slate-950 border border-slate-600 text-white p-2 rounded-lg text-sm font-medium outline-none cursor-pointer"
+                                >
+                                    {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId} className="bg-slate-900">{d.label || 'Micrófono ' + (audioDevices.indexOf(d) + 1)}</option>)}
+                                </select>
+                            ) : (
+                                <span className="text-slate-500 text-xs">{showMicSelector ? 'Sin micrófonos detectados' : 'Toca "Detectar" para ver opciones'}</span>
+                            )}
+                            <p className="text-slate-600 text-[10px] text-left">La cancelación de eco y supresión de ruido se aplican automáticamente.</p>
+                        </div>
+
+                        <button className="btn btn-green py-5 text-xl w-full rounded-xl" onClick={() => setJoined(true)}>ENTRAR AL VIVO</button>
+                    </div>
+                </div>
+            );
+
+            const getTallyBorder = () => {
+                if (tally === 'live') return 'border-red-500 shadow-[inset_0_0_80px_rgba(239,68,68,0.7)]';
+                if (tally === 'prev') return 'border-emerald-500 shadow-[inset_0_0_80px_rgba(16,185,129,0.7)]';
+                return 'border-transparent';
+            };
+
+            return (
+                <div className="relative w-screen h-screen bg-black flex flex-col items-center justify-center overflow-hidden">
+                    <div className={`absolute top-0 left-0 w-full h-full border-[15px] pointer-events-none transition-all duration-300 z-50 mix-blend-screen box-border ${getTallyBorder()}`} />
+
+                    {tally !== 'idle' && (
+                        <div className={`absolute top-10 left-1/2 -translate-x-1/2 px-8 py-2 rounded-2xl text-2xl font-black tracking-tighter uppercase z-[100] shadow-2xl transition-all duration-300 backdrop-blur-md border border-white/20
+                            ${tally === 'live' ? 'bg-red-500/90 text-white animate-pulse' : 'bg-emerald-500/90 text-black'}`}>
+                            {tally === 'live' ? 'AL AIRE' : 'PREVENIDO'}
+                        </div>
+                    )}
+
+                    {isDirectorRecording && <div className="absolute top-[90px] left-1/2 -translate-x-1/2 bg-red-600/90 border-2 border-red-400 text-white px-4 py-1.5 rounded-full font-black text-xs md:text-sm tracking-widest animate-pulse shadow-2xl shadow-red-500 z-[110] whitespace-nowrap">🔴 DIRECTOR REC</div>}
+
+                    {prompterText && (
+                        <div className="absolute top-28 left-1/2 -translate-x-1/2 w-11/12 max-w-[90%] bg-black/60 backdrop-blur-md border border-white/20 p-6 rounded-2xl z-[90] shadow-2xl transition-all duration-500 text-center pointer-events-none">
+                            <span className="text-3xl md:text-5xl text-yellow-400 font-black tracking-tighter leading-tight uppercase relative drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]" style={{ textShadow: "2px 2px 4px black, -2px -2px 4px black, 2px -2px 4px black, -2px 2px 4px black" }}>{prompterText}</span>
+                        </div>
+                    )}
+
+                    {/* Aviso de auriculares — si el IFB está activo sin auriculares en iOS hay riesgo de eco */}
+                    {returnAudioActive && isIOS && !hasHeadphones && (
+                        <div className="absolute top-6 right-4 z-[120] bg-amber-500/95 backdrop-blur text-black text-xs font-black px-3 py-2 rounded-xl shadow-xl border border-amber-400 max-w-[200px] text-center leading-tight">
+                            🎧 Usa auriculares<br /><span className="font-normal opacity-80">para evitar eco del IFB</span>
+                        </div>
+                    )}
+
+                    {/* El video del retorno se muestra pero el audio se maneja vía Web Audio (earpiece) */}
+                    <div className={`absolute top-6 left-6 w-48 aspect-video bg-black/80 backdrop-blur border-2 rounded-xl overflow-hidden z-[80] transition-opacity duration-300 shadow-2xl
+                        ${returnStream ? 'opacity-100 border-blue-500/70 pointer-events-auto' : 'opacity-0 border-transparent pointer-events-none'}`}>
+                        {/* muted=true aquí — el audio ya va por Web Audio API (earpiece en iOS) */}
+                        {returnStream && <VideoPlayer stream={returnStream} muted={true} className="w-full h-full object-cover" />}
+                        <div className="absolute bottom-1 left-1 bg-black/80 text-white text-[10px] uppercase font-black px-2 py-0.5 rounded backdrop-blur border border-white/10">IFB 🎧</div>
+                    </div>
+
+                    {myStreamState && <VideoPlayer stream={myStreamState} muted={true} className="w-full h-full object-cover" style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }} />}
+
+                    {/* ===== VU METER MÓVIL ===== */}
+                    {myStreamState && (
+                        <div
+                            className="guest-vu-wrap flex flex-col items-center gap-1"
+                            style={{ bottom: 'calc(9.5rem + env(safe-area-inset-bottom, 0px))' }}
+                        >
+                            <VUMeter stream={myStreamState} wrapperClass="w-52 h-2.5 bg-slate-900 border border-slate-700 rounded-full relative overflow-hidden" />
+                            <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">MIC LEVEL</span>
+                        </div>
+                    )}
+
+                    {/* ===== PANEL DE GANANCIA DEL MICRÓFONO ===== */}
+                    <div
+                        className="guest-gain-panel glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-2 shadow-xl"
+                        style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))' }}
+                    >
+                        <span className="text-[11px] font-black text-emerald-400 uppercase tracking-wider whitespace-nowrap">🎤 Gain</span>
+                        <input
+                            type="range" min="0.3" max="2.5" step="0.05"
+                            value={micGain}
+                            onChange={e => setMicGain(parseFloat(e.target.value))}
+                            className="touch-slider w-28"
+                            style={{ width: 'clamp(80px, 25vw, 120px)' }}
+                        />
+                        <span className={`text-[12px] font-black tabular-nums w-12 text-right ${micGain > 1.8 ? 'text-amber-400' : micGain < 0.6 ? 'text-red-400' : 'text-white'}`}>
+                            {`${Math.round(20 * Math.log10(micGain)) > 0 ? '+' : ''}${Math.round(20 * Math.log10(micGain))}dB`}
+                        </span>
+                        <button
+                            onClick={() => setMicGain(1.0)}
+                            className="text-[10px] text-slate-500 font-bold px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:text-white transition-colors"
+                            style={{ minWidth: '36px', minHeight: '36px', touchAction: 'manipulation' }}
+                            title="Resetear a 0dB"
+                        >RST</button>
+                    </div>
+
+                    {/* ===== CONTROLES PRINCIPALES (adaptables iPhone + Android) ===== */}
+                    <div
+                        className="guest-controls-bar glass-panel rounded-full flex items-center shadow-2xl"
+                        style={{ gap: 'clamp(0.35rem, 2vw, 0.75rem)', padding: 'clamp(0.6rem, 2vw, 1rem) clamp(1rem, 4vw, 1.5rem)' }}
+                    >
+                        {/* Badge de canal — visible solo en pantallas ≥ sm */}
+                        <div className="text-xs font-black text-slate-400 uppercase tracking-widest px-2 py-1 bg-slate-800 rounded hidden sm:block">CH {slotId}</div>
+
+                        {/* Mic */}
+                        <button
+                            id="guest-btn-mic"
+                            onClick={toggleMic}
+                            className={`guest-ctrl-btn ${micMuted ? 'bg-red-500 ring-2 ring-red-400 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-slate-800 hover:bg-slate-700'}`}
+                            title={micMuted ? 'Mic SILENCIADO — toca para reactivar' : 'Mic activo — toca para silenciar'}
+                            aria-label={micMuted ? 'Reactivar micrófono' : 'Silenciar micrófono'}
+                        >{micMuted ? '🔇' : '🎤'}</button>
+
+                        {/* Cam */}
+                        <button
+                            id="guest-btn-cam"
+                            onClick={toggleCam}
+                            className={`guest-ctrl-btn ${camOff ? 'bg-red-500 hover:bg-red-600' : 'bg-slate-800 hover:bg-slate-700'}`}
+                            title={camOff ? 'Cámara APAGADA' : 'Cámara activa'}
+                            aria-label={camOff ? 'Encender cámara' : 'Apagar cámara'}
+                        >{camOff ? '🚫' : '🎥'}</button>
+
+                        {/* Switch Camera */}
+                        <button
+                            id="guest-btn-flip"
+                            onClick={switchCamera}
+                            className="guest-ctrl-btn bg-blue-500 hover:bg-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                            title="Cambiar cámara frontal/trasera"
+                            aria-label="Girar cámara"
+                        >🔄</button>
+
+                        {/* Separador */}
+                        <div className="w-px bg-slate-700" style={{ height: '2rem', flexShrink: 0 }}></div>
+
+                        {/* Foto */}
+                        <button
+                            id="guest-btn-photo"
+                            onClick={() => takeSnapshot(localStream.current, `Mobile_Cam${slotId}`)}
+                            className="guest-ctrl-btn bg-slate-800 hover:bg-slate-700"
+                            title="Capturar foto"
+                            aria-label="Tomar foto"
+                        >📸</button>
+
+                        {/* Grabar */}
+                        <button
+                            id="guest-btn-rec"
+                            onClick={toggleRecording}
+                            className={`guest-ctrl-btn ${isRecording ? 'bg-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.6)]' : 'bg-slate-800 hover:bg-slate-700'}`}
+                            title={isRecording ? 'Detener grabación' : 'Grabar video local'}
+                            aria-label={isRecording ? 'Detener grabación' : 'Iniciar grabación'}
+                        >{isRecording ? '⏹️' : '🔴'}</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- OBS VIEW --- //
+        const ObsView = ({ roomName, slotId }) => {
+            const [status, setStatus] = useState(`INICIANDO ENLACE...`);
+            const [stream, setStream] = useState(null);
+            const peer = useRef(null);
+
+            useEffect(() => {
+                let pingInterval;
+                const baseId = roomName.toUpperCase();
+                const guestId = `sc_guest_${baseId}_${slotId}`;
+
+                peer.current = new Peer(`sc_obs_${baseId}_${slotId}`, PEER_CONFIG);
+
+                // Reconexión agresiva para OBS (Es el cliente que no debe fallar)
+                peer.current.on('disconnected', () => {
+                    console.warn(`[OBS] Señalización perdida. Autoreconectando al servidor...`);
+                    if (!peer.current.destroyed) peer.current.reconnect();
+                });
+                peer.current.on('error', (err) => {
+                    console.error(`[OBS] Error PeerJS:`, err.type, err);
+                    if (err.type === 'network' || err.type === 'disconnected') {
+                        setTimeout(() => { if (!peer.current.destroyed) peer.current.reconnect(); }, 2000);
+                    }
+                });
+
+                const startPing = () => {
+                    if (!pingInterval) {
+                        pingInterval = setInterval(() => {
+                            const conn = peer.current.connect(guestId, { reliable: false });
+                            conn.on('open', () => { conn.send('WAKE_UP_OBS'); setTimeout(() => conn.close(), 500); });
+                        }, 3000);
+                    }
+                };
+
+                peer.current.on('open', () => { setStatus(`BUSCANDO MÓVIL ${slotId}...`); startPing(); });
+
+                peer.current.on('call', (call) => {
+                    if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
+                    setStatus('RECIBIENDO...');
+                    call.answer();
+
+                    const checkIce = () => {
+                        if (call.peerConnection && (call.peerConnection.iceConnectionState === 'disconnected' || call.peerConnection.iceConnectionState === 'failed' || call.peerConnection.iceConnectionState === 'closed')) {
+                            console.warn(`[OBS] Conexión ICE con Móvil ${slotId} rota. Reactivando Auto-Ping de rescate...`);
+                            call.close();
+                        }
+                    };
+                    if (call.peerConnection) call.peerConnection.addEventListener('iceconnectionstatechange', checkIce);
+
+                    call.on('stream', (s) => { setStream(s); setStatus(''); });
+                    call.on('close', () => {
+                        if (call.peerConnection) call.peerConnection.removeEventListener('iceconnectionstatechange', checkIce);
+                        setStream(null);
+                        setStatus(`MÓVIL ${slotId} DESCONECTADO... RECONECTANDO`);
+                        startPing();
+                    });
+                });
+
+                return () => { if (pingInterval) clearInterval(pingInterval); peer.current?.destroy(); };
+            }, [roomName, slotId]);
+
+            return (
+                <div className="w-screen h-screen relative bg-transparent overflow-hidden flex items-center justify-center">
+                    {stream ? (
+                        <VideoPlayer stream={stream} muted={false} className="w-full h-full object-cover absolute top-0 left-0 z-10" />
+                    ) : (
+                        <div className="absolute z-50 bg-black/85 backdrop-blur-md px-8 py-6 rounded-2xl flex flex-col items-center gap-4 border border-yellow-500/50 shadow-[0_0_50px_rgba(234,179,8,0.2)]">
+                            <span className="text-5xl animate-pulse">📶</span>
+                            <span className="text-yellow-400 font-mono text-xl font-bold tracking-widest text-center">{status}</span>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- ROUTER / APP --- //
+        const App = () => {
+            const [appState, setAppState] = useState({ mode: null, room: null, slot: '1', camCount: 3 });
+            useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                const m = params.get('mode');
+                const r = params.get('room');
+                const s = params.get('slot') || '1';
+                const c = params.get('camcount') ? parseInt(params.get('camcount')) : 3;
+                if (m && r) {
+                    if (m === 'obs') document.body.classList.add('obs-mode');
+                    setAppState({ mode: m, room: r, slot: s, camCount: c });
+                } else {
+                    setAppState({ mode: 'lobby', room: Math.random().toString(36).substring(2, 6).toUpperCase(), slot: '1', camCount: c });
+                }
+            }, []);
+
+            if (appState.mode === 'director') return <DirectorView roomName={appState.room} cameraCount={appState.camCount} />;
+            if (appState.mode === 'obs') return <ObsView roomName={appState.room} slotId={appState.slot} />;
+            if (appState.mode === 'guest') return <GuestView roomName={appState.room} slotId={appState.slot} />;
+            if (appState.mode === 'lobby') return <Lobby initialRoom={appState.room} />;
+
+            return null;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
