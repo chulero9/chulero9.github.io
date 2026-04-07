@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stream Radio v3 — streaminghoy.com.ar</title>
+    <title>Stream Radio v3</title>
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -264,7 +264,7 @@ const App = () => {
     // ── Refs ──
     const peerRef          = useRef(null);
     const mqttClientRef    = useRef(null);
-    const txStreamRef      = useRef(null);
+    const txamRef      = useRef(null);
     const txAnimRef        = useRef(null);
     const rxAudioElRef     = useRef(null);
     const rxAudioCtxRef    = useRef(null);
@@ -291,7 +291,7 @@ const App = () => {
     };
     const sendNotif = useCallback((title, body) => {
         if (notifPermission && document.hidden)
-            new Notification(title, { body, icon: 'https://streaminghoy.com.ar/favicon.ico' });
+            new Notification(title, { body, icon: '/favicon.ico' });
     }, [notifPermission]);
 
     // ── Historial ──
@@ -879,7 +879,7 @@ const App = () => {
                     disabled={!roomCode.trim() || !stationName.trim()}>
                     ENTRAR A LA SALA
                 </button>
-                <p className="text-xs text-gray-500 text-center mt-4">Powered by streaminghoy.com.ar</p>
+                <p className="text-xs text-gray-500 text-center mt-4">Powered by Stream Radio</p>
             </div>
         </div>
     );
