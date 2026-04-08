@@ -1423,8 +1423,8 @@
                                 <span style={{ color: '#22c55e' }}>{stationName}</span>
                             </span>
                             <span className={`px-3 py-1 rounded text-xs font-bold ${status === 'ONLINE' ? 'bg-green-900 text-green-400' :
-                                    status.startsWith('ERROR') ? 'bg-red-900 text-red-400' :
-                                        'bg-yellow-900 text-yellow-400'
+                                status.startsWith('ERROR') ? 'bg-red-900 text-red-400' :
+                                    'bg-yellow-900 text-yellow-400'
                                 }`}>{status}</span>
                             <button className="btn-danger" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={leaveRoom}>SALIR</button>
                         </div>
