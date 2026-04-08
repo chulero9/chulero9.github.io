@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -15,1339 +16,1817 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;700;900&display=swap');
 
-        *, *::before, *::after { box-sizing: border-box; }
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
         body {
-            background-color: #050a0f; color: white;
+            background-color: #050a0f;
+            color: white;
             font-family: 'Barlow Condensed', sans-serif;
-            margin: 0; padding: 0; min-height: 100vh; overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
         /* ── LAYOUT ── */
-        .dashboard-layout { display: flex; flex-direction: column; min-height: 100vh; }
+        .dashboard-layout {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
         .top-bar {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 20px; background: #0a1420;
-            border-bottom: 1px solid #1e3a5f; position: sticky; top: 0; z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: #0a1420;
+            border-bottom: 1px solid #1e3a5f;
+            position: sticky;
+            top: 0;
+            z-index: 50;
         }
+
         .main-content {
-            display: grid; grid-template-columns: 1fr 1fr 450px;
-            gap: 16px; padding: 16px; flex: 1; align-items: start;
+            display: grid;
+            grid-template-columns: 1fr 1fr 450px;
+            gap: 16px;
+            padding: 16px;
+            flex: 1;
+            align-items: start;
         }
-        @media (max-width: 1100px) { .main-content { grid-template-columns: 1fr; } }
+
+        @media (max-width: 1100px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
 
         /* ── PANELS ── */
-        .tx-panel, .rx-panel, .chat-panel {
-            background: #0d1b2a; border: 1px solid #1e3a5f;
-            border-radius: 8px; padding: 20px; display: flex; flex-direction: column;
+        .tx-panel,
+        .rx-panel,
+        .chat-panel {
+            background: #0d1b2a;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
         }
-        .chat-panel { max-height: calc(100vh - 80px); position: sticky; top: 70px; }
+
+        .chat-panel {
+            max-height: calc(100vh - 80px);
+            position: sticky;
+            top: 70px;
+        }
 
         /* ── LED ── */
-        .led { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-        .led.red { background: #ef4444; box-shadow: 0 0 6px #ef4444; animation: pulse-red 1s infinite; }
-        .led.amber { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; animation: pulse-red 1.5s infinite; }
-        @keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:0.35} }
+        .led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .led.red {
+            background: #ef4444;
+            box-shadow: 0 0 6px #ef4444;
+            animation: pulse-red 1s infinite;
+        }
+
+        .led.amber {
+            background: #f59e0b;
+            box-shadow: 0 0 6px #f59e0b;
+            animation: pulse-red 1.5s infinite;
+        }
+
+        @keyframes pulse-red {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.35
+            }
+        }
 
         /* ── VU METER ── */
-        .vu-bar { height: 8px; border-radius: 4px; background: linear-gradient(to right, #22c55e, #facc15, #ef4444); transition: width 0.08s ease; }
+        .vu-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(to right, #22c55e, #facc15, #ef4444);
+            transition: width 0.08s ease;
+        }
 
         /* ── RX CARDS ── */
-        .rx-grid { display: flex; flex-direction: column; gap: 10px; }
-        .rx-card { background: #0a1420; border: 1px solid #1e3a5f; border-radius: 6px; padding: 12px 14px; transition: border-color 0.2s, box-shadow 0.2s; }
-        .rx-card.listening { border-color: #3b82f6; box-shadow: 0 0 10px rgba(59,130,246,0.3); }
-        .rx-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-        .rx-name { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.05em; }
+        .rx-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .rx-card {
+            background: #0a1420;
+            border: 1px solid #1e3a5f;
+            border-radius: 6px;
+            padding: 12px 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .rx-card.listening {
+            border-color: #3b82f6;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .rx-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .rx-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.05em;
+        }
 
         /* ── SIGNAL BARS ── */
-        .signal-bar { display: flex; gap: 2px; align-items: flex-end; }
-        .signal-bar div { width: 4px; background: #334155; border-radius: 2px; transition: background 0.3s; }
-        .signal-bar div:nth-child(1) { height: 6px; }
-        .signal-bar div:nth-child(2) { height: 10px; }
-        .signal-bar div:nth-child(3) { height: 14px; }
-        .signal-bar .active-good { background: #22c55e; }
-        .signal-bar .active-fair { background: #facc15; }
-        .signal-bar .active-poor { background: #ef4444; }
+        .signal-bar {
+            display: flex;
+            gap: 2px;
+            align-items: flex-end;
+        }
+
+        .signal-bar div {
+            width: 4px;
+            background: #334155;
+            border-radius: 2px;
+            transition: background 0.3s;
+        }
+
+        .signal-bar div:nth-child(1) {
+            height: 6px;
+        }
+
+        .signal-bar div:nth-child(2) {
+            height: 10px;
+        }
+
+        .signal-bar div:nth-child(3) {
+            height: 14px;
+        }
+
+        .signal-bar .active-good {
+            background: #22c55e;
+        }
+
+        .signal-bar .active-fair {
+            background: #facc15;
+        }
+
+        .signal-bar .active-poor {
+            background: #ef4444;
+        }
 
         /* ── CHAT ── */
         .chat-messages {
-            flex: 1; overflow-y: auto; display: flex; flex-direction: column;
-            gap: 6px; margin-bottom: 10px; font-size: 0.85rem; max-height: 380px;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            max-height: 380px;
         }
-        .chat-bubble { background: #1e3a5f; padding: 6px 10px; border-radius: 6px; word-break: break-word; }
-        .chat-bubble.own { background: #1e40af; align-self: flex-end; text-align: right; }
-        .chat-bubble.reaction { background: transparent; font-size: 1.5rem; padding: 2px 6px; }
-        .chat-bubble.system { background: #14202e; color: #64748b; font-style: italic; font-size: 0.78rem; }
-        .chat-sender { font-size: 0.7rem; margin-bottom: 2px; }
+
+        .chat-bubble {
+            background: #1e3a5f;
+            padding: 6px 10px;
+            border-radius: 6px;
+            word-break: break-word;
+        }
+
+        .chat-bubble.own {
+            background: #1e40af;
+            align-self: flex-end;
+            text-align: right;
+        }
+
+        .chat-bubble.reaction {
+            background: transparent;
+            font-size: 1.5rem;
+            padding: 2px 6px;
+        }
+
+        .chat-bubble.system {
+            background: #14202e;
+            color: #64748b;
+            font-style: italic;
+            font-size: 0.78rem;
+        }
+
+        .chat-sender {
+            font-size: 0.7rem;
+            margin-bottom: 2px;
+        }
 
         /* ── INPUTS ── */
         .chat-input-area input {
-            width: 100%; background: #0a1420; border: 1px solid #1e3a5f;
-            border-radius: 6px; padding: 8px 12px; color: white;
-            font-family: inherit; font-size: 0.9rem; outline: none;
+            width: 100%;
+            background: #0a1420;
+            border: 1px solid #1e3a5f;
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: white;
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
         }
-        .chat-input-area input:focus { border-color: #3b82f6; }
-        select, input[type="range"] {
-            background: #0a1420; border: 1px solid #1e3a5f; color: white;
-            border-radius: 4px; padding: 4px 8px; font-family: inherit; outline: none;
+
+        .chat-input-area input:focus {
+            border-color: #3b82f6;
         }
-        select option { background: #0d1b2a; }
+
+        select,
+        input[type="range"] {
+            background: #0a1420;
+            border: 1px solid #1e3a5f;
+            color: white;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        select option {
+            background: #0d1b2a;
+        }
 
         /* ── BUTTONS ── */
         .btn-primary {
-            background: #1d4ed8; color: white; border: none; border-radius: 6px;
-            padding: 10px 20px; font-family: inherit; font-weight: 700; font-size: 1rem;
-            cursor: pointer; transition: background 0.2s, transform 0.1s; letter-spacing: 0.05em;
+            background: #1d4ed8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            letter-spacing: 0.05em;
         }
-        .btn-primary:hover { background: #2563eb; }
-        .btn-primary:active { transform: scale(0.97); }
-        .btn-primary:disabled { background: #334155; cursor: not-allowed; }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary:disabled {
+            background: #334155;
+            cursor: not-allowed;
+        }
+
         .btn-danger {
-            background: #dc2626; color: white; border: none; border-radius: 6px;
-            padding: 10px 20px; font-family: inherit; font-weight: 700; font-size: 1rem;
-            cursor: pointer; transition: background 0.2s; letter-spacing: 0.05em;
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            letter-spacing: 0.05em;
         }
-        .btn-danger:hover { background: #ef4444; }
+
+        .btn-danger:hover {
+            background: #ef4444;
+        }
+
         .btn-warning {
-            background: #d97706; color: white; border: none; border-radius: 6px;
-            padding: 10px 20px; font-family: inherit; font-weight: 700; font-size: 1rem;
-            cursor: pointer; transition: background 0.2s; letter-spacing: 0.05em;
+            background: #d97706;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            letter-spacing: 0.05em;
         }
-        .btn-warning:hover { background: #f59e0b; }
+
+        .btn-warning:hover {
+            background: #f59e0b;
+        }
+
         .btn-ghost {
-            background: transparent; color: #94a3b8; border: 1px solid #1e3a5f;
-            border-radius: 6px; padding: 6px 12px; font-family: inherit;
-            font-size: 0.8rem; cursor: pointer; transition: background 0.2s;
+            background: transparent;
+            color: #94a3b8;
+            border: 1px solid #1e3a5f;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-family: inherit;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.2s;
         }
-        .btn-ghost:hover { background: #1e3a5f; color: white; }
+
+        .btn-ghost:hover {
+            background: #1e3a5f;
+            color: white;
+        }
+
+        /* ── RX ACTION BUTTONS ── */
+        .rx-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.78rem;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            transition: background 0.18s, transform 0.1s, box-shadow 0.18s;
+        }
+
+        .rx-btn:active {
+            transform: scale(0.95);
+        }
+
+        .rx-btn-play {
+            background: #1d4ed8;
+            color: #fff;
+        }
+
+        .rx-btn-play:hover {
+            background: #2563eb;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.45);
+        }
+
+        .rx-btn-stop {
+            background: #7f1d1d;
+            color: #fca5a5;
+            border: 1px solid #dc2626;
+        }
+
+        .rx-btn-stop:hover {
+            background: #991b1b;
+        }
+
+        .rx-btn-mute {
+            background: #1e293b;
+            color: #94a3b8;
+            border: 1px solid #334155;
+        }
+
+        .rx-btn-mute:hover {
+            background: #334155;
+            color: #e2e8f0;
+        }
+
+        .rx-btn-unmute {
+            background: #78350f;
+            color: #fcd34d;
+            border: 1px solid #d97706;
+        }
+
+        .rx-btn-unmute:hover {
+            background: #92400e;
+        }
 
         /* ── JOIN ── */
-        .join-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #050a0f; }
-        .join-card { background: #0d1b2a; border: 1px solid #1e3a5f; border-radius: 12px; padding: 40px; width: 100%; max-width: 420px; }
-        .join-card input {
-            width: 100%; background: #0a1420; border: 1px solid #1e3a5f; border-radius: 6px;
-            padding: 10px 14px; color: white; font-family: inherit; font-size: 1rem; outline: none; margin-bottom: 12px;
+        .join-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #050a0f;
         }
-        .join-card input:focus { border-color: #3b82f6; }
+
+        .join-card {
+            background: #0d1b2a;
+            border: 1px solid #1e3a5f;
+            border-radius: 12px;
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .join-card input {
+            width: 100%;
+            background: #0a1420;
+            border: 1px solid #1e3a5f;
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            margin-bottom: 12px;
+        }
+
+        .join-card input:focus {
+            border-color: #3b82f6;
+        }
 
         /* ── REACTION BUTTONS ── */
-        .reaction-btn { font-size: 1.4rem; padding: 4px 8px; background: #1e293b; border: none; border-radius: 9999px; cursor: pointer; transition: transform 0.15s, background 0.15s; }
-        .reaction-btn:hover { transform: scale(1.25); background: #334155; }
+        .reaction-btn {
+            font-size: 1.4rem;
+            padding: 4px 8px;
+            background: #1e293b;
+            border: none;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: transform 0.15s, background 0.15s;
+        }
+
+        .reaction-btn:hover {
+            transform: scale(1.25);
+            background: #334155;
+        }
 
         /* ── MODERACIÓN / COLA ── */
-        .queue-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: #0a1420; border: 1px solid #1e3a5f; border-radius: 6px; margin-bottom: 6px; font-size: 0.85rem; }
-        .queue-item.active-speaker { border-color: #ef4444; background: #1a0a0a; }
-        .queue-badge { font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em; }
+        .queue-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: #0a1420;
+            border: 1px solid #1e3a5f;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .queue-item.active-speaker {
+            border-color: #ef4444;
+            background: #1a0a0a;
+        }
+
+        .queue-badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.05em;
+        }
 
         /* ── GRABACIÓN ── */
-        .rec-dot { width: 8px; height: 8px; background: #ef4444; border-radius: 50%; display: inline-block; animation: pulse-red 0.8s infinite; }
-        .rec-timer { font-family: 'Share Tech Mono', monospace; font-size: 0.85rem; color: #ef4444; }
-        .recording-files { max-height: 140px; overflow-y: auto; }
-        .recording-file { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: #0a1420; border: 1px solid #1e3a5f; border-radius: 4px; margin-bottom: 4px; font-size: 0.78rem; }
+        .rec-dot {
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse-red 0.8s infinite;
+        }
+
+        .rec-timer {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            color: #ef4444;
+        }
+
+        .recording-files {
+            max-height: 140px;
+            overflow-y: auto;
+        }
+
+        .recording-file {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 8px;
+            background: #0a1420;
+            border: 1px solid #1e3a5f;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            font-size: 0.78rem;
+        }
 
         /* ── TOAST ── */
-        .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-        .toast { background: #0d1b2a; border: 1px solid #1e3a5f; border-radius: 8px; padding: 10px 16px; font-size: 0.85rem; color: white; pointer-events: auto; animation: toast-in 0.25s ease; max-width: 300px; }
-        .toast.error { border-color: #dc2626; background: #1a0606; }
-        .toast.success { border-color: #22c55e; background: #061a0a; }
-        .toast.warning { border-color: #f59e0b; background: #1a1006; }
-        @keyframes toast-in { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: none; } }
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: #0d1b2a;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 0.85rem;
+            color: white;
+            pointer-events: auto;
+            animation: toast-in 0.25s ease;
+            max-width: 300px;
+        }
+
+        .toast.error {
+            border-color: #dc2626;
+            background: #1a0606;
+        }
+
+        .toast.success {
+            border-color: #22c55e;
+            background: #061a0a;
+        }
+
+        .toast.warning {
+            border-color: #f59e0b;
+            background: #1a1006;
+        }
+
+        @keyframes toast-in {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
 
         /* ── MISC ── */
-        .font-mono-custom { font-family: 'Share Tech Mono', monospace; }
-        .history-list { max-height: 120px; overflow-y: auto; font-size: 0.78rem; }
-        .history-list::-webkit-scrollbar { width: 4px; }
-        .history-list::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 2px; }
-        .section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #64748b; margin-bottom: 8px; }
-        .divider { border: none; border-top: 1px solid #1e3a5f; margin: 16px 0; }
+        .font-mono-custom {
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .history-list {
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 0.78rem;
+        }
+
+        .history-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .history-list::-webkit-scrollbar-thumb {
+            background: #1e3a5f;
+            border-radius: 2px;
+        }
+
+        .section-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .divider {
+            border: none;
+            border-top: 1px solid #1e3a5f;
+            margin: 16px 0;
+        }
     </style>
 </head>
+
 <body>
-<div id="root"></div>
+    <div id="root"></div>
 
-<script type="text/babel">
-const { useState, useEffect, useRef, useCallback } = React;
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
 
-// ══════════════════════════════════════════════════════
-// CONFIG
-// ══════════════════════════════════════════════════════
-const PEER_CONFIG = {
-    config: {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
-        ]
-    }
-};
-const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
-const VERSION     = 'v3';
-
-const genPeerId = (room, name) =>
-    `sr_${room}_${name.replace(/\s+/g,'_').slice(0,12)}_${Math.random().toString(36).slice(2,7)}`;
-
-const fmtTime = () => new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
-const fmtDuration = (secs) => {
-    const m = String(Math.floor(secs/60)).padStart(2,'0');
-    const s = String(secs%60).padStart(2,'0');
-    return `${m}:${s}`;
-};
-
-// ══════════════════════════════════════════════════════
-// TOPICS MQTT
-// ══════════════════════════════════════════════════════
-const T = (room) => ({
-    stations : `sr3/${room}/stations/+`,
-    station  : (pid) => `sr3/${room}/stations/${pid}`,
-    chat     : `sr3/${room}/chat`,
-    txPush   : `sr3/${room}/txpush`,
-    modState : `sr3/${room}/mod`,
-    modReq   : `sr3/${room}/modreq`,
-});
-
-// ══════════════════════════════════════════════════════
-// APP
-// ══════════════════════════════════════════════════════
-const App = () => {
-
-    // — Estado sala —
-    const [inRoom,       setInRoom]       = useState(false);
-    const [roomCode,     setRoomCode]     = useState('');
-    const [stationName,  setStationName]  = useState('');
-    const [status,       setStatus]       = useState('OFFLINE');
-    const [isAdmin,      setIsAdmin]      = useState(false);
-
-    // — TX —
-    const [audioDevices,   setAudioDevices]   = useState([]);
-    const [selectedInput,  setSelectedInput]  = useState('');
-    const [selectedKbps,   setSelectedKbps]   = useState('128');
-    const [isEmitting,     setIsEmitting]     = useState(false);
-    const [txLevel,        setTxLevel]        = useState(0);
-
-    // — RX —
-    const [activeStations,     setActiveStations]     = useState({});
-    const [listeningTo,        setListeningTo]        = useState(null);
-    const [rxLevel,            setRxLevel]            = useState(0);
-    const [rxVolume,           setRxVolume]           = useState(1);
-    const [connectionQuality,  setConnectionQuality]  = useState({});
-
-    // — Chat —
-    const [messages,   setMessages]   = useState([]);
-    const [chatInput,  setChatInput]  = useState('');
-
-    // — Historial —
-    const [txHistory, setTxHistory] = useState([]);
-
-    // ── GRABACIÓN con MediaRecorder ──
-    const [isRecording,   setIsRecording]   = useState(false);
-    const [recSeconds,    setRecSeconds]    = useState(0);
-    const [recordings,    setRecordings]    = useState([]);
-    const mediaRecorderRef = useRef(null);
-    const recChunksRef     = useRef([]);
-    const recTimerRef      = useRef(null);
-    const recStartRef      = useRef(null);
-
-    // ── MODERACIÓN / COLA ──
-    const [modState,     setModState]     = useState({ activeSpeaker: null, queue: [], adminPeerId: null });
-    const [isMicBlocked, setIsMicBlocked] = useState(false);
-
-    // — Notificaciones —
-    const [notifPermission, setNotifPermission] = useState(false);
-
-    // ── Toasts ──
-    const [toasts, setToasts] = useState([]);
-    const showToast = useCallback((msg, type = 'info') => {
-        const id = Date.now();
-        setToasts(prev => [...prev, { id, msg, type }]);
-        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
-    }, []);
-
-    // ── Refs ──
-    const peerRef          = useRef(null);
-    const mqttClientRef    = useRef(null);
-    const txStreamRef      = useRef(null);
-    const txamRef          = useRef(null);
-    const txAnimRef        = useRef(null);
-    const rxAudioElRef     = useRef(null);
-    const rxAudioCtxRef    = useRef(null);
-    const rxAnimRef        = useRef(null);
-    const callsRef         = useRef({});
-    const rxCallRef        = useRef(null);
-    const qualityTimersRef = useRef({});
-    const roomInfoRef      = useRef({ code:'', name:'', peerId:'' });
-    const messagesEndRef   = useRef(null);
-    const modStateRef      = useRef(modState);
-    const isEmittingRef    = useRef(false);
-    const isAdminRef       = useRef(false);
-
-    useEffect(() => { modStateRef.current  = modState;  }, [modState]);
-    useEffect(() => { isEmittingRef.current = isEmitting; }, [isEmitting]);
-    useEffect(() => { isAdminRef.current    = isAdmin;    }, [isAdmin]);
-
-    // ── Notificaciones ──
-    const requestNotifPermission = async () => {
-        if (!('Notification' in window)) return;
-        if (Notification.permission === 'granted') { setNotifPermission(true); return; }
-        const res = await Notification.requestPermission();
-        setNotifPermission(res === 'granted');
-    };
-    const sendNotif = useCallback((title, body) => {
-        if (notifPermission && document.hidden)
-            new Notification(title, { body, icon: '/favicon.ico' });
-    }, [notifPermission]);
-
-    // ── Historial ──
-    const addToHistory = (name, action) => {
-        setTxHistory(prev => [{ id: Date.now(), name, action, time: fmtTime() }, ...prev].slice(0, 20));
-    };
-
-    // ── Calidad ──
-    const updateConnectionQuality = useCallback((peerId) => {
-        const pc = callsRef.current[peerId]?.peerConnection;
-        if (!pc) return;
-        pc.getStats().then(stats => {
-            let rtt = null;
-            stats.forEach(r => { if (r.type==='candidate-pair' && r.state==='succeeded') rtt = r.currentRoundTripTime ?? rtt; });
-            if (rtt===null) return;
-            const quality = rtt < 0.15 ? 'good' : rtt < 0.3 ? 'fair' : 'poor';
-            setConnectionQuality(prev => ({ ...prev, [peerId]: { rtt: Math.round(rtt*1000), quality } }));
-        }).catch(()=>{});
-    }, []);
-
-    // ── Devices ──
-    useEffect(() => {
-        navigator.mediaDevices?.enumerateDevices().then(devs => {
-            const ins = devs.filter(d => d.kind === 'audioinput');
-            setAudioDevices(ins);
-            if (ins.length) setSelectedInput(ins[0].deviceId);
-        }).catch(()=>{});
-    }, []);
-
-    // ── iOS unlock ──
-    useEffect(() => {
-        const unlock = () => {
-            rxAudioCtxRef.current?.resume?.();
-            rxAudioElRef.current?.play?.().catch(()=>{});
-        };
-        document.addEventListener('touchstart', unlock, { once: true });
-        document.addEventListener('click',      unlock, { once: true });
-    }, []);
-
-    // ── Auto-scroll chat ──
-    useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-
-    // ── Volumen RX ──
-    useEffect(() => { if (rxAudioElRef.current) rxAudioElRef.current.volume = rxVolume; }, [rxVolume]);
-
-    // ══════════════════════════════════════════════════
-    // PUBLICAR PRESENCIA
-    // ══════════════════════════════════════════════════
-    const publishPresence = useCallback((emitting = false) => {
-        const client = mqttClientRef.current;
-        if (!client?.connected) return;
-        const { code, name, peerId } = roomInfoRef.current;
-        client.publish(
-            T(code).station(peerId),
-            JSON.stringify({ name, peerId, isEmitting: emitting, kbps: selectedKbps, isAdmin: isAdminRef.current }),
-            { retain: true, qos: 1 }
-        );
-    }, [selectedKbps]);
-
-    // ══════════════════════════════════════════════════
-    // PUBLICAR ESTADO MOD
-    // ══════════════════════════════════════════════════
-    const publishModState = useCallback((newMod) => {
-        const client = mqttClientRef.current;
-        if (!client?.connected || !isAdminRef.current) return;
-        client.publish(
-            T(roomInfoRef.current.code).modState,
-            JSON.stringify(newMod),
-            { retain: true, qos: 1 }
-        );
-    }, []);
-
-    // ══════════════════════════════════════════════════
-    // GRABACIÓN
-    // ══════════════════════════════════════════════════
-    const startRecording = useCallback((stream) => {
-        if (!stream || mediaRecorderRef.current) return;
-        const mimeType = ['audio/webm;codecs=opus','audio/ogg;codecs=opus','audio/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
-        try {
-            const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-            recChunksRef.current = [];
-            mr.ondataavailable = e => { if (e.data.size > 0) recChunksRef.current.push(e.data); };
-            mr.onstop = () => {
-                const blob     = new Blob(recChunksRef.current, { type: mimeType || 'audio/webm' });
-                const url      = URL.createObjectURL(blob);
-                const duration = Math.round((Date.now() - recStartRef.current) / 1000);
-                const ext      = mimeType.includes('ogg') ? 'ogg' : 'webm';
-                const name     = `rec_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.${ext}`;
-                const size     = (blob.size / 1024).toFixed(0);
-                setRecordings(prev => [{ name, url, size, duration }, ...prev].slice(0, 10));
-                showToast(`Grabación guardada: ${fmtDuration(duration)}`, 'success');
-            };
-            mr.start(1000);
-            recStartRef.current = Date.now();
-            mediaRecorderRef.current = mr;
-            setRecSeconds(0);
-            setIsRecording(true);
-            recTimerRef.current = setInterval(() => setRecSeconds(s => s+1), 1000);
-        } catch(err) {
-            showToast('Error al iniciar grabación: ' + err.message, 'error');
-        }
-    }, [showToast]);
-
-    const stopRecording = useCallback(() => {
-        clearInterval(recTimerRef.current);
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.stop();
-        }
-        mediaRecorderRef.current = null;
-        setIsRecording(false);
-        setRecSeconds(0);
-    }, []);
-
-    const downloadRecording = (rec) => {
-        const a = document.createElement('a');
-        a.href = rec.url;
-        a.download = rec.name;
-        a.click();
-    };
-
-    const deleteRecording = (rec) => {
-        URL.revokeObjectURL(rec.url);
-        setRecordings(prev => prev.filter(r => r.name !== rec.name));
-    };
-
-    // ══════════════════════════════════════════════════
-    // MODERACIÓN — acciones del admin
-    // ══════════════════════════════════════════════════
-    const modGrantMic = useCallback((targetPeerId) => {
-        const mod = modStateRef.current;
-        const newQueue = mod.queue.filter(p => p !== targetPeerId);
-        const newMod = { ...mod, activeSpeaker: targetPeerId, queue: newQueue };
-        setModState(newMod);
-        publishModState(newMod);
-        addToHistory(activeStations[targetPeerId]?.name || targetPeerId, 'recibió el mic');
-    }, [activeStations, publishModState]);
-
-    const modRevokeMic = useCallback(() => {
-        const mod = modStateRef.current;
-        if (!mod.activeSpeaker) return;
-        const prevName = activeStations[mod.activeSpeaker]?.name || mod.activeSpeaker;
-        const newMod = { ...mod, activeSpeaker: null };
-        setModState(newMod);
-        publishModState(newMod);
-        addToHistory(prevName, 'mic revocado');
-    }, [activeStations, publishModState]);
-
-    const modSkipQueue = useCallback(() => {
-        const mod = modStateRef.current;
-        if (mod.queue.length === 0) return;
-        const [next, ...rest] = mod.queue;
-        const newMod = { ...mod, activeSpeaker: next, queue: rest };
-        setModState(newMod);
-        publishModState(newMod);
-        addToHistory(activeStations[next]?.name || next, 'recibió el mic (cola)');
-    }, [activeStations, publishModState]);
-
-    const requestMic = useCallback(() => {
-        const client = mqttClientRef.current;
-        if (!client?.connected) return;
-        const { code, peerId, name } = roomInfoRef.current;
-        client.publish(T(code).modReq, JSON.stringify({ peerId, name, time: fmtTime() }), { qos: 1 });
-        showToast('Solicitud de mic enviada al admin', 'info');
-    }, [showToast]);
-
-    const cancelMicRequest = useCallback(() => {
-        const mod = modStateRef.current;
-        const { code, peerId } = roomInfoRef.current;
-        const newMod = { ...mod, queue: mod.queue.filter(p => p !== peerId) };
-        setModState(newMod);
-        publishModState(newMod);
-    }, [publishModState]);
-
-    // ══════════════════════════════════════════════════
-    // MQTT INIT
-    // ══════════════════════════════════════════════════
-    const initMQTT = useCallback((myPeerId, code, myName) => {
-        const client = mqtt.connect(MQTT_BROKER, {
-            clientId: `sr3_${myPeerId.slice(-8)}_${Math.random().toString(36).slice(2,5)}`,
-            clean: true, connectTimeout: 10000, reconnectPeriod: 3000
-        });
-        mqttClientRef.current = client;
-
-        const topics = [T(code).stations, T(code).chat, T(code).txPush, T(code).modState, T(code).modReq];
-
-        client.on('connect', () => {
-            setStatus('ONLINE');
-            client.subscribe(topics, { qos: 1 }, () => {
-                client.publish(
-                    T(code).station(myPeerId),
-                    JSON.stringify({ name: myName, peerId: myPeerId, isEmitting: false, kbps: selectedKbps, isAdmin: isAdminRef.current }),
-                    { retain: true, qos: 1 }
-                );
-            });
-        });
-
-        client.on('error',     () => { setStatus('ERROR');         showToast('Error de conexión MQTT', 'error'); });
-        client.on('offline',   () => { setStatus('RECONECTANDO…'); showToast('Reconectando…', 'warning'); });
-        client.on('reconnect', () => { setStatus('RECONECTANDO…'); });
-
-        client.on('message', (topic, raw) => {
-            try {
-                const payload = JSON.parse(raw.toString());
-                const topicChat    = T(code).chat;
-                const topicTxPush  = T(code).txPush;
-                const topicModSt   = T(code).modState;
-                const topicModReq  = T(code).modReq;
-
-                // ── CHAT ──
-                if (topic === topicChat) {
-                    setMessages(prev => [...prev, payload].slice(-60));
-                    if (payload.sender !== myName && !payload.isSystem)
-                        sendNotif('💬 Nuevo mensaje', `${payload.sender}: ${payload.text}`);
-                    return;
-                }
-
-                // ── TX PUSH ──
-                if (topic === topicTxPush) {
-                    const { emitterPeerId, name: emName, stopped } = payload;
-                    if (emitterPeerId === myPeerId) return;
-                    if (stopped) {
-                        setListeningTo(prev => prev === emitterPeerId ? null : prev);
-                        return;
-                    }
-                    if (!isEmittingRef.current) {
-                        sendNotif('📡 AL AIRE', `${emName} está transmitiendo`);
-                        connectToEmitter(emitterPeerId);
-                    }
-                    return;
-                }
-
-                // ── MOD STATE ──
-                if (topic === topicModSt) {
-                    setModState(payload);
-                    modStateRef.current = payload;
-                    if (payload.activeSpeaker === myPeerId) {
-                        showToast('¡Tienes el mic! Podés transmitir.', 'success');
-                        sendNotif('🎙️ Tu turno', 'El admin te dio el mic');
-                    }
-                    if (payload.activeSpeaker !== myPeerId && isEmittingRef.current) {
-                        showToast('El admin revocó tu mic', 'warning');
-                        stopEmitting();
-                    }
-                    return;
-                }
-
-                // ── MOD REQUEST ──
-                if (topic === topicModReq && isAdminRef.current) {
-                    const { peerId: requester, name: reqName } = payload;
-                    if (requester === myPeerId) return;
-                    setModState(prev => {
-                        if (prev.queue.includes(requester)) return prev;
-                        const newMod = { ...prev, queue: [...prev.queue, requester] };
-                        modStateRef.current = newMod;
-                        publishModState(newMod);
-                        return newMod;
-                    });
-                    showToast(`${reqName} pide el mic`, 'warning');
-                    sendNotif('🙋 Pedido de mic', `${reqName} quiere hablar`);
-                    return;
-                }
-
-                // ── STATIONS ──
-                const senderPeerId = topic.split('/').pop();
-                if (senderPeerId === myPeerId) return;
-
-                setActiveStations(prev => {
-                    const next = { ...prev };
-                    if (payload.offline) {
-                        delete next[senderPeerId];
-                        addToHistory(payload.name || senderPeerId, 'salió de la sala');
-                    } else {
-                        const wasEmitting = prev[senderPeerId]?.isEmitting;
-                        next[senderPeerId] = payload;
-                        if (payload.isEmitting && !wasEmitting)
-                            addToHistory(payload.name, 'empezó a transmitir');
-                        else if (!payload.isEmitting && wasEmitting)
-                            addToHistory(payload.name, 'dejó de transmitir');
-                    }
-                    return next;
-                });
-            } catch(_) {}
-        });
-    }, [selectedKbps, sendNotif, showToast, publishModState]);
-
-    // ══════════════════════════════════════════════════
-    // HELPER — llamada P2P con reintentos
-    // ══════════════════════════════════════════════════
-    const callWithRetry = useCallback((targetPeerId, stream, { onStream, onClose, onError, maxRetries = 5, baseDelay = 1500 } = {}) => {
-        let attempt = 0;
-        let cancelled = false;
-        let retryTimer = null;
-
-        const tryCall = () => {
-            if (cancelled || !peerRef.current) return null;
-            const call = peerRef.current.call(targetPeerId, stream);
-            if (!call) return null;
-
-            call.on('stream', (s) => { if (!cancelled) { attempt = 0; onStream?.(s, call); } });
-            call.on('close',  ()  => { if (!cancelled) onClose?.(call); });
-            call.on('error',  (err) => {
-                if (cancelled) return;
-                const isPeerGone = err?.type === 'peer-unavailable' || String(err).includes('peer-unavailable');
-                if (isPeerGone && attempt < maxRetries) {
-                    attempt++;
-                    const delay = baseDelay * Math.pow(1.6, attempt - 1);
-                    retryTimer = setTimeout(tryCall, delay);
-                } else {
-                    onError?.(err);
-                }
-            });
-            return call;
-        };
-
-        const firstCall = tryCall();
-        return {
-            cancel: () => {
-                cancelled = true;
-                clearTimeout(retryTimer);
-                firstCall?.close?.();
+        // ══════════════════════════════════════════════════════
+        // CONFIG
+        // ══════════════════════════════════════════════════════
+        const PEER_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
+                ]
             }
         };
-    }, []);
+        const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+        const VERSION = 'v3';
 
-    // ══════════════════════════════════════════════════
-    // CONECTAR A EMISOR (RX)
-    // ══════════════════════════════════════════════════
-    const connectToEmitter = useCallback((emitterPeerId) => {
-        if (!peerRef.current) return;
-        rxCallRef.current?.close?.();
-        rxCallRef.current = null;
-        cancelAnimationFrame(rxAnimRef.current);
-        setRxLevel(0);
+        const genPeerId = (room, name) =>
+            `sr_${room}_${name.replace(/\s+/g, '_').slice(0, 12)}_${Math.random().toString(36).slice(2, 7)}`;
 
-        const silentStream = (() => {
-            try {
-                const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-                const dest = ctx.createMediaStreamDestination();
-                return dest.stream;
-            } catch(_) { return null; }
-        })();
+        const fmtTime = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const fmtDuration = (secs) => {
+            const m = String(Math.floor(secs / 60)).padStart(2, '0');
+            const s = String(secs % 60).padStart(2, '0');
+            return `${m}:${s}`;
+        };
 
-        if (!silentStream) { showToast('No se pudo crear stream de conexión', 'error'); return; }
-
-        const handle = callWithRetry(emitterPeerId, silentStream, {
-            maxRetries: 5,
-            baseDelay: 1500,
-            onStream: (remoteStream) => {
-                if (rxAudioElRef.current) {
-                    rxAudioElRef.current.srcObject = remoteStream;
-                    rxAudioElRef.current.volume = rxVolume;
-                    rxAudioElRef.current.play().catch(()=>{});
-                }
-                setupRxAnalyser(remoteStream);
-                setListeningTo(emitterPeerId);
-                if (isRecording) startRecording(remoteStream);
-                qualityTimersRef.current[emitterPeerId] = setInterval(
-                    () => updateConnectionQuality(emitterPeerId), 4000
-                );
-            },
-            onClose: () => { setListeningTo(null); setRxLevel(0); },
-            onError: () => showToast('No se pudo conectar con el emisor', 'error'),
+        // ══════════════════════════════════════════════════════
+        // TOPICS MQTT
+        // ══════════════════════════════════════════════════════
+        const T = (room) => ({
+            stations: `sr3/${room}/stations/+`,
+            station: (pid) => `sr3/${room}/stations/${pid}`,
+            chat: `sr3/${room}/chat`,
+            txPush: `sr3/${room}/txpush`,
+            modState: `sr3/${room}/mod`,
+            modReq: `sr3/${room}/modreq`,
         });
-        rxCallRef.current = handle;
-    }, [rxVolume, isRecording, startRecording, updateConnectionQuality, showToast, callWithRetry]);
 
-    // ══════════════════════════════════════════════════
-    // JOIN ROOM
-    // ══════════════════════════════════════════════════
-    const joinRoom = async () => {
-        if (!roomCode.trim() || !stationName.trim()) return;
-        await requestNotifPermission();
+        // ══════════════════════════════════════════════════════
+        // APP
+        // ══════════════════════════════════════════════════════
+        const App = () => {
 
-        const peerId = genPeerId(roomCode.trim(), stationName.trim());
-        roomInfoRef.current = { code: roomCode.trim(), name: stationName.trim(), peerId };
+            // — Estado sala —
+            const [inRoom, setInRoom] = useState(false);
+            const [roomCode, setRoomCode] = useState('');
+            const [stationName, setStationName] = useState('');
+            const [status, setStatus] = useState('OFFLINE');
+            const [isAdmin, setIsAdmin] = useState(false);
 
-        setStatus('CONECTANDO…');
-        const peer = new Peer(peerId, PEER_CONFIG);
-        peerRef.current = peer;
+            // — TX —
+            const [audioDevices, setAudioDevices] = useState([]);
+            const [selectedInput, setSelectedInput] = useState('');
+            const [selectedKbps, setSelectedKbps] = useState('128');
+            const [isEmitting, setIsEmitting] = useState(false);
+            const [txLevel, setTxLevel] = useState(0);
 
-        peer.on('open', (id) => {
-            const adminTimer = setTimeout(() => {
-                if (Object.keys(activeStations).length === 0) {
-                    setIsAdmin(true);
-                    isAdminRef.current = true;
-                    showToast('Eres el admin de la sala', 'success');
-                    const initialMod = { activeSpeaker: null, queue: [], adminPeerId: id };
-                    setModState(initialMod);
-                    modStateRef.current = initialMod;
+            // — RX —
+            const [activeStations, setActiveStations] = useState({});
+            const [listeningTo, setListeningTo] = useState(null);
+            const [rxLevel, setRxLevel] = useState(0);
+            const [rxVolume, setRxVolume] = useState(1);
+            const [rxMuted, setRxMuted] = useState(false);
+            const [connectionQuality, setConnectionQuality] = useState({});
+
+            // — Chat —
+            const [messages, setMessages] = useState([]);
+            const [chatInput, setChatInput] = useState('');
+
+            // — Historial —
+            const [txHistory, setTxHistory] = useState([]);
+
+            // ── GRABACIÓN con MediaRecorder ──
+            const [isRecording, setIsRecording] = useState(false);
+            const [recSeconds, setRecSeconds] = useState(0);
+            const [recordings, setRecordings] = useState([]);
+            const mediaRecorderRef = useRef(null);
+            const recChunksRef = useRef([]);
+            const recTimerRef = useRef(null);
+            const recStartRef = useRef(null);
+
+            // ── MODERACIÓN / COLA ──
+            const [modState, setModState] = useState({ activeSpeaker: null, queue: [], adminPeerId: null });
+            const [isMicBlocked, setIsMicBlocked] = useState(false);
+
+            // — Notificaciones —
+            const [notifPermission, setNotifPermission] = useState(false);
+
+            // ── Toasts ──
+            const [toasts, setToasts] = useState([]);
+            const showToast = useCallback((msg, type = 'info') => {
+                const id = Date.now();
+                setToasts(prev => [...prev, { id, msg, type }]);
+                setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+            }, []);
+
+            // ── Refs ──
+            const peerRef = useRef(null);
+            const mqttClientRef = useRef(null);
+            const txStreamRef = useRef(null);
+            const txamRef = useRef(null);
+            const txAnimRef = useRef(null);
+            const rxAudioElRef = useRef(null);
+            const rxAudioCtxRef = useRef(null);
+            const rxAnimRef = useRef(null);
+            const callsRef = useRef({});
+            const rxCallRef = useRef(null);
+            const qualityTimersRef = useRef({});
+            const roomInfoRef = useRef({ code: '', name: '', peerId: '' });
+            const messagesEndRef = useRef(null);
+            const modStateRef = useRef(modState);
+            const isEmittingRef = useRef(false);
+            const isAdminRef = useRef(false);
+
+            useEffect(() => { modStateRef.current = modState; }, [modState]);
+            useEffect(() => { isEmittingRef.current = isEmitting; }, [isEmitting]);
+            useEffect(() => { isAdminRef.current = isAdmin; }, [isAdmin]);
+
+            // ── Notificaciones ──
+            const requestNotifPermission = async () => {
+                if (!('Notification' in window)) return;
+                if (Notification.permission === 'granted') { setNotifPermission(true); return; }
+                const res = await Notification.requestPermission();
+                setNotifPermission(res === 'granted');
+            };
+            const sendNotif = useCallback((title, body) => {
+                if (notifPermission && document.hidden)
+                    new Notification(title, { body, icon: '/favicon.ico' });
+            }, [notifPermission]);
+
+            // ── Historial ──
+            const addToHistory = (name, action) => {
+                setTxHistory(prev => [{ id: Date.now(), name, action, time: fmtTime() }, ...prev].slice(0, 20));
+            };
+
+            // ── Calidad ──
+            const updateConnectionQuality = useCallback((peerId) => {
+                const pc = callsRef.current[peerId]?.peerConnection;
+                if (!pc) return;
+                pc.getStats().then(stats => {
+                    let rtt = null;
+                    stats.forEach(r => { if (r.type === 'candidate-pair' && r.state === 'succeeded') rtt = r.currentRoundTripTime ?? rtt; });
+                    if (rtt === null) return;
+                    const quality = rtt < 0.15 ? 'good' : rtt < 0.3 ? 'fair' : 'poor';
+                    setConnectionQuality(prev => ({ ...prev, [peerId]: { rtt: Math.round(rtt * 1000), quality } }));
+                }).catch(() => { });
+            }, []);
+
+            // ── Devices ──
+            useEffect(() => {
+                navigator.mediaDevices?.enumerateDevices().then(devs => {
+                    const ins = devs.filter(d => d.kind === 'audioinput');
+                    setAudioDevices(ins);
+                    if (ins.length) setSelectedInput(ins[0].deviceId);
+                }).catch(() => { });
+            }, []);
+
+            // ── iOS unlock ──
+            useEffect(() => {
+                const unlock = () => {
+                    rxAudioCtxRef.current?.resume?.();
+                    rxAudioElRef.current?.play?.().catch(() => { });
+                };
+                document.addEventListener('touchstart', unlock, { once: true });
+                document.addEventListener('click', unlock, { once: true });
+            }, []);
+
+            // ── Auto-scroll chat ──
+            useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+            // ── Volumen RX ──
+            useEffect(() => {
+                if (rxAudioElRef.current) {
+                    rxAudioElRef.current.volume = rxMuted ? 0 : rxVolume;
                 }
-            }, 1200);
+            }, [rxVolume, rxMuted]);
 
-            setInRoom(true);
-            initMQTT(id, roomCode.trim(), stationName.trim());
+            // ══════════════════════════════════════════════════
+            // PUBLICAR PRESENCIA
+            // ══════════════════════════════════════════════════
+            const publishPresence = useCallback((emitting = false) => {
+                const client = mqttClientRef.current;
+                if (!client?.connected) return;
+                const { code, name, peerId } = roomInfoRef.current;
+                client.publish(
+                    T(code).station(peerId),
+                    JSON.stringify({ name, peerId, isEmitting: emitting, kbps: selectedKbps, isAdmin: isAdminRef.current }),
+                    { retain: true, qos: 1 }
+                );
+            }, [selectedKbps]);
 
-            peer.on('call', (incomingCall) => {
-                if (isEmittingRef.current && txStreamRef.current) {
-                    incomingCall.answer(txStreamRef.current);
-                    callsRef.current[incomingCall.peer] = incomingCall;
-                    qualityTimersRef.current[incomingCall.peer] = setInterval(
-                        () => updateConnectionQuality(incomingCall.peer), 4000
-                    );
-                } else {
-                    incomingCall.answer();
-                    incomingCall.on('stream', (remoteStream) => {
+            // ══════════════════════════════════════════════════
+            // PUBLICAR ESTADO MOD
+            // ══════════════════════════════════════════════════
+            const publishModState = useCallback((newMod) => {
+                const client = mqttClientRef.current;
+                if (!client?.connected || !isAdminRef.current) return;
+                client.publish(
+                    T(roomInfoRef.current.code).modState,
+                    JSON.stringify(newMod),
+                    { retain: true, qos: 1 }
+                );
+            }, []);
+
+            // ══════════════════════════════════════════════════
+            // GRABACIÓN
+            // ══════════════════════════════════════════════════
+            const startRecording = useCallback((stream) => {
+                if (!stream || mediaRecorderRef.current) return;
+                const mimeType = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+                try {
+                    const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+                    recChunksRef.current = [];
+                    mr.ondataavailable = e => { if (e.data.size > 0) recChunksRef.current.push(e.data); };
+                    mr.onstop = () => {
+                        const blob = new Blob(recChunksRef.current, { type: mimeType || 'audio/webm' });
+                        const url = URL.createObjectURL(blob);
+                        const duration = Math.round((Date.now() - recStartRef.current) / 1000);
+                        const ext = mimeType.includes('ogg') ? 'ogg' : 'webm';
+                        const name = `rec_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${ext}`;
+                        const size = (blob.size / 1024).toFixed(0);
+                        setRecordings(prev => [{ name, url, size, duration }, ...prev].slice(0, 10));
+                        showToast(`Grabación guardada: ${fmtDuration(duration)}`, 'success');
+                    };
+                    mr.start(1000);
+                    recStartRef.current = Date.now();
+                    mediaRecorderRef.current = mr;
+                    setRecSeconds(0);
+                    setIsRecording(true);
+                    recTimerRef.current = setInterval(() => setRecSeconds(s => s + 1), 1000);
+                } catch (err) {
+                    showToast('Error al iniciar grabación: ' + err.message, 'error');
+                }
+            }, [showToast]);
+
+            const stopRecording = useCallback(() => {
+                clearInterval(recTimerRef.current);
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                    mediaRecorderRef.current.stop();
+                }
+                mediaRecorderRef.current = null;
+                setIsRecording(false);
+                setRecSeconds(0);
+            }, []);
+
+            const downloadRecording = (rec) => {
+                const a = document.createElement('a');
+                a.href = rec.url;
+                a.download = rec.name;
+                a.click();
+            };
+
+            const deleteRecording = (rec) => {
+                URL.revokeObjectURL(rec.url);
+                setRecordings(prev => prev.filter(r => r.name !== rec.name));
+            };
+
+            // ══════════════════════════════════════════════════
+            // MODERACIÓN — acciones del admin
+            // ══════════════════════════════════════════════════
+            const modGrantMic = useCallback((targetPeerId) => {
+                const mod = modStateRef.current;
+                const newQueue = mod.queue.filter(p => p !== targetPeerId);
+                const newMod = { ...mod, activeSpeaker: targetPeerId, queue: newQueue };
+                setModState(newMod);
+                publishModState(newMod);
+                addToHistory(activeStations[targetPeerId]?.name || targetPeerId, 'recibió el mic');
+            }, [activeStations, publishModState]);
+
+            const modRevokeMic = useCallback(() => {
+                const mod = modStateRef.current;
+                if (!mod.activeSpeaker) return;
+                const prevName = activeStations[mod.activeSpeaker]?.name || mod.activeSpeaker;
+                const newMod = { ...mod, activeSpeaker: null };
+                setModState(newMod);
+                publishModState(newMod);
+                addToHistory(prevName, 'mic revocado');
+            }, [activeStations, publishModState]);
+
+            const modSkipQueue = useCallback(() => {
+                const mod = modStateRef.current;
+                if (mod.queue.length === 0) return;
+                const [next, ...rest] = mod.queue;
+                const newMod = { ...mod, activeSpeaker: next, queue: rest };
+                setModState(newMod);
+                publishModState(newMod);
+                addToHistory(activeStations[next]?.name || next, 'recibió el mic (cola)');
+            }, [activeStations, publishModState]);
+
+            const requestMic = useCallback(() => {
+                const client = mqttClientRef.current;
+                if (!client?.connected) return;
+                const { code, peerId, name } = roomInfoRef.current;
+                client.publish(T(code).modReq, JSON.stringify({ peerId, name, time: fmtTime() }), { qos: 1 });
+                showToast('Solicitud de mic enviada al admin', 'info');
+            }, [showToast]);
+
+            const cancelMicRequest = useCallback(() => {
+                const mod = modStateRef.current;
+                const { code, peerId } = roomInfoRef.current;
+                const newMod = { ...mod, queue: mod.queue.filter(p => p !== peerId) };
+                setModState(newMod);
+                publishModState(newMod);
+            }, [publishModState]);
+
+            // ══════════════════════════════════════════════════
+            // MQTT INIT
+            // ══════════════════════════════════════════════════
+            const initMQTT = useCallback((myPeerId, code, myName) => {
+                const client = mqtt.connect(MQTT_BROKER, {
+                    clientId: `sr3_${myPeerId.slice(-8)}_${Math.random().toString(36).slice(2, 5)}`,
+                    clean: true, connectTimeout: 10000, reconnectPeriod: 3000
+                });
+                mqttClientRef.current = client;
+
+                const topics = [T(code).stations, T(code).chat, T(code).txPush, T(code).modState, T(code).modReq];
+
+                client.on('connect', () => {
+                    setStatus('ONLINE');
+                    client.subscribe(topics, { qos: 1 }, () => {
+                        client.publish(
+                            T(code).station(myPeerId),
+                            JSON.stringify({ name: myName, peerId: myPeerId, isEmitting: false, kbps: selectedKbps, isAdmin: isAdminRef.current }),
+                            { retain: true, qos: 1 }
+                        );
+                    });
+                });
+
+                client.on('error', () => { setStatus('ERROR'); showToast('Error de conexión MQTT', 'error'); });
+                client.on('offline', () => { setStatus('RECONECTANDO…'); showToast('Reconectando…', 'warning'); });
+                client.on('reconnect', () => { setStatus('RECONECTANDO…'); });
+
+                client.on('message', (topic, raw) => {
+                    try {
+                        const payload = JSON.parse(raw.toString());
+                        const topicChat = T(code).chat;
+                        const topicTxPush = T(code).txPush;
+                        const topicModSt = T(code).modState;
+                        const topicModReq = T(code).modReq;
+
+                        // ── CHAT ──
+                        if (topic === topicChat) {
+                            setMessages(prev => [...prev, payload].slice(-60));
+                            if (payload.sender !== myName && !payload.isSystem)
+                                sendNotif('💬 Nuevo mensaje', `${payload.sender}: ${payload.text}`);
+                            return;
+                        }
+
+                        // ── TX PUSH ──
+                        if (topic === topicTxPush) {
+                            const { emitterPeerId, name: emName, stopped } = payload;
+                            if (emitterPeerId === myPeerId) return;
+                            if (stopped) {
+                                setListeningTo(prev => prev === emitterPeerId ? null : prev);
+                                return;
+                            }
+                            if (!isEmittingRef.current) {
+                                sendNotif('📡 AL AIRE', `${emName} está transmitiendo`);
+                                connectToEmitter(emitterPeerId);
+                            }
+                            return;
+                        }
+
+                        // ── MOD STATE ──
+                        if (topic === topicModSt) {
+                            setModState(payload);
+                            modStateRef.current = payload;
+                            if (payload.activeSpeaker === myPeerId) {
+                                showToast('¡Tienes el mic! Podés transmitir.', 'success');
+                                sendNotif('🎙️ Tu turno', 'El admin te dio el mic');
+                            }
+                            if (payload.activeSpeaker !== myPeerId && isEmittingRef.current) {
+                                showToast('El admin revocó tu mic', 'warning');
+                                stopEmitting();
+                            }
+                            return;
+                        }
+
+                        // ── MOD REQUEST ──
+                        if (topic === topicModReq && isAdminRef.current) {
+                            const { peerId: requester, name: reqName } = payload;
+                            if (requester === myPeerId) return;
+                            setModState(prev => {
+                                if (prev.queue.includes(requester)) return prev;
+                                const newMod = { ...prev, queue: [...prev.queue, requester] };
+                                modStateRef.current = newMod;
+                                publishModState(newMod);
+                                return newMod;
+                            });
+                            showToast(`${reqName} pide el mic`, 'warning');
+                            sendNotif('🙋 Pedido de mic', `${reqName} quiere hablar`);
+                            return;
+                        }
+
+                        // ── STATIONS ──
+                        const senderPeerId = topic.split('/').pop();
+                        if (senderPeerId === myPeerId) return;
+
+                        setActiveStations(prev => {
+                            const next = { ...prev };
+                            if (payload.offline) {
+                                delete next[senderPeerId];
+                                addToHistory(payload.name || senderPeerId, 'salió de la sala');
+                            } else {
+                                const wasEmitting = prev[senderPeerId]?.isEmitting;
+                                next[senderPeerId] = payload;
+                                if (payload.isEmitting && !wasEmitting)
+                                    addToHistory(payload.name, 'empezó a transmitir');
+                                else if (!payload.isEmitting && wasEmitting)
+                                    addToHistory(payload.name, 'dejó de transmitir');
+                            }
+                            return next;
+                        });
+                    } catch (_) { }
+                });
+            }, [selectedKbps, sendNotif, showToast, publishModState]);
+
+            // ══════════════════════════════════════════════════
+            // HELPER — llamada P2P con reintentos
+            // ══════════════════════════════════════════════════
+            const callWithRetry = useCallback((targetPeerId, stream, { onStream, onClose, onError, maxRetries = 5, baseDelay = 1500 } = {}) => {
+                let attempt = 0;
+                let cancelled = false;
+                let retryTimer = null;
+
+                const tryCall = () => {
+                    if (cancelled || !peerRef.current) return null;
+                    const call = peerRef.current.call(targetPeerId, stream);
+                    if (!call) return null;
+
+                    call.on('stream', (s) => { if (!cancelled) { attempt = 0; onStream?.(s, call); } });
+                    call.on('close', () => { if (!cancelled) onClose?.(call); });
+                    call.on('error', (err) => {
+                        if (cancelled) return;
+                        const isPeerGone = err?.type === 'peer-unavailable' || String(err).includes('peer-unavailable');
+                        if (isPeerGone && attempt < maxRetries) {
+                            attempt++;
+                            const delay = baseDelay * Math.pow(1.6, attempt - 1);
+                            retryTimer = setTimeout(tryCall, delay);
+                        } else {
+                            onError?.(err);
+                        }
+                    });
+                    return call;
+                };
+
+                const firstCall = tryCall();
+                return {
+                    cancel: () => {
+                        cancelled = true;
+                        clearTimeout(retryTimer);
+                        firstCall?.close?.();
+                    }
+                };
+            }, []);
+
+            // ══════════════════════════════════════════════════
+            // CONECTAR A EMISOR (RX)
+            // ══════════════════════════════════════════════════
+            const connectToEmitter = useCallback((emitterPeerId) => {
+                if (!peerRef.current) return;
+                rxCallRef.current?.close?.();
+                rxCallRef.current = null;
+                cancelAnimationFrame(rxAnimRef.current);
+                setRxLevel(0);
+
+                const silentStream = (() => {
+                    try {
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                        const dest = ctx.createMediaStreamDestination();
+                        return dest.stream;
+                    } catch (_) { return null; }
+                })();
+
+                if (!silentStream) { showToast('No se pudo crear stream de conexión', 'error'); return; }
+
+                const handle = callWithRetry(emitterPeerId, silentStream, {
+                    maxRetries: 5,
+                    baseDelay: 1500,
+                    onStream: (remoteStream) => {
                         if (rxAudioElRef.current) {
                             rxAudioElRef.current.srcObject = remoteStream;
                             rxAudioElRef.current.volume = rxVolume;
-                            rxAudioElRef.current.play().catch(()=>{});
+                            rxAudioElRef.current.play().catch(() => { });
                         }
                         setupRxAnalyser(remoteStream);
-                        setListeningTo(incomingCall.peer);
-                    });
-                }
-            });
-        });
-
-        peer.on('error', (err) => {
-            console.error('PeerJS:', err);
-            // peer-unavailable es manejado con reintentos en callWithRetry; no alarmar
-            if (err?.type === 'peer-unavailable') return;
-            setStatus('ERROR PEER');
-            showToast('Error de conexión P2P: ' + err.type, 'error');
-        });
-    };
-
-    // ══════════════════════════════════════════════════
-    // TX — EMITIR
-    // ══════════════════════════════════════════════════
-    const startEmitting = async () => {
-        if (modState.adminPeerId && modState.activeSpeaker !== roomInfoRef.current.peerId && !isAdmin) {
-            showToast('Esperá tu turno. Solicitá el mic al admin.', 'warning');
-            return;
-        }
-
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    deviceId: selectedInput ? { exact: selectedInput } : undefined,
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false
-                }
-            });
-            txStreamRef.current = stream;
-
-            setIsEmitting(true);
-            isEmittingRef.current = true;
-            publishPresence(true);
-            addToHistory(stationName, 'empezó a transmitir');
-
-            const ctx      = new (window.AudioContext || window.webkitAudioContext)();
-            const src      = ctx.createMediaStreamSource(stream);
-            const analyser = ctx.createAnalyser();
-            analyser.fftSize = 256;
-            src.connect(analyser);
-            const data = new Uint8Array(analyser.frequencyBinCount);
-            const tick = () => {
-                analyser.getByteFrequencyData(data);
-                setTxLevel(Math.min(100, data.reduce((a,b)=>a+b,0)/data.length * 2));
-                txAnimRef.current = requestAnimationFrame(tick);
-            };
-            txAnimRef.current = requestAnimationFrame(tick);
-
-            const { code, peerId, name } = roomInfoRef.current;
-            mqttClientRef.current?.publish(
-                T(code).txPush,
-                JSON.stringify({ emitterPeerId: peerId, name }),
-                { qos: 1, retain: true }
-            );
-            Object.keys(activeStations).forEach(pId => {
-                const handle = callWithRetry(pId, stream, {
-                    maxRetries: 4,
-                    baseDelay: 1200,
-                    onStream: (_s, call) => { applyBitrate(call, parseInt(selectedKbps)); },
-                    onError: () => { /* peer se fue, ignorar */ },
+                        setListeningTo(emitterPeerId);
+                        if (isRecording) startRecording(remoteStream);
+                        qualityTimersRef.current[emitterPeerId] = setInterval(
+                            () => updateConnectionQuality(emitterPeerId), 4000
+                        );
+                    },
+                    onClose: () => { setListeningTo(null); setRxLevel(0); },
+                    onError: () => showToast('No se pudo conectar con el emisor', 'error'),
                 });
-                callsRef.current[pId] = handle;
-            });
-        } catch(err) {
-            showToast('Micrófono no disponible: ' + err.message, 'error');
-        }
-    };
+                rxCallRef.current = handle;
+            }, [rxVolume, isRecording, startRecording, updateConnectionQuality, showToast, callWithRetry]);
 
-    const stopEmitting = useCallback(() => {
-        txStreamRef.current?.getTracks().forEach(t => t.stop());
-        txStreamRef.current = null;
-        cancelAnimationFrame(txAnimRef.current);
-        setTxLevel(0);
-        setIsEmitting(false);
-        isEmittingRef.current = false;
-        publishPresence(false);
-        addToHistory(roomInfoRef.current.name, 'dejó de transmitir');
-        stopRecording();
-        Object.values(callsRef.current).forEach(c => { c.cancel?.(); c.close?.(); });
-        Object.values(qualityTimersRef.current).forEach(clearInterval);
-        callsRef.current = {};
-        qualityTimersRef.current = {};
-        const { code, peerId, name } = roomInfoRef.current;
-        mqttClientRef.current?.publish(
-            T(code).txPush,
-            JSON.stringify({ emitterPeerId: peerId, name, stopped: true }),
-            { qos: 1, retain: true }
-        );
-    }, [publishPresence, stopRecording]);
+            // ══════════════════════════════════════════════════
+            // JOIN ROOM
+            // ══════════════════════════════════════════════════
+            const joinRoom = async () => {
+                if (!roomCode.trim() || !stationName.trim()) return;
+                await requestNotifPermission();
 
-    const applyBitrate = (call, kbps) => {
-        try {
-            const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === 'audio');
-            if (!sender) return;
-            const params = sender.getParameters();
-            if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-            params.encodings[0].maxBitrate = kbps * 1000;
-            sender.setParameters(params).catch(()=>{});
-        } catch(_) {}
-    };
+                const peerId = genPeerId(roomCode.trim(), stationName.trim());
+                roomInfoRef.current = { code: roomCode.trim(), name: stationName.trim(), peerId };
 
-    // ══════════════════════════════════════════════════
-    // RX ANALYSER
-    // ══════════════════════════════════════════════════
-    const setupRxAnalyser = (stream) => {
-        try {
-            cancelAnimationFrame(rxAnimRef.current);
-            const ctx      = new (window.AudioContext || window.webkitAudioContext)();
-            rxAudioCtxRef.current = ctx;
-            const src      = ctx.createMediaStreamSource(stream);
-            const analyser = ctx.createAnalyser();
-            analyser.fftSize = 256;
-            src.connect(analyser);
-            const data = new Uint8Array(analyser.frequencyBinCount);
-            const tick = () => {
-                analyser.getByteFrequencyData(data);
-                setRxLevel(Math.min(100, data.reduce((a,b)=>a+b,0)/data.length * 2));
-                rxAnimRef.current = requestAnimationFrame(tick);
+                setStatus('CONECTANDO…');
+                const peer = new Peer(peerId, PEER_CONFIG);
+                peerRef.current = peer;
+
+                peer.on('open', (id) => {
+                    const adminTimer = setTimeout(() => {
+                        if (Object.keys(activeStations).length === 0) {
+                            setIsAdmin(true);
+                            isAdminRef.current = true;
+                            showToast('Eres el admin de la sala', 'success');
+                            const initialMod = { activeSpeaker: null, queue: [], adminPeerId: id };
+                            setModState(initialMod);
+                            modStateRef.current = initialMod;
+                        }
+                    }, 1200);
+
+                    setInRoom(true);
+                    initMQTT(id, roomCode.trim(), stationName.trim());
+
+                    peer.on('call', (incomingCall) => {
+                        if (isEmittingRef.current && txStreamRef.current) {
+                            incomingCall.answer(txStreamRef.current);
+                            callsRef.current[incomingCall.peer] = incomingCall;
+                            qualityTimersRef.current[incomingCall.peer] = setInterval(
+                                () => updateConnectionQuality(incomingCall.peer), 4000
+                            );
+                        } else {
+                            incomingCall.answer();
+                            incomingCall.on('stream', (remoteStream) => {
+                                if (rxAudioElRef.current) {
+                                    rxAudioElRef.current.srcObject = remoteStream;
+                                    rxAudioElRef.current.volume = rxVolume;
+                                    rxAudioElRef.current.play().catch(() => { });
+                                }
+                                setupRxAnalyser(remoteStream);
+                                setListeningTo(incomingCall.peer);
+                            });
+                        }
+                    });
+                });
+
+                peer.on('error', (err) => {
+                    console.error('PeerJS:', err);
+                    // peer-unavailable es manejado con reintentos en callWithRetry; no alarmar
+                    if (err?.type === 'peer-unavailable') return;
+                    setStatus('ERROR PEER');
+                    showToast('Error de conexión P2P: ' + err.type, 'error');
+                });
             };
-            rxAnimRef.current = requestAnimationFrame(tick);
-        } catch(_) {}
-    };
 
-    // ══════════════════════════════════════════════════
-    // CHAT
-    // ══════════════════════════════════════════════════
-    const sendChatMessage = (e) => {
-        e.preventDefault();
-        if (!chatInput.trim() || !mqttClientRef.current?.connected) return;
-        mqttClientRef.current.publish(
-            T(roomInfoRef.current.code).chat,
-            JSON.stringify({ id: Date.now(), sender: stationName, text: chatInput.trim(), time: fmtTime(), isReaction: false }),
-            { qos: 1 }
-        );
-        setChatInput('');
-    };
+            // ══════════════════════════════════════════════════
+            // TX — EMITIR
+            // ══════════════════════════════════════════════════
+            const startEmitting = async () => {
+                if (modState.adminPeerId && modState.activeSpeaker !== roomInfoRef.current.peerId && !isAdmin) {
+                    showToast('Esperá tu turno. Solicitá el mic al admin.', 'warning');
+                    return;
+                }
 
-    const sendReaction = (emoji) => {
-        if (!mqttClientRef.current?.connected) return;
-        mqttClientRef.current.publish(
-            T(roomInfoRef.current.code).chat,
-            JSON.stringify({ id: Date.now(), sender: stationName, text: emoji, time: fmtTime(), isReaction: true }),
-            { qos: 1 }
-        );
-    };
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            deviceId: selectedInput ? { exact: selectedInput } : undefined,
+                            echoCancellation: false,
+                            noiseSuppression: false,
+                            autoGainControl: false
+                        }
+                    });
+                    txStreamRef.current = stream;
 
-    const sendSystemMsg = useCallback((text) => {
-        mqttClientRef.current?.publish(
-            T(roomInfoRef.current.code).chat,
-            JSON.stringify({ id: Date.now(), sender: 'Sistema', text, time: fmtTime(), isSystem: true }),
-            { qos: 1 }
-        );
-    }, []);
+                    setIsEmitting(true);
+                    isEmittingRef.current = true;
+                    publishPresence(true);
+                    addToHistory(stationName, 'empezó a transmitir');
 
-    // ══════════════════════════════════════════════════
-    // SALIR
-    // ══════════════════════════════════════════════════
-    const leaveRoom = () => {
-        stopEmitting();
-        rxCallRef.current?.close();
-        Object.values(qualityTimersRef.current).forEach(clearInterval);
-        const { code, peerId } = roomInfoRef.current;
-        mqttClientRef.current?.publish(
-            T(code).station(peerId),
-            JSON.stringify({ offline: true, name: stationName }),
-            { retain: true, qos: 1 },
-            () => mqttClientRef.current.end()
-        );
-        peerRef.current?.destroy();
-        peerRef.current = null;
-        setInRoom(false);
-        setActiveStations({});
-        setMessages([]);
-        setTxHistory([]);
-        setModState({ activeSpeaker: null, queue: [], adminPeerId: null });
-        setStatus('OFFLINE');
-        setIsAdmin(false);
-        isAdminRef.current = false;
-    };
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const src = ctx.createMediaStreamSource(stream);
+                    const analyser = ctx.createAnalyser();
+                    analyser.fftSize = 256;
+                    src.connect(analyser);
+                    const data = new Uint8Array(analyser.frequencyBinCount);
+                    const tick = () => {
+                        analyser.getByteFrequencyData(data);
+                        setTxLevel(Math.min(100, data.reduce((a, b) => a + b, 0) / data.length * 2));
+                        txAnimRef.current = requestAnimationFrame(tick);
+                    };
+                    txAnimRef.current = requestAnimationFrame(tick);
 
-    // ══════════════════════════════════════════════════
-    // SIGNAL BAR
-    // ══════════════════════════════════════════════════
-    const SignalBar = ({ quality }) => (
-        <div className="signal-bar">
-            {[0,1,2].map(i => {
-                let cls = '';
-                if      (quality === 'good')             cls = 'active-good';
-                else if (quality === 'fair' && i < 2)    cls = 'active-fair';
-                else if (quality === 'poor' && i === 0)  cls = 'active-poor';
-                return <div key={i} className={cls}></div>;
-            })}
-        </div>
-    );
+                    const { code, peerId, name } = roomInfoRef.current;
+                    mqttClientRef.current?.publish(
+                        T(code).txPush,
+                        JSON.stringify({ emitterPeerId: peerId, name }),
+                        { qos: 1, retain: true }
+                    );
+                    Object.keys(activeStations).forEach(pId => {
+                        const handle = callWithRetry(pId, stream, {
+                            maxRetries: 4,
+                            baseDelay: 1200,
+                            onStream: (_s, call) => { applyBitrate(call, parseInt(selectedKbps)); },
+                            onError: () => { /* peer se fue, ignorar */ },
+                        });
+                        callsRef.current[pId] = handle;
+                    });
+                } catch (err) {
+                    showToast('Micrófono no disponible: ' + err.message, 'error');
+                }
+            };
 
-    // ══════════════════════════════════════════════════
-    // JOIN SCREEN
-    // ══════════════════════════════════════════════════
-    if (!inRoom) return (
-        <div className="join-screen">
-            <div className="join-card">
-                <div className="text-center mb-8">
-                    <div className="font-black text-4xl tracking-tight">
-                        STREAM<span style={{color:'#3b82f6'}}>RADIO</span>
-                        <span className="font-mono-custom text-sm ml-2" style={{color:'#64748b'}}>v3</span>
-                    </div>
-                    <div className="text-sm text-gray-400 mt-1 font-mono-custom">TEAM BROADCAST SYSTEM</div>
+            const stopEmitting = useCallback(() => {
+                txStreamRef.current?.getTracks().forEach(t => t.stop());
+                txStreamRef.current = null;
+                cancelAnimationFrame(txAnimRef.current);
+                setTxLevel(0);
+                setIsEmitting(false);
+                isEmittingRef.current = false;
+                publishPresence(false);
+                addToHistory(roomInfoRef.current.name, 'dejó de transmitir');
+                stopRecording();
+                Object.values(callsRef.current).forEach(c => { c.cancel?.(); c.close?.(); });
+                Object.values(qualityTimersRef.current).forEach(clearInterval);
+                callsRef.current = {};
+                qualityTimersRef.current = {};
+                const { code, peerId, name } = roomInfoRef.current;
+                mqttClientRef.current?.publish(
+                    T(code).txPush,
+                    JSON.stringify({ emitterPeerId: peerId, name, stopped: true }),
+                    { qos: 1, retain: true }
+                );
+            }, [publishPresence, stopRecording]);
+
+            const applyBitrate = (call, kbps) => {
+                try {
+                    const sender = call.peerConnection?.getSenders().find(s => s.track?.kind === 'audio');
+                    if (!sender) return;
+                    const params = sender.getParameters();
+                    if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+                    params.encodings[0].maxBitrate = kbps * 1000;
+                    sender.setParameters(params).catch(() => { });
+                } catch (_) { }
+            };
+
+            // ══════════════════════════════════════════════════
+            // RX ANALYSER
+            // ══════════════════════════════════════════════════
+            const setupRxAnalyser = (stream) => {
+                try {
+                    cancelAnimationFrame(rxAnimRef.current);
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    rxAudioCtxRef.current = ctx;
+                    const src = ctx.createMediaStreamSource(stream);
+                    const analyser = ctx.createAnalyser();
+                    analyser.fftSize = 256;
+                    src.connect(analyser);
+                    const data = new Uint8Array(analyser.frequencyBinCount);
+                    const tick = () => {
+                        analyser.getByteFrequencyData(data);
+                        setRxLevel(Math.min(100, data.reduce((a, b) => a + b, 0) / data.length * 2));
+                        rxAnimRef.current = requestAnimationFrame(tick);
+                    };
+                    rxAnimRef.current = requestAnimationFrame(tick);
+                } catch (_) { }
+            };
+
+            // ══════════════════════════════════════════════════
+            // CHAT
+            // ══════════════════════════════════════════════════
+            const sendChatMessage = (e) => {
+                e.preventDefault();
+                if (!chatInput.trim() || !mqttClientRef.current?.connected) return;
+                mqttClientRef.current.publish(
+                    T(roomInfoRef.current.code).chat,
+                    JSON.stringify({ id: Date.now(), sender: stationName, text: chatInput.trim(), time: fmtTime(), isReaction: false }),
+                    { qos: 1 }
+                );
+                setChatInput('');
+            };
+
+            const sendReaction = (emoji) => {
+                if (!mqttClientRef.current?.connected) return;
+                mqttClientRef.current.publish(
+                    T(roomInfoRef.current.code).chat,
+                    JSON.stringify({ id: Date.now(), sender: stationName, text: emoji, time: fmtTime(), isReaction: true }),
+                    { qos: 1 }
+                );
+            };
+
+            const sendSystemMsg = useCallback((text) => {
+                mqttClientRef.current?.publish(
+                    T(roomInfoRef.current.code).chat,
+                    JSON.stringify({ id: Date.now(), sender: 'Sistema', text, time: fmtTime(), isSystem: true }),
+                    { qos: 1 }
+                );
+            }, []);
+
+            // ══════════════════════════════════════════════════
+            // SALIR
+            // ══════════════════════════════════════════════════
+            const leaveRoom = () => {
+                stopEmitting();
+                rxCallRef.current?.close();
+                Object.values(qualityTimersRef.current).forEach(clearInterval);
+                const { code, peerId } = roomInfoRef.current;
+                mqttClientRef.current?.publish(
+                    T(code).station(peerId),
+                    JSON.stringify({ offline: true, name: stationName }),
+                    { retain: true, qos: 1 },
+                    () => mqttClientRef.current.end()
+                );
+                peerRef.current?.destroy();
+                peerRef.current = null;
+                setInRoom(false);
+                setActiveStations({});
+                setMessages([]);
+                setTxHistory([]);
+                setModState({ activeSpeaker: null, queue: [], adminPeerId: null });
+                setStatus('OFFLINE');
+                setIsAdmin(false);
+                isAdminRef.current = false;
+            };
+
+            // ══════════════════════════════════════════════════
+            // SIGNAL BAR
+            // ══════════════════════════════════════════════════
+            const SignalBar = ({ quality }) => (
+                <div className="signal-bar">
+                    {[0, 1, 2].map(i => {
+                        let cls = '';
+                        if (quality === 'good') cls = 'active-good';
+                        else if (quality === 'fair' && i < 2) cls = 'active-fair';
+                        else if (quality === 'poor' && i === 0) cls = 'active-poor';
+                        return <div key={i} className={cls}></div>;
+                    })}
                 </div>
-                <input placeholder="Código de sala (ej: RADIO01)"
-                    value={roomCode} onChange={e => setRoomCode(e.target.value.toUpperCase())}
-                    style={{textTransform:'uppercase',letterSpacing:'0.1em'}} />
-                <input placeholder="Nombre de tu estación"
-                    value={stationName} onChange={e => setStationName(e.target.value)} />
-                <button className="btn-primary w-full" onClick={joinRoom}
-                    disabled={!roomCode.trim() || !stationName.trim()}>
-                    ENTRAR A LA SALA
-                </button>
-                <p className="text-xs text-gray-500 text-center mt-4">Powered by Stream Radio</p>
-            </div>
-        </div>
-    );
+            );
 
-    // ══════════════════════════════════════════════════
-    // DASHBOARD
-    // ══════════════════════════════════════════════════
-    const myPeerId     = roomInfoRef.current.peerId;
-    const iAmSpeaker   = modState.activeSpeaker === myPeerId;
-    const iAmInQueue   = modState.queue.includes(myPeerId);
-    const modEnabled   = !!modState.adminPeerId;
-
-    return (
-        <div className="dashboard-layout">
-            <audio ref={rxAudioElRef} autoPlay playsInline style={{display:'none'}} />
-
-            {/* ── TOASTS ── */}
-            <div className="toast-container">
-                {toasts.map(t => (
-                    <div key={t.id} className={`toast ${t.type}`}>{t.msg}</div>
-                ))}
-            </div>
-
-            {/* ── TOP BAR ── */}
-            <div className="top-bar">
-                <div className="font-black text-xl">
-                    STREAM<span style={{color:'#3b82f6'}}>RADIO</span>
-                    {isAdmin && <span className="ml-2 text-xs font-mono-custom" style={{color:'#f59e0b'}}>ADMIN</span>}
-                </div>
-                <div className="flex items-center gap-4 text-sm flex-wrap">
-                    <span className="text-gray-400">
-                        <span className="text-gray-600">SALA </span>
-                        <span className="font-mono-custom font-bold">{roomInfoRef.current.code}</span>
-                    </span>
-                    <span className="text-gray-400">
-                        <span className="text-gray-600">ID </span>
-                        <span style={{color:'#22c55e'}}>{stationName}</span>
-                    </span>
-                    <span className={`px-3 py-1 rounded text-xs font-bold ${
-                        status === 'ONLINE'  ? 'bg-green-900 text-green-400' :
-                        status.startsWith('ERROR') ? 'bg-red-900 text-red-400' :
-                        'bg-yellow-900 text-yellow-400'
-                    }`}>{status}</span>
-                    <button className="btn-danger" style={{padding:'4px 12px',fontSize:'0.8rem'}} onClick={leaveRoom}>SALIR</button>
-                </div>
-            </div>
-
-            {/* ── MAIN GRID ── */}
-            <div className="main-content">
-
-                {/* ══ TX PANEL ══ */}
-                <div className="tx-panel">
-                    <h2 className="text-lg font-black uppercase mb-4" style={{letterSpacing:'0.15em'}}>
-                        📡 TRANSMISIÓN (TX)
-                    </h2>
-
-                    <label className="section-title">Entrada de audio</label>
-                    <select className="w-full mb-4" value={selectedInput} onChange={e=>setSelectedInput(e.target.value)} disabled={isEmitting}>
-                        {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Mic ${d.deviceId.slice(0,8)}`}</option>)}
-                        {audioDevices.length===0 && <option>Detectando…</option>}
-                    </select>
-
-                    <label className="section-title">Calidad</label>
-                    <select className="w-full mb-4" value={selectedKbps} onChange={e=>setSelectedKbps(e.target.value)} disabled={isEmitting}>
-                        {['64','96','128','192','320'].map(k => <option key={k} value={k}>{k} kbps</option>)}
-                    </select>
-
-                    {/* VU meter TX */}
-                    <div className="mb-4">
-                        <div className="flex justify-between text-xs text-gray-400 mb-1">
-                            <span>NIVEL TX</span><span>{Math.round(txLevel)}%</span>
+            // ══════════════════════════════════════════════════
+            // JOIN SCREEN
+            // ══════════════════════════════════════════════════
+            if (!inRoom) return (
+                <div className="join-screen">
+                    <div className="join-card">
+                        <div className="text-center mb-8">
+                            <div className="font-black text-4xl tracking-tight">
+                                STREAM<span style={{ color: '#3b82f6' }}>RADIO</span>
+                                <span className="font-mono-custom text-sm ml-2" style={{ color: '#64748b' }}>v3</span>
+                            </div>
+                            <div className="text-sm text-gray-400 mt-1 font-mono-custom">TEAM BROADCAST SYSTEM</div>
                         </div>
-                        <div className="w-full h-2 bg-gray-800 rounded overflow-hidden">
-                            <div className="vu-bar" style={{width:`${txLevel}%`}}></div>
-                        </div>
-                    </div>
-
-                    {/* Estado moderación para el TX */}
-                    {modEnabled && !isAdmin && (
-                        <div className="mb-4 p-3 rounded" style={{background:'#0a1420',border:'1px solid #1e3a5f',fontSize:'0.82rem'}}>
-                            {iAmSpeaker ? (
-                                <span style={{color:'#22c55e'}}>✅ Tenés el mic — podés transmitir</span>
-                            ) : iAmInQueue ? (
-                                <span style={{color:'#f59e0b'}}>⏳ En cola — esperando turno</span>
-                            ) : (
-                                <span style={{color:'#64748b'}}>Cola activa. Pedí el mic para emitir.</span>
-                            )}
-                        </div>
-                    )}
-
-                    {isEmitting ? (
-                        <button className="btn-danger w-full" onClick={stopEmitting}>⏹ DETENER TRANSMISIÓN</button>
-                    ) : (
-                        <button className="btn-primary w-full" onClick={startEmitting}
-                            disabled={modEnabled && !isAdmin && !iAmSpeaker}>
-                            ▶ INICIAR TRANSMISIÓN
+                        <input placeholder="Código de sala (ej: RADIO01)"
+                            value={roomCode} onChange={e => setRoomCode(e.target.value.toUpperCase())}
+                            style={{ textTransform: 'uppercase', letterSpacing: '0.1em' }} />
+                        <input placeholder="Nombre de tu estación"
+                            value={stationName} onChange={e => setStationName(e.target.value)} />
+                        <button className="btn-primary w-full" onClick={joinRoom}
+                            disabled={!roomCode.trim() || !stationName.trim()}>
+                            ENTRAR A LA SALA
                         </button>
-                    )}
+                        <p className="text-xs text-gray-500 text-center mt-4">Powered by Stream Radio</p>
+                    </div>
+                </div>
+            );
 
-                    {!modEnabled && !isAdmin && !iAmSpeaker && (
-                        <button className="btn-ghost w-full mt-2" onClick={requestMic}>🙋 PEDIR MIC AL ADMIN</button>
-                    )}
+            // ══════════════════════════════════════════════════
+            // DASHBOARD
+            // ══════════════════════════════════════════════════
+            const myPeerId = roomInfoRef.current.peerId;
+            const iAmSpeaker = modState.activeSpeaker === myPeerId;
+            const iAmInQueue = modState.queue.includes(myPeerId);
+            const modEnabled = !!modState.adminPeerId;
 
-                    {isEmitting && (
-                        <div className="flex items-center gap-2 mt-3 justify-center">
-                            <div className="led red"></div>
-                            <span className="text-red-400 font-bold text-sm uppercase tracking-widest">AL AIRE</span>
-                        </div>
-                    )}
+            return (
+                <div className="dashboard-layout">
+                    <audio ref={rxAudioElRef} autoPlay playsInline style={{ display: 'none' }} />
 
-                    {/* ── GRABACIÓN ── */}
-                    <hr className="divider" />
-                    <div className="section-title mb-3">🔴 GRABACIÓN</div>
-
-                    {isEmitting && (
-                        isRecording ? (
-                            <div className="flex items-center gap-3 mb-3">
-                                <span className="rec-dot"></span>
-                                <span className="rec-timer">{fmtDuration(recSeconds)}</span>
-                                <button className="btn-ghost flex-1" onClick={stopRecording}>⏹ Detener</button>
-                            </div>
-                        ) : (
-                            <button className="btn-danger w-full mb-3" style={{fontSize:'0.85rem'}}
-                                onClick={() => startRecording(txStreamRef.current)}>
-                                ⏺ GRABAR TRANSMISIÓN
-                            </button>
-                        )
-                    )}
-
-                    {listeningTo && !isEmitting && (
-                        isRecording ? (
-                            <div className="flex items-center gap-3 mb-3">
-                                <span className="rec-dot"></span>
-                                <span className="rec-timer">{fmtDuration(recSeconds)}</span>
-                                <button className="btn-ghost flex-1" onClick={stopRecording}>⏹ Detener</button>
-                            </div>
-                        ) : (
-                            <button className="btn-ghost w-full mb-3" style={{fontSize:'0.85rem'}}
-                                onClick={() => {
-                                    if (rxAudioElRef.current?.srcObject)
-                                        startRecording(rxAudioElRef.current.srcObject);
-                                    else showToast('Sin stream activo para grabar', 'error');
-                                }}>
-                                ⏺ Grabar recepción
-                            </button>
-                        )
-                    )}
-
-                    {recordings.length > 0 && (
-                        <div className="recording-files">
-                            {recordings.map(rec => (
-                                <div key={rec.name} className="recording-file">
-                                    <div className="flex flex-col">
-                                        <span className="font-mono-custom" style={{fontSize:'0.7rem',color:'#94a3b8'}}>{fmtDuration(rec.duration)}</span>
-                                        <span style={{color:'#64748b',fontSize:'0.68rem'}}>{rec.size} KB</span>
-                                    </div>
-                                    <div className="flex gap-1">
-                                        <button className="btn-ghost" style={{padding:'3px 8px'}} onClick={() => downloadRecording(rec)}>⬇</button>
-                                        <button className="btn-ghost" style={{padding:'3px 8px',color:'#ef4444'}} onClick={() => deleteRecording(rec)}>✕</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* ── HISTORIAL ── */}
-                    <hr className="divider" />
-                    <div className="section-title mb-2">Historial</div>
-                    <div className="history-list space-y-1">
-                        {txHistory.length === 0 && <div className="text-gray-600 text-xs">Sin actividad aún.</div>}
-                        {txHistory.map(e => (
-                            <div key={e.id} className="flex justify-between text-gray-400">
-                                <span><span className="text-white">{e.name}</span> <span style={{color:'#22c55e'}}>{e.action}</span></span>
-                                <span className="text-gray-600 ml-2 flex-shrink-0">{e.time}</span>
-                            </div>
+                    {/* ── TOASTS ── */}
+                    <div className="toast-container">
+                        {toasts.map(t => (
+                            <div key={t.id} className={`toast ${t.type}`}>{t.msg}</div>
                         ))}
                     </div>
-                </div>
 
-                {/* ══ RX PANEL ══ */}
-                <div className="rx-panel">
-                    <h2 className="text-lg font-black uppercase mb-4" style={{letterSpacing:'0.15em'}}>
-                        🎧 ESTACIONES
-                    </h2>
-
-                    {/* Volumen */}
-                    <div className="flex items-center gap-3 mb-4">
-                        <span className="section-title" style={{marginBottom:0,whiteSpace:'nowrap'}}>Volumen RX</span>
-                        <input type="range" min="0" max="1" step="0.05" value={rxVolume}
-                            onChange={e=>setRxVolume(parseFloat(e.target.value))} className="flex-1" />
-                        <span className="text-xs text-gray-400 w-8 text-right">{Math.round(rxVolume*100)}%</span>
+                    {/* ── TOP BAR ── */}
+                    <div className="top-bar">
+                        <div className="font-black text-xl">
+                            STREAM<span style={{ color: '#3b82f6' }}>RADIO</span>
+                            {isAdmin && <span className="ml-2 text-xs font-mono-custom" style={{ color: '#f59e0b' }}>ADMIN</span>}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm flex-wrap">
+                            <span className="text-gray-400">
+                                <span className="text-gray-600">SALA </span>
+                                <span className="font-mono-custom font-bold">{roomInfoRef.current.code}</span>
+                            </span>
+                            <span className="text-gray-400">
+                                <span className="text-gray-600">ID </span>
+                                <span style={{ color: '#22c55e' }}>{stationName}</span>
+                            </span>
+                            <span className={`px-3 py-1 rounded text-xs font-bold ${status === 'ONLINE' ? 'bg-green-900 text-green-400' :
+                                    status.startsWith('ERROR') ? 'bg-red-900 text-red-400' :
+                                        'bg-yellow-900 text-yellow-400'
+                                }`}>{status}</span>
+                            <button className="btn-danger" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={leaveRoom}>SALIR</button>
+                        </div>
                     </div>
 
-                    {/* VU RX */}
-                    {listeningTo && (
-                        <div className="mb-4">
-                            <div className="flex justify-between text-xs text-gray-400 mb-1">
-                                <span>NIVEL RX</span><span>{Math.round(rxLevel)}%</span>
+                    {/* ── MAIN GRID ── */}
+                    <div className="main-content">
+
+                        {/* ══ TX PANEL ══ */}
+                        <div className="tx-panel">
+                            <h2 className="text-lg font-black uppercase mb-4" style={{ letterSpacing: '0.15em' }}>
+                                📡 TRANSMISIÓN (TX)
+                            </h2>
+
+                            <label className="section-title">Entrada de audio</label>
+                            <select className="w-full mb-4" value={selectedInput} onChange={e => setSelectedInput(e.target.value)} disabled={isEmitting}>
+                                {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Mic ${d.deviceId.slice(0, 8)}`}</option>)}
+                                {audioDevices.length === 0 && <option>Detectando…</option>}
+                            </select>
+
+                            <label className="section-title">Calidad</label>
+                            <select className="w-full mb-4" value={selectedKbps} onChange={e => setSelectedKbps(e.target.value)} disabled={isEmitting}>
+                                {['64', '96', '128', '192', '320'].map(k => <option key={k} value={k}>{k} kbps</option>)}
+                            </select>
+
+                            {/* VU meter TX */}
+                            <div className="mb-4">
+                                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                    <span>NIVEL TX</span><span>{Math.round(txLevel)}%</span>
+                                </div>
+                                <div className="w-full h-2 bg-gray-800 rounded overflow-hidden">
+                                    <div className="vu-bar" style={{ width: `${txLevel}%` }}></div>
+                                </div>
                             </div>
-                            <div className="w-full h-2 bg-gray-800 rounded overflow-hidden">
-                                <div className="vu-bar" style={{width:`${rxLevel}%`}}></div>
-                            </div>
-                        </div>
-                    )}
 
-                    {/* ── MODERACIÓN — PANEL ADMIN ── */}
-                    {isAdmin && (
-                        <>
-                        <hr className="divider" style={{marginTop:0}} />
-                        <div className="section-title mb-2">🎙️ MODERACIÓN</div>
-
-                        <div className="flex gap-2 mb-3">
-                            {!modEnabled ? (
-                                <button className="btn-warning flex-1" style={{fontSize:'0.8rem',padding:'6px 10px'}}
-                                    onClick={() => {
-                                        const mod = { activeSpeaker: null, queue: [], adminPeerId: myPeerId };
-                                        setModState(mod); publishModState(mod);
-                                        showToast('Cola de mic activada', 'success');
-                                        sendSystemMsg('El admin activó la cola de micrófonos');
-                                    }}>
-                                    Activar cola de mic
-                                </button>
-                            ) : (
-                                <button className="btn-ghost flex-1" style={{fontSize:'0.8rem',padding:'6px 10px'}}
-                                    onClick={() => {
-                                        const mod = { activeSpeaker: null, queue: [], adminPeerId: null };
-                                        setModState(mod); publishModState(mod);
-                                        showToast('Cola desactivada — libre para todos', 'success');
-                                        sendSystemMsg('El admin desactivó la cola de micrófonos');
-                                    }}>
-                                    Desactivar cola
-                                </button>
-                            )}
-                        </div>
-
-                        {modEnabled && (
-                            <>
-                            {modState.activeSpeaker && (
-                                <div className="queue-item active-speaker mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className="led red"></div>
-                                        <span className="font-bold text-sm">
-                                            {activeStations[modState.activeSpeaker]?.name || 'Desconocido'}
-                                        </span>
-                                        <span className="queue-badge" style={{background:'#7f1d1d',color:'#fca5a5'}}>AL AIRE</span>
-                                    </div>
-                                    <button className="btn-ghost" style={{padding:'3px 8px',fontSize:'0.75rem',color:'#ef4444'}}
-                                        onClick={modRevokeMic}>Revocar</button>
+                            {/* Estado moderación para el TX */}
+                            {modEnabled && !isAdmin && (
+                                <div className="mb-4 p-3 rounded" style={{ background: '#0a1420', border: '1px solid #1e3a5f', fontSize: '0.82rem' }}>
+                                    {iAmSpeaker ? (
+                                        <span style={{ color: '#22c55e' }}>✅ Tenés el mic — podés transmitir</span>
+                                    ) : iAmInQueue ? (
+                                        <span style={{ color: '#f59e0b' }}>⏳ En cola — esperando turno</span>
+                                    ) : (
+                                        <span style={{ color: '#64748b' }}>Cola activa. Pedí el mic para emitir.</span>
+                                    )}
                                 </div>
                             )}
 
-                            {modState.queue.length > 0 && (
-                                <div className="mb-2">
-                                    <div className="section-title mb-1">Cola ({modState.queue.length})</div>
-                                    {modState.queue.map((pid, idx) => (
-                                        <div key={pid} className="queue-item">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-gray-500 text-xs font-mono-custom">#{idx+1}</span>
-                                                <span className="text-sm">{activeStations[pid]?.name || pid.slice(-8)}</span>
+                            {isEmitting ? (
+                                <button className="btn-danger w-full" onClick={stopEmitting}>⏹ DETENER TRANSMISIÓN</button>
+                            ) : (
+                                <button className="btn-primary w-full" onClick={startEmitting}
+                                    disabled={modEnabled && !isAdmin && !iAmSpeaker}>
+                                    ▶ INICIAR TRANSMISIÓN
+                                </button>
+                            )}
+
+                            {!modEnabled && !isAdmin && !iAmSpeaker && (
+                                <button className="btn-ghost w-full mt-2" onClick={requestMic}>🙋 PEDIR MIC AL ADMIN</button>
+                            )}
+
+                            {isEmitting && (
+                                <div className="flex items-center gap-2 mt-3 justify-center">
+                                    <div className="led red"></div>
+                                    <span className="text-red-400 font-bold text-sm uppercase tracking-widest">AL AIRE</span>
+                                </div>
+                            )}
+
+                            {/* ── GRABACIÓN ── */}
+                            <hr className="divider" />
+                            <div className="section-title mb-3">🔴 GRABACIÓN</div>
+
+                            {isEmitting && (
+                                isRecording ? (
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <span className="rec-dot"></span>
+                                        <span className="rec-timer">{fmtDuration(recSeconds)}</span>
+                                        <button className="btn-ghost flex-1" onClick={stopRecording}>⏹ Detener</button>
+                                    </div>
+                                ) : (
+                                    <button className="btn-danger w-full mb-3" style={{ fontSize: '0.85rem' }}
+                                        onClick={() => startRecording(txStreamRef.current)}>
+                                        ⏺ GRABAR TRANSMISIÓN
+                                    </button>
+                                )
+                            )}
+
+                            {listeningTo && !isEmitting && (
+                                isRecording ? (
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <span className="rec-dot"></span>
+                                        <span className="rec-timer">{fmtDuration(recSeconds)}</span>
+                                        <button className="btn-ghost flex-1" onClick={stopRecording}>⏹ Detener</button>
+                                    </div>
+                                ) : (
+                                    <button className="btn-ghost w-full mb-3" style={{ fontSize: '0.85rem' }}
+                                        onClick={() => {
+                                            if (rxAudioElRef.current?.srcObject)
+                                                startRecording(rxAudioElRef.current.srcObject);
+                                            else showToast('Sin stream activo para grabar', 'error');
+                                        }}>
+                                        ⏺ Grabar recepción
+                                    </button>
+                                )
+                            )}
+
+                            {recordings.length > 0 && (
+                                <div className="recording-files">
+                                    {recordings.map(rec => (
+                                        <div key={rec.name} className="recording-file">
+                                            <div className="flex flex-col">
+                                                <span className="font-mono-custom" style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{fmtDuration(rec.duration)}</span>
+                                                <span style={{ color: '#64748b', fontSize: '0.68rem' }}>{rec.size} KB</span>
                                             </div>
-                                            <button className="btn-primary" style={{padding:'3px 10px',fontSize:'0.75rem'}}
-                                                onClick={() => modGrantMic(pid)}>Dar mic</button>
+                                            <div className="flex gap-1">
+                                                <button className="btn-ghost" style={{ padding: '3px 8px' }} onClick={() => downloadRecording(rec)}>⬇</button>
+                                                <button className="btn-ghost" style={{ padding: '3px 8px', color: '#ef4444' }} onClick={() => deleteRecording(rec)}>✕</button>
+                                            </div>
                                         </div>
                                     ))}
-                                    <button className="btn-ghost w-full mt-2" style={{fontSize:'0.8rem'}} onClick={modSkipQueue}>
-                                        ▶ Dar mic al siguiente
-                                    </button>
                                 </div>
                             )}
 
-                            {modState.queue.length === 0 && !modState.activeSpeaker && (
-                                <div className="text-gray-600 text-xs text-center py-2">Sin solicitudes</div>
-                            )}
-                            </>
-                        )}
-                        <hr className="divider" />
-                        </>
-                    )}
-
-                    {/* ── ESTACIONES ── */}
-                    <div className="rx-grid">
-                        {Object.keys(activeStations).length === 0 && (
-                            <div className="text-gray-600 text-sm text-center py-8">Nadie más en la sala aún…</div>
-                        )}
-                        {Object.entries(activeStations).map(([peerId, data]) => {
-                            const isListeningThis = listeningTo === peerId;
-                            const quality         = connectionQuality[peerId];
-                            const isSpeaker       = modState.activeSpeaker === peerId;
-                            const inQueue         = modState.queue.includes(peerId);
-
-                            return (
-                                <div key={peerId} className={`rx-card ${isListeningThis ? 'listening' : ''}`}>
-                                    <div className="rx-header">
-                                        <div className="rx-name">
-                                            <div className={`led ${data.isEmitting ? 'red' : ''}`}
-                                                style={!data.isEmitting ? {background:'#334155'} : {}}></div>
-                                            {data.name}
-                                            {data.isAdmin && <span className="queue-badge" style={{background:'#1a2a1a',color:'#f59e0b',marginLeft:4}}>ADMIN</span>}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {isSpeaker && <span className="queue-badge" style={{background:'#3f0f0f',color:'#fca5a5'}}>MIC</span>}
-                                            {inQueue   && <span className="queue-badge" style={{background:'#1a1206',color:'#fcd34d'}}>COLA</span>}
-                                            {quality && <SignalBar quality={quality.quality} />}
-                                            {quality && <span className="font-mono-custom" style={{fontSize:'0.65rem',color:'#64748b'}}>{quality.rtt}ms</span>}
-                                            <span className="text-gray-500" style={{fontSize:'0.7rem'}}>{data.kbps}k</span>
-                                        </div>
+                            {/* ── HISTORIAL ── */}
+                            <hr className="divider" />
+                            <div className="section-title mb-2">Historial</div>
+                            <div className="history-list space-y-1">
+                                {txHistory.length === 0 && <div className="text-gray-600 text-xs">Sin actividad aún.</div>}
+                                {txHistory.map(e => (
+                                    <div key={e.id} className="flex justify-between text-gray-400">
+                                        <span><span className="text-white">{e.name}</span> <span style={{ color: '#22c55e' }}>{e.action}</span></span>
+                                        <span className="text-gray-600 ml-2 flex-shrink-0">{e.time}</span>
                                     </div>
-
-                                    <div className="flex gap-2 mt-1 flex-wrap">
-                                        {data.isEmitting && !isListeningThis && (
-                                            <button className="btn-primary flex-1" style={{padding:'5px 10px',fontSize:'0.8rem'}}
-                                                onClick={() => connectToEmitter(peerId)}>
-                                                🎧 Escuchar
-                                            </button>
-                                        )}
-                                        {isListeningThis && (
-                                            <button className="btn-danger flex-1" style={{padding:'5px 10px',fontSize:'0.8rem'}}
-                                                onClick={() => {
-                                                    rxCallRef.current?.close();
-                                                    rxCallRef.current = null;
-                                                    setListeningTo(null);
-                                                    setRxLevel(0);
-                                                }}>
-                                                ⏹ Detener
-                                            </button>
-                                        )}
-                                        {!data.isEmitting && (
-                                            <span className="text-gray-600 text-xs self-center">Sin transmisión</span>
-                                        )}
-                                        {isAdmin && modEnabled && !isSpeaker && (
-                                            <button className="btn-ghost" style={{padding:'4px 8px',fontSize:'0.75rem'}}
-                                                onClick={() => modGrantMic(peerId)}>
-                                                Dar mic
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* ══ CHAT PANEL ══ */}
-                <div className="chat-panel">
-                    <div className="flex items-start justify-between mb-4">
-                        <h2 className="text-lg font-black uppercase" style={{letterSpacing:'0.15em'}}>💬 CHAT</h2>
-                        <div className="text-right" style={{lineHeight:'1.3'}}>
-                            <div className="font-mono-custom font-bold" style={{fontSize:'0.75rem',color:'#3b82f6',letterSpacing:'0.1em'}}>
-                                {roomInfoRef.current.code}
-                            </div>
-                            <div style={{fontSize:'0.65rem',color:'#64748b'}}>
-                                como <span style={{color:'#22c55e'}}>{stationName}</span>
+                                ))}
                             </div>
                         </div>
-                    </div>
 
-                    <div className="chat-messages flex-1">
-                        {messages.map(msg => (
-                            <div key={msg.id}>
-                                {/* ── NOMBRE DEL EMISOR ── */}
-                                {!msg.isReaction && !msg.isSystem && (
-                                    <div
-                                        className={`chat-sender ${msg.sender === stationName ? 'text-right' : ''}`}
-                                        style={{ color: msg.sender === stationName ? '#3b82f6' : '#94a3b8' }}
-                                    >
-                                        <span style={{
-                                            fontWeight: '700',
-                                            fontSize: '0.72rem',
-                                            letterSpacing: '0.04em',
-                                            color: msg.sender === stationName ? '#60a5fa' : '#cbd5e1'
-                                        }}>
-                                            {msg.sender}
-                                        </span>
-                                        <span style={{color:'#475569',fontSize:'0.65rem'}}> · {msg.time}</span>
+                        {/* ══ RX PANEL ══ */}
+                        <div className="rx-panel">
+                            <h2 className="text-lg font-black uppercase mb-4" style={{ letterSpacing: '0.15em' }}>
+                                🎧 ESTACIONES
+                            </h2>
+
+                            {/* Volumen global + mute global */}
+                            <div className="flex items-center gap-3 mb-3">
+                                <span className="section-title" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>Volumen RX</span>
+                                <input type="range" min="0" max="1" step="0.05" value={rxVolume}
+                                    onChange={e => { setRxVolume(parseFloat(e.target.value)); if (rxMuted) setRxMuted(false); }} className="flex-1" />
+                                <span className="text-xs text-gray-400 w-8 text-right">{Math.round(rxVolume * 100)}%</span>
+                                <button
+                                    className={`rx-btn ${rxMuted ? 'rx-btn-unmute' : 'rx-btn-mute'}`}
+                                    style={{ padding: '4px 10px', fontSize: '0.72rem' }}
+                                    onClick={() => setRxMuted(m => !m)}
+                                    title={rxMuted ? 'Activar audio' : 'Silenciar todo'}
+                                >
+                                    {rxMuted ? '🔊 Activar' : '🔇 Silenciar'}
+                                </button>
+                            </div>
+
+                            {/* VU RX */}
+                            {listeningTo && (
+                                <div className="mb-4">
+                                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                        <span>NIVEL RX</span><span>{Math.round(rxLevel)}%</span>
                                     </div>
+                                    <div className="w-full h-2 bg-gray-800 rounded overflow-hidden">
+                                        <div className="vu-bar" style={{ width: `${rxLevel}%` }}></div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── MODERACIÓN — PANEL ADMIN ── */}
+                            {isAdmin && (
+                                <>
+                                    <hr className="divider" style={{ marginTop: 0 }} />
+                                    <div className="section-title mb-2">🎙️ MODERACIÓN</div>
+
+                                    <div className="flex gap-2 mb-3">
+                                        {!modEnabled ? (
+                                            <button className="btn-warning flex-1" style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                                                onClick={() => {
+                                                    const mod = { activeSpeaker: null, queue: [], adminPeerId: myPeerId };
+                                                    setModState(mod); publishModState(mod);
+                                                    showToast('Cola de mic activada', 'success');
+                                                    sendSystemMsg('El admin activó la cola de micrófonos');
+                                                }}>
+                                                Activar cola de mic
+                                            </button>
+                                        ) : (
+                                            <button className="btn-ghost flex-1" style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                                                onClick={() => {
+                                                    const mod = { activeSpeaker: null, queue: [], adminPeerId: null };
+                                                    setModState(mod); publishModState(mod);
+                                                    showToast('Cola desactivada — libre para todos', 'success');
+                                                    sendSystemMsg('El admin desactivó la cola de micrófonos');
+                                                }}>
+                                                Desactivar cola
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {modEnabled && (
+                                        <>
+                                            {modState.activeSpeaker && (
+                                                <div className="queue-item active-speaker mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="led red"></div>
+                                                        <span className="font-bold text-sm">
+                                                            {activeStations[modState.activeSpeaker]?.name || 'Desconocido'}
+                                                        </span>
+                                                        <span className="queue-badge" style={{ background: '#7f1d1d', color: '#fca5a5' }}>AL AIRE</span>
+                                                    </div>
+                                                    <button className="btn-ghost" style={{ padding: '3px 8px', fontSize: '0.75rem', color: '#ef4444' }}
+                                                        onClick={modRevokeMic}>Revocar</button>
+                                                </div>
+                                            )}
+
+                                            {modState.queue.length > 0 && (
+                                                <div className="mb-2">
+                                                    <div className="section-title mb-1">Cola ({modState.queue.length})</div>
+                                                    {modState.queue.map((pid, idx) => (
+                                                        <div key={pid} className="queue-item">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-gray-500 text-xs font-mono-custom">#{idx + 1}</span>
+                                                                <span className="text-sm">{activeStations[pid]?.name || pid.slice(-8)}</span>
+                                                            </div>
+                                                            <button className="btn-primary" style={{ padding: '3px 10px', fontSize: '0.75rem' }}
+                                                                onClick={() => modGrantMic(pid)}>Dar mic</button>
+                                                        </div>
+                                                    ))}
+                                                    <button className="btn-ghost w-full mt-2" style={{ fontSize: '0.8rem' }} onClick={modSkipQueue}>
+                                                        ▶ Dar mic al siguiente
+                                                    </button>
+                                                </div>
+                                            )}
+
+                                            {modState.queue.length === 0 && !modState.activeSpeaker && (
+                                                <div className="text-gray-600 text-xs text-center py-2">Sin solicitudes</div>
+                                            )}
+                                        </>
+                                    )}
+                                    <hr className="divider" />
+                                </>
+                            )}
+
+                            {/* ── ESTACIONES ── */}
+                            <div className="rx-grid">
+                                {Object.keys(activeStations).length === 0 && (
+                                    <div className="text-gray-600 text-sm text-center py-8">Nadie más en la sala aún…</div>
                                 )}
-                                <div className={`chat-bubble
+                                {Object.entries(activeStations).map(([peerId, data]) => {
+                                    const isListeningThis = listeningTo === peerId;
+                                    const quality = connectionQuality[peerId];
+                                    const isSpeaker = modState.activeSpeaker === peerId;
+                                    const inQueue = modState.queue.includes(peerId);
+
+                                    return (
+                                        <div key={peerId} className={`rx-card ${isListeningThis ? 'listening' : ''}`}>
+                                            <div className="rx-header">
+                                                <div className="rx-name">
+                                                    <div className={`led ${data.isEmitting ? 'red' : ''}`}
+                                                        style={!data.isEmitting ? { background: '#334155' } : {}}></div>
+                                                    {data.name}
+                                                    {data.isAdmin && <span className="queue-badge" style={{ background: '#1a2a1a', color: '#f59e0b', marginLeft: 4 }}>ADMIN</span>}
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    {isSpeaker && <span className="queue-badge" style={{ background: '#3f0f0f', color: '#fca5a5' }}>MIC</span>}
+                                                    {inQueue && <span className="queue-badge" style={{ background: '#1a1206', color: '#fcd34d' }}>COLA</span>}
+                                                    {quality && <SignalBar quality={quality.quality} />}
+                                                    {quality && <span className="font-mono-custom" style={{ fontSize: '0.65rem', color: '#64748b' }}>{quality.rtt}ms</span>}
+                                                    <span className="text-gray-500" style={{ fontSize: '0.7rem' }}>{data.kbps}k</span>
+                                                </div>
+                                            </div>
+
+                                            {/* ── Botones RX Play / Mute ── */}
+                                            <div className="flex gap-2 mt-2 flex-wrap items-center">
+                                                {data.isEmitting ? (
+                                                    isListeningThis ? (
+                                                        <button className="rx-btn rx-btn-stop"
+                                                            onClick={() => {
+                                                                rxCallRef.current?.cancel?.();
+                                                                rxCallRef.current?.close?.();
+                                                                rxCallRef.current = null;
+                                                                setListeningTo(null);
+                                                                setRxLevel(0);
+                                                            }}>
+                                                            ⏹ Detener
+                                                        </button>
+                                                    ) : (
+                                                        <button className="rx-btn rx-btn-play"
+                                                            onClick={() => connectToEmitter(peerId)}>
+                                                            ▶ Escuchar en vivo
+                                                        </button>
+                                                    )
+                                                ) : (
+                                                    <span className="text-gray-600 text-xs self-center">Sin transmisión</span>
+                                                )}
+
+                                                {/* Mute individual de la escucha activa */}
+                                                {isListeningThis && (
+                                                    <button
+                                                        className={`rx-btn ${rxMuted ? 'rx-btn-unmute' : 'rx-btn-mute'}`}
+                                                        onClick={() => setRxMuted(m => !m)}
+                                                        title={rxMuted ? 'Activar audio' : 'Silenciar'}
+                                                    >
+                                                        {rxMuted ? '🔊 Activar' : '🔇 Silenciar'}
+                                                    </button>
+                                                )}
+
+                                                {isAdmin && modEnabled && !isSpeaker && (
+                                                    <button className="btn-ghost" style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                                                        onClick={() => modGrantMic(peerId)}>
+                                                        Dar mic
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* ══ CHAT PANEL ══ */}
+                        <div className="chat-panel">
+                            <div className="flex items-start justify-between mb-4">
+                                <h2 className="text-lg font-black uppercase" style={{ letterSpacing: '0.15em' }}>💬 CHAT</h2>
+                                <div className="text-right" style={{ lineHeight: '1.3' }}>
+                                    <div className="font-mono-custom font-bold" style={{ fontSize: '0.75rem', color: '#3b82f6', letterSpacing: '0.1em' }}>
+                                        {roomInfoRef.current.code}
+                                    </div>
+                                    <div style={{ fontSize: '0.65rem', color: '#64748b' }}>
+                                        como <span style={{ color: '#22c55e' }}>{stationName}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="chat-messages flex-1">
+                                {messages.map(msg => (
+                                    <div key={msg.id}>
+                                        {/* ── NOMBRE DEL EMISOR ── */}
+                                        {!msg.isReaction && !msg.isSystem && (
+                                            <div
+                                                className={`chat-sender ${msg.sender === stationName ? 'text-right' : ''}`}
+                                                style={{ color: msg.sender === stationName ? '#3b82f6' : '#94a3b8' }}
+                                            >
+                                                <span style={{
+                                                    fontWeight: '700',
+                                                    fontSize: '0.72rem',
+                                                    letterSpacing: '0.04em',
+                                                    color: msg.sender === stationName ? '#60a5fa' : '#cbd5e1'
+                                                }}>
+                                                    {msg.sender}
+                                                </span>
+                                                <span style={{ color: '#475569', fontSize: '0.65rem' }}> · {msg.time}</span>
+                                            </div>
+                                        )}
+                                        <div className={`chat-bubble
                                     ${msg.sender === stationName && !msg.isSystem ? 'own' : ''}
                                     ${msg.isReaction ? 'reaction' : ''}
-                                    ${msg.isSystem  ? 'system'   : ''}`}>
-                                    {msg.text}
-                                </div>
+                                    ${msg.isSystem ? 'system' : ''}`}>
+                                            {msg.text}
+                                        </div>
+                                    </div>
+                                ))}
+                                <div ref={messagesEndRef}></div>
                             </div>
-                        ))}
-                        <div ref={messagesEndRef}></div>
-                    </div>
 
-                    <div className="chat-input-area mt-auto">
-                        <form onSubmit={sendChatMessage} style={{display:'flex',gap:'8px'}}>
-                            <input value={chatInput} onChange={e=>setChatInput(e.target.value)}
-                                placeholder="Mensaje al equipo…" style={{flex:1}} />
-                            <button className="btn-primary" type="submit" style={{padding:'8px 14px'}}>➤</button>
-                        </form>
-                        <div className="flex gap-2 mt-3 justify-center flex-wrap">
-                            {['👍','❤️','🔥','😂','👏','🎙️','🚨'].map(emoji => (
-                                <button key={emoji} className="reaction-btn" type="button" onClick={() => sendReaction(emoji)}>
-                                    {emoji}
-                                </button>
-                            ))}
+                            <div className="chat-input-area mt-auto">
+                                <form onSubmit={sendChatMessage} style={{ display: 'flex', gap: '8px' }}>
+                                    <input value={chatInput} onChange={e => setChatInput(e.target.value)}
+                                        placeholder="Mensaje al equipo…" style={{ flex: 1 }} />
+                                    <button className="btn-primary" type="submit" style={{ padding: '8px 14px' }}>➤</button>
+                                </form>
+                                <div className="flex gap-2 mt-3 justify-center flex-wrap">
+                                    {['👍', '❤️', '🔥', '😂', '👏', '🎙️', '🚨'].map(emoji => (
+                                        <button key={emoji} className="reaction-btn" type="button" onClick={() => sendReaction(emoji)}>
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {!isAdmin && modEnabled && !iAmSpeaker && !iAmInQueue && (
+                                    <button className="btn-ghost w-full mt-3" style={{ fontSize: '0.82rem' }} onClick={requestMic}>
+                                        🙋 Pedir turno para hablar
+                                    </button>
+                                )}
+                                {!isAdmin && iAmInQueue && (
+                                    <button className="btn-ghost w-full mt-3" style={{ fontSize: '0.82rem', color: '#f59e0b' }} onClick={cancelMicRequest}>
+                                        ✕ Cancelar solicitud de mic
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
-                        {!isAdmin && modEnabled && !iAmSpeaker && !iAmInQueue && (
-                            <button className="btn-ghost w-full mt-3" style={{fontSize:'0.82rem'}} onClick={requestMic}>
-                                🙋 Pedir turno para hablar
-                            </button>
-                        )}
-                        {!isAdmin && iAmInQueue && (
-                            <button className="btn-ghost w-full mt-3" style={{fontSize:'0.82rem',color:'#f59e0b'}} onClick={cancelMicRequest}>
-                                ✕ Cancelar solicitud de mic
-                            </button>
-                        )}
-                    </div>
+                    </div>{/* /main-content */}
                 </div>
+            );
+        };
 
-            </div>{/* /main-content */}
-        </div>
-    );
-};
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(App));
-</script>
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+    </script>
 </body>
+
 </html>
