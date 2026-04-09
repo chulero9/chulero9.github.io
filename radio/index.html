@@ -1564,9 +1564,26 @@
 
                         {/* ══ RX PANEL ══ */}
                         <div className="rx-panel">
-                            <h2 className="text-lg font-black uppercase mb-4" style={{ letterSpacing: '0.15em' }}>
-                                🎧 ESTACIONES
-                            </h2>
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-black uppercase m-0" style={{ letterSpacing: '0.15em' }}>
+                                    🎧 ESTACIONES
+                                </h2>
+                                <button className="btn-ghost" style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                                    onClick={() => {
+                                        setActiveStations(prev => {
+                                            const next = {};
+                                            Object.entries(prev).forEach(([id, stData]) => {
+                                                if (stData.isEmitting || listeningTo === id) {
+                                                    next[id] = stData;
+                                                }
+                                            });
+                                            return next;
+                                        });
+                                    }}
+                                    title="Cerrar todas las estaciones sin transmisión ni conexión de escucha">
+                                    🧹 Limpiar inactivas
+                                </button>
+                            </div>
 
                             {/* Volumen global + mute global */}
                             <div className="flex items-center gap-3 mb-3">
@@ -1738,6 +1755,20 @@
                                                     <button className="btn-ghost" style={{ padding: '4px 8px', fontSize: '0.75rem' }}
                                                         onClick={() => modGrantMic(peerId)}>
                                                         Dar mic
+                                                    </button>
+                                                )}
+
+                                                {!data.isEmitting && !isListeningThis && (
+                                                    <button className="btn-ghost ml-auto" style={{ padding: '4px 8px', fontSize: '0.75rem', color: '#ef4444', borderColor: 'transparent' }}
+                                                        onClick={() => {
+                                                            setActiveStations(prev => {
+                                                                const next = { ...prev };
+                                                                delete next[peerId];
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        title="Cerrar estación">
+                                                        ✕ Cerrar
                                                     </button>
                                                 )}
                                             </div>
