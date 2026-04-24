@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="StreamNews V3 — Control de overlay de noticias RSS para OBS y Streamlabs">
+    <title>StreamNews V3 — Control de Overlay</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js" crossorigin></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js" crossorigin></script>
+    <!-- Tailwind CDN eliminado — no se usaban clases (ahorramos ~400 KB) -->
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Merriweather:wght@700&family=Oswald:wght@500;700&display=swap');
+
+        html, body { width: 100%; margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: transparent; }
+
+        body.dashboard-mode {
+            background-color: #0f172a !important;
+            color: white;
+            overflow-y: auto !important;
+            height: auto;
+            min-height: 100vh;
+        }
+
+        body.overlay-mode {
+            background-color: transparent !important;
+            overflow: hidden !important;
+            height: 100%;
+        }
+
+        .container { width: 100%; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; }
+        .glass-panel {
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+        .input-field { background: #0f172a; border: 1px solid #334155; color: white; padding: 10px; border-radius: 6px; width: 100%; outline: none; font-size: 0.9rem; box-sizing: border-box; }
+        .input-field:focus { border-color: #ef4444; }
+        .btn { background: #334155; color: white; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; width: 100%; transition: 0.2s; font-size: 0.8rem; text-transform: uppercase; }
+        .btn:hover { background: #475569; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* --- OVERLAY STYLES --- */
+
+        /* 1. TICKER */
+        .news-ticker {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            background: #0f172a;
+            border-top: 6px solid;
+            border-bottom: 2px solid #334155;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.8);
+            animation: slideUp 0.5s;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        .ticker-label {
+            height: 100%;
+            padding: 0 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            z-index: 10;
+            min-width: 180px;
+            flex-shrink: 0;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+        }
+        /* Contenedor del ticker con overflow hidden */
+        .ticker-content {
+            flex: 1;
+            overflow: hidden;
+            white-space: nowrap;
+            position: relative;
+            height: 100%;
+            display: flex;
+            align-items: center;
+        }
+        /* Wrapper con DOS copias del texto para loop sin saltos.
+           La duración se inyecta inline con JS como CSS custom property. */
+        .ticker-track {
+            display: inline-flex;
+            animation: ticker-scroll var(--ticker-duration, 60s) linear infinite;
+            will-change: transform;
+        }
+        .ticker-segment {
+            display: inline-block;
+            font-size: 1.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: white;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            padding-right: 80px;
+            white-space: nowrap;
+        }
+
+        /* 2. CARD */
+        .news-card {
+            position: absolute;
+            bottom: 120px;
+            left: 50px;
+            width: 600px;
+            background: rgba(15, 23, 42, 0.98);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #334155;
+            border-left-width: 10px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+            animation: slideRight 0.5s;
+        }
+        .card-img { width: 100%; height: 280px; object-fit: cover; border-bottom: 4px solid; }
+        .card-body { padding: 25px; }
+        .card-source { font-size: 1rem; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; }
+        .card-title {
+            font-family: 'Merriweather', serif;
+            font-size: 1.8rem;
+            line-height: 1.3;
+            font-weight: 900;
+            margin-bottom: 15px;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .card-date { font-size: 0.9rem; color: #cbd5e1; text-align: right; margin-top: 10px; font-style: italic; }
+        .card-progress { height: 6px; background: #334155; width: 100%; }
+        .card-bar { height: 100%; animation: shrink 10s linear forwards; }
+
+        /* 3. SIDEBAR */
+        .news-sidebar { position: absolute; top: 100px; right: 50px; width: 400px; display: flex; flex-direction: column; gap: 15px; animation: fadeIn 0.5s; }
+        .sb-header {
+            color: white;
+            padding: 15px 20px;
+            font-weight: 900;
+            text-transform: uppercase;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.4rem;
+            border-radius: 6px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.6);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+        }
+        .sb-item {
+            background: rgba(15, 23, 42, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 6px solid #334155;
+            transition: 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .sb-item.active { background: #1e293b; transform: scale(1.03); border: 2px solid; border-left-width: 8px; }
+        .sb-title { font-weight: 700; font-size: 1.1rem; line-height: 1.3; color: white; text-shadow: 0 1px 2px black; }
+        .sb-time { font-size: 0.8rem; color: #94a3b8; margin-top: 8px; font-weight: bold; }
+
+        /* --- KEYFRAMES --- */
+        /* Ticker loop perfecto: empieza en 0, termina en -50% (una copia exacta) */
+        @keyframes ticker-scroll {
+            0%   { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        @keyframes shrink {
+            from { width: 100%; }
+            to   { width: 0%; }
+        }
+        @keyframes slideUp    { from { transform: translateY(100px);  opacity: 0; } to { transform: translateY(0);  opacity: 1; } }
+        @keyframes slideRight { from { transform: translateX(-100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeIn     { from { opacity: 0; transform: translateX(20px); }  to { opacity: 1; transform: translateX(0); } }
+
+        /* BANNER DE ADVERTENCIA BROKER PÚBLICO (solo dashboard) */
+        .broker-warning {
+            background: #7c2d12;
+            border: 1px solid #ea580c;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 11px;
+            color: #fed7aa;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        .broker-warning strong { color: #fb923c; }
+
+        @media (max-width: 600px) {
+            .news-card    { width: 90%; left: 5%; bottom: 20px; }
+            .news-sidebar { width: 90%; right: 5%; top: 20px; }
+            .ticker-label   { min-width: 100px; font-size: 1.2rem; padding: 0 15px; }
+            .ticker-segment { font-size: 1.1rem; }
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            overflow: hidden;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; }
+
+        /* --- TOAST NOTIFICATIONS --- */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .toast {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: white;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            animation: toastIn 0.3s ease;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 340px;
+            line-height: 1.4;
+        }
+        .toast.success { border-color: #16a34a; }
+        .toast.error   { border-color: #dc2626; }
+        .toast.warning { border-color: #d97706; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- INDICADOR MQTT OFFLINE (solo overlay mode) --- */
+        .mqtt-offline {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: blink 1s ease infinite;
+            z-index: 9999;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.15; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // ─── CONFIGURACIÓN MQTT ────────────────────────────────────────────────────
+        // ⚠️  SEGURIDAD: broker.emqx.io es PÚBLICO. Cualquiera con tu SESSION_ID
+        //     puede controlar el overlay. Para producción, usa un broker privado
+        //     con usuario/contraseña (ej: HiveMQ Cloud, Mosquitto propio).
+        const MQTT_CONFIG = { host: 'broker.emqx.io', port: 8084, path: '/mqtt' };
+
+        const getSessionId = () => {
+            const p = new URLSearchParams(window.location.search);
+            if (p.get('id')) return p.get('id');
+            let id = localStorage.getItem('sn_v3_id');
+            if (!id) {
+                id = 'news_' + (crypto.randomUUID ? crypto.randomUUID().split('-')[0] : Math.random().toString(36).substr(2, 8));
+                localStorage.setItem('sn_v3_id', id);
+            }
+            return id;
+        };
+        const SESSION_ID = getSessionId();
+
+        // ─── TOAST REF ─────────────────────────────────────────────────────────────
+        // Objeto mutable a nivel de módulo; ToastSystem registra la función show en él.
+        // Permite mostrar toasts no-bloqueantes desde cualquier hook o helper.
+        const toastRef = { show: null };
+
+        // ─── HOOK RSS ──────────────────────────────────────────────────────────────
+        const useRSS = () => {
+            const [feedUrl, setFeedUrl] = useState(
+                localStorage.getItem('sn_feed') || ''
+            );
+            const [news, setNews] = useState([]);
+            const [loading, setLoading] = useState(false);
+            // AbortController: cancela la petición anterior si el usuario vuelve a cargar
+            const abortRef = useRef(null);
+
+            const fetchNews = async (url) => {
+                if (!url) return;
+                if (abortRef.current) abortRef.current.abort();
+                abortRef.current = new AbortController();
+                setLoading(true);
+                try {
+                    const res = await fetch(
+                        `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`,
+                        { signal: abortRef.current.signal }
+                    );
+                    const data = await res.json();
+                    if (data.status === 'ok') {
+                        setNews(data.items.slice(0, 10));
+                        localStorage.setItem('sn_feed', url);
+                    } else {
+                        toastRef.show?.('Error leyendo RSS. Verifica la URL.', 'error');
+                    }
+                } catch (err) {
+                    if (err.name === 'AbortError') return; // fetch cancelado, ignorar
+                    console.error('RSS fetch error:', err);
+                    toastRef.show?.('Error de conexión al cargar el RSS.', 'error');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // Solo carga automático si hay URL guardada al montar — deps vacías es intencional
+            useEffect(() => {
+                const savedUrl = localStorage.getItem('sn_feed') || '';
+                if (savedUrl) fetchNews(savedUrl);
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, []);
+
+            return { feedUrl, setFeedUrl, news, fetchNews, loading };
+        };
+
+        // ─── HOOK MQTT ENGINE ──────────────────────────────────────────────────────
+        // Un solo engine se instancia según el modo (dashboard u overlay)
+        const useEngine = (mode) => {
+            // Lazy initializer: carga configuración persistida en localStorage
+            const [config, setConfig] = useState(() => {
+                try {
+                    const saved = JSON.parse(localStorage.getItem('sn_v3_config') || '{}');
+                    return {
+                        style:    saved.style     || 'ticker',
+                        activeIndex: 0,
+                        visible:  true,
+                        feedTitle: saved.feedTitle || 'NOTICIAS',
+                        color:    saved.color     || '#ef4444',
+                        speed:    Number(saved.speed)    || 60,
+                        interval: Number(saved.interval) || 10
+                    };
+                } catch {
+                    return { style: 'ticker', activeIndex: 0, visible: true, feedTitle: 'NOTICIAS', color: '#ef4444', speed: 60, interval: 10 };
+                }
+            });
+            const [data, setData] = useState([]);
+            const [status, setStatus] = useState('Desconectado');
+            const client = useRef(null);
+            // dataRef evita que publish tenga 'data' en deps (stale closure)
+            const dataRef = useRef([]);
+            useEffect(() => { dataRef.current = data; }, [data]);
+
+            useEffect(() => {
+                const c = mqtt.connect(
+                    `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}${MQTT_CONFIG.path}`,
+                    {
+                        clientId: `sn_${mode}_${Math.random().toString(16).substr(2, 6)}`,
+                        reconnectPeriod: 3000,
+                        connectTimeout: 10000
+                    }
+                );
+
+                c.on('connect', () => {
+                    setStatus('Online');
+                    if (mode === 'overlay') {
+                        c.subscribe(`sc_news/${SESSION_ID}`);
+                    }
+                });
+
+                c.on('reconnect', () => setStatus('Reconectando…'));
+                c.on('offline',   () => setStatus('Sin conexión'));
+                c.on('error',     () => setStatus('Error MQTT'));
+
+                c.on('message', (_topic, msg) => {
+                    if (mode === 'overlay') {
+                        try {
+                            const payload = JSON.parse(msg.toString());
+                            setConfig(payload.config);
+                            setData(payload.data);
+                        } catch { /* mensaje malformado, ignorar */ }
+                    }
+                });
+
+                client.current = c;
+                return () => c.end();
+            }, [mode]);
+
+            const publish = useCallback((newConfig, newData) => {
+                const safeConfig = {
+                    ...newConfig,
+                    speed:    Number(newConfig.speed)    || 60,
+                    interval: Number(newConfig.interval) || 10
+                };
+                setConfig(safeConfig);
+                if (newData !== null) setData(newData);
+
+                // Persistir configuración (activeIndex y visible son estados efímeros)
+                try {
+                    const { activeIndex, visible, ...persistable } = safeConfig;
+                    localStorage.setItem('sn_v3_config', JSON.stringify(persistable));
+                } catch {}
+
+                if (client.current?.connected) {
+                    client.current.publish(
+                        `sc_news/${SESSION_ID}`,
+                        // dataRef.current evita stale closure sin poner data en deps
+                        JSON.stringify({ config: safeConfig, data: newData !== null ? newData : dataRef.current }),
+                        { retain: true }
+                    );
+                }
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, []);
+
+            return { config, data, publish, status };
+        };
+
+        // ─── HELPER: formateo seguro de fechas ─────────────────────────────────────
+        const formatTime = (dateStr) => {
+            const d = new Date(dateStr);
+            return isNaN(d.getTime()) ? '--:--' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        };
+
+        // ─── OVERLAY ───────────────────────────────────────────────────────────────
+        // El componente NewsOverlay no recibe status — el indicador offline lo gestiona
+        // OverlayRoot para mantener NewsOverlay puro y facilitar el key trick.
+        const NewsOverlay = ({ config, news }) => {
+            if (!config.visible) return null;
+
+            const displayNews = news.length > 0
+                ? news
+                : [{ title: 'CARGANDO NOTICIAS…', pubDate: new Date().toISOString(), guid: 'loading' }];
+
+            const themeColor = config.color || '#ef4444';
+            const speedSecs = `${Number(config.speed) || 60}s`;
+
+            // 1. TICKER — dos segmentos idénticos + translateX(-50%) para loop perfecto
+            if (config.style === 'ticker') {
+                const text = displayNews.map(n => `🔴 ${n.title}`).join('      ');
+                return (
+                    <div className="news-ticker" style={{ borderTopColor: themeColor }}>
+                        <div className="ticker-label" style={{ backgroundColor: themeColor }}>
+                            {config.feedTitle || 'NOTICIAS'}
+                        </div>
+                        <div className="ticker-content">
+                            <div
+                                className="ticker-track"
+                                style={{ '--ticker-duration': speedSecs }}
+                            >
+                                <span className="ticker-segment">{text}</span>
+                                <span className="ticker-segment" aria-hidden="true">{text}</span>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // 2. CARD
+            if (config.style === 'card') {
+                const item = displayNews[config.activeIndex % displayNews.length] || displayNews[0];
+                const imgMatch = item.description?.match(/src="([^"]+)"/);
+                const image = item.enclosure?.link || item.thumbnail
+                    || (imgMatch ? imgMatch[1] : 'https://placehold.co/600x400?text=NEWS');
+
+                return (
+                    <div className="news-card" style={{ borderLeftColor: themeColor }}>
+                        <img
+                            src={image}
+                            className="card-img"
+                            onError={e => e.target.style.display = 'none'}
+                            style={{ borderBottomColor: themeColor }}
+                            alt=""
+                        />
+                        <div className="card-body">
+                            <div className="card-source" style={{ color: themeColor }}>{config.feedTitle}</div>
+                            <div className="card-title">{item.title}</div>
+                            <div className="card-date">{formatTime(item.pubDate)}</div>
+                        </div>
+                        <div className="card-progress">
+                            <div className="card-bar" style={{ backgroundColor: themeColor }} />
+                        </div>
+                    </div>
+                );
+            }
+
+            // 3. SIDEBAR
+            if (config.style === 'sidebar') {
+                return (
+                    <div className="news-sidebar">
+                        <div className="sb-header" style={{ backgroundColor: themeColor }}>
+                            {config.feedTitle}
+                        </div>
+                        {displayNews.slice(0, 4).map((item, i) => (
+                            <div
+                                key={item.guid || item.link || i}
+                                className={`sb-item ${i === config.activeIndex ? 'active' : ''}`}
+                                style={i === config.activeIndex
+                                    ? { borderColor: themeColor, borderLeftColor: themeColor }
+                                    : {}
+                                }
+                            >
+                                <div className="sb-title">{item.title}</div>
+                                <div className="sb-time">{formatTime(item.pubDate)}</div>
+                            </div>
+                        ))}
+                    </div>
+                );
+            }
+
+            return null;
+        };
+
+        // ─── DASHBOARD ─────────────────────────────────────────────────────────────
+        const Dashboard = ({ config, update, status }) => {
+            const { feedUrl, setFeedUrl, news, fetchNews, loading } = useRSS();
+            // feedName se inicializa desde config persistido (cargado lazily en useEngine)
+            const [feedName, setFeedName] = useState(config.feedTitle || 'ULTIMO MOMENTO');
+            const [copied, setCopied] = useState(false);
+            const [titleSaved, setTitleSaved] = useState(false);
+            const [autoRefresh, setAutoRefresh] = useState(false);
+
+            // Ref para leer config actualizado en efectos (evita stale closures)
+            const configRef = useRef(config);
+            useEffect(() => { configRef.current = config; }, [config]);
+
+            // Ref para feedUrl en auto-refresh (sin causar reset del interval)
+            const feedUrlRef = useRef(feedUrl);
+            useEffect(() => { feedUrlRef.current = feedUrl; }, [feedUrl]);
+
+            // Auto-avance de noticias con intervalo configurable
+            useEffect(() => {
+                if (config.style === 'ticker' || !config.visible) return;
+                const len = news.length > 0 ? news.length : 1;
+                const intervalMs = (Number(config.interval) || 10) * 1000;
+                const timer = setInterval(() => {
+                    update({ ...configRef.current, activeIndex: (configRef.current.activeIndex + 1) % len }, null);
+                }, intervalMs);
+                return () => clearInterval(timer);
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, [config.style, config.visible, config.interval, news.length]);
+
+            // Auto-refresh RSS (cada 5 minutos cuando está activo)
+            useEffect(() => {
+                if (!autoRefresh) return;
+                const timer = setInterval(() => {
+                    if (feedUrlRef.current) fetchNews(feedUrlRef.current);
+                }, 5 * 60 * 1000);
+                return () => clearInterval(timer);
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, [autoRefresh]);
+
+            // Publicar noticias cuando se carga un feed nuevo
+            useEffect(() => {
+                if (news.length === 0) return;
+                update({ ...configRef.current, feedTitle: feedName }, news);
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            }, [news]);
+
+            const obsUrl = `${window.location.origin}${window.location.pathname}?mode=overlay&id=${SESSION_ID}`;
+            const statusColor = status === 'Online' ? '#22c55e' : status.startsWith('Recon') ? '#f59e0b' : '#ef4444';
+
+            return (
+                <div className="container">
+                    <div style={{ textAlign: 'center', marginBottom: 30 }}>
+                        <h1 style={{ fontSize: '2rem', fontWeight: 900, marginBottom: 5 }}>
+                            STREAM<span style={{ color: config.color }}>NEWS</span> V3
+                        </h1>
+                        <p style={{ color: '#888', fontSize: '0.8rem' }}>
+                            RSS FEED READER •{' '}
+                            <span style={{ color: statusColor, fontWeight: 'bold' }}>{status.toUpperCase()}</span>
+                        </p>
+                    </div>
+
+                    <div className="glass-panel">
+
+                        {/* Advertencia broker público */}
+                        <div className="broker-warning">
+                            ⚠️ <strong>BROKER PÚBLICO:</strong> broker.emqx.io es compartido. Cualquiera con tu
+                            Session ID <code style={{ background: '#1e293b', padding: '1px 4px', borderRadius: 3 }}>{SESSION_ID}</code>{' '}
+                            puede enviar mensajes al overlay. Para producción, configura un broker privado con autenticación.
+                        </div>
+
+                        {/* CONFIGURACIÓN RSS */}
+                        <div style={{ background: '#0f172a', padding: 15, borderRadius: 8, border: '1px solid #334155', marginBottom: 20 }}>
+                            <label style={{ fontSize: 12, fontWeight: 'bold', color: '#94a3b8', display: 'block', marginBottom: 5 }}>FUENTE RSS</label>
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                <input
+                                    className="input-field"
+                                    value={feedUrl}
+                                    onChange={e => setFeedUrl(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && fetchNews(feedUrl)}
+                                    placeholder="https://feeds.elpais.com/mr/elpais/EM/cl/portada.xml"
+                                    style={{ marginBottom: 0, flex: 3 }}
+                                />
+                                <button
+                                    className="btn"
+                                    style={{ width: 'auto', marginBottom: 0, flex: 1, backgroundColor: config.color }}
+                                    onClick={() => fetchNews(feedUrl)}
+                                    disabled={loading || !feedUrl}
+                                >
+                                    {loading ? '…' : 'CARGAR'}
+                                </button>
+                            </div>
+                            <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                                <input
+                                    className="input-field"
+                                    value={feedName}
+                                    onChange={e => setFeedName(e.target.value)}
+                                    placeholder="Nombre del feed (ej: CNN)"
+                                    style={{ marginBottom: 0, flex: 3 }}
+                                />
+                                <button
+                                    className="btn"
+                                    style={{ width: 'auto', marginBottom: 0, flex: 1, backgroundColor: titleSaved ? '#16a34a' : '#334155', transition: '0.3s' }}
+                                    onClick={() => {
+                                        update({ ...config, feedTitle: feedName }, null);
+                                        setTitleSaved(true);
+                                        setTimeout(() => setTitleSaved(false), 2000);
+                                    }}
+                                >
+                                    {titleSaved ? '✓ GUARDADO' : 'ACTUALIZAR TÍTULO'}
+                                </button>
+                            </div>
+                            {/* AUTO-REFRESH TOGGLE */}
+                            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                <button
+                                    className="btn"
+                                    style={{ width: 'auto', padding: '6px 14px', fontSize: 10, backgroundColor: autoRefresh ? '#16a34a' : '#334155', transition: '0.3s' }}
+                                    onClick={() => setAutoRefresh(v => !v)}
+                                >
+                                    🔄 AUTO-REFRESH {autoRefresh ? 'ON' : 'OFF'}
+                                </button>
+                                <span style={{ fontSize: 10, color: autoRefresh ? '#16a34a' : '#475569', fontStyle: 'italic' }}>
+                                    {autoRefresh ? '● Actualizando feed cada 5 minutos' : 'Activar para refrescar el feed automáticamente'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* PERSONALIZACIÓN */}
+                        <div style={{ display: 'flex', gap: 15, marginBottom: 20, flexWrap: 'wrap' }}>
+                            <div style={{ flex: 1, minWidth: 120 }}>
+                                <label style={{ fontSize: 12, fontWeight: 'bold', color: '#94a3b8', display: 'block', marginBottom: 5 }}>COLOR DEL TEMA</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <input
+                                        type="color"
+                                        value={config.color || '#ef4444'}
+                                        onChange={e => update({ ...config, color: e.target.value }, null)}
+                                        style={{ height: 40, width: 60, cursor: 'pointer' }}
+                                    />
+                                    <span style={{ fontSize: 12, color: '#ccc' }}>{config.color || '#ef4444'}</span>
+                                </div>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 120 }}>
+                                <label style={{ fontSize: 12, fontWeight: 'bold', color: '#94a3b8', display: 'block', marginBottom: 5 }}>VELOCIDAD (TICKER)</label>
+                                <input
+                                    type="range" min="20" max="200"
+                                    value={Number(config.speed) || 60}
+                                    onChange={e => update({ ...config, speed: Number(e.target.value) }, null)}
+                                    style={{ width: '100%' }}
+                                />
+                                <div style={{ fontSize: 10, color: '#ccc', textAlign: 'right' }}>
+                                    {Number(config.speed) || 60}s — {Number(config.speed) <= 60 ? 'Rápido' : Number(config.speed) <= 120 ? 'Normal' : 'Lento'}
+                                </div>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 140 }}>
+                                <label style={{ fontSize: 12, fontWeight: 'bold', color: '#94a3b8', display: 'block', marginBottom: 5 }}>TIEMPO POR NOTICIA (CARD/LATERAL)</label>
+                                <input
+                                    type="range" min="5" max="60"
+                                    value={Number(config.interval) || 10}
+                                    onChange={e => update({ ...config, interval: Number(e.target.value) }, null)}
+                                    style={{ width: '100%' }}
+                                />
+                                <div style={{ fontSize: 10, color: '#ccc', textAlign: 'right' }}>
+                                    {Number(config.interval) || 10}s por noticia
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ESTILO */}
+                        <label style={{ fontSize: 12, fontWeight: 'bold', color: '#94a3b8', display: 'block', marginBottom: 5 }}>FORMATO VISUAL</label>
+                        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+                            {['ticker', 'card', 'sidebar'].map(style => (
+                                <button
+                                    key={style}
+                                    className="btn"
+                                    style={{ backgroundColor: config.style === style ? config.color : '#334155' }}
+                                    onClick={() => update({ ...config, style }, null)}
+                                >
+                                    {{ ticker: 'CINTA (TICKER)', card: 'TARJETA (CARD)', sidebar: 'LATERAL (LISTA)' }[style]}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* ACCIONES */}
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <button
+                                className="btn"
+                                style={{ backgroundColor: config.visible ? '#334155' : '#7f1d1d' }}
+                                onClick={() => update({ ...config, visible: !config.visible }, null)}
+                            >
+                                {config.visible ? 'OCULTAR OVERLAY' : '▶ MOSTRAR OVERLAY'}
+                            </button>
+                            {config.style !== 'ticker' && (
+                                <button
+                                    className="btn"
+                                    disabled={news.length === 0}
+                                    onClick={() => update({ ...config, activeIndex: (config.activeIndex + 1) % news.length }, null)}
+                                >
+                                    SIGUIENTE NOTICIA >
+                                </button>
+                            )}
+                        </div>
+
+                        {/* PREVIEW NOTICIAS */}
+                        <div style={{ marginTop: 20, maxHeight: 200, overflowY: 'auto', background: '#0f172a', padding: 10, borderRadius: 6 }}>
+                            <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 5, display: 'flex', justifyContent: 'space-between' }}>
+                                <span>NOTICIAS CARGADAS ({news.length})</span>
+                                {autoRefresh && <span style={{ color: '#16a34a' }}>● AUTO-REFRESH ACTIVO</span>}
+                            </div>
+                            {news.length === 0 && (
+                                <div style={{ fontSize: 12, color: '#475569', fontStyle: 'italic' }}>
+                                    Ingresa una URL RSS y presiona CARGAR o Enter.
+                                </div>
+                            )}
+                            {news.map((n, i) => (
+                                <div
+                                    key={n.guid || n.link || i}
+                                    style={{
+                                        fontSize: 12,
+                                        padding: '5px 0',
+                                        borderBottom: '1px solid #334155',
+                                        color: i === config.activeIndex && config.style !== 'ticker' ? config.color : 'white'
+                                    }}
+                                >
+                                    {i === config.activeIndex && config.style !== 'ticker' ? '▶ ' : ''}{n.title}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* URL OVERLAY */}
+                        <div style={{ marginTop: 20, paddingTop: 15, borderTop: '1px solid #334155' }}>
+                            <label style={{ fontSize: 10, color: '#94a3b8', display: 'block', marginBottom: 6 }}>
+                                URL PARA OBS / STREAMLABS (Browser Source):
+                            </label>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                                <code style={{ fontSize: 10, color: '#cbd5e1', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 10 }}>
+                                    {obsUrl}
+                                </code>
+                                <button
+                                    className="btn"
+                                    style={{ padding: '4px 8px', fontSize: 10, width: 'auto', backgroundColor: copied ? '#16a34a' : config.color, transition: '0.3s' }}
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(obsUrl)
+                                            .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })
+                                            .catch(() => toastRef.show?.('No se pudo copiar. Selecciona la URL y usa Ctrl+C.', 'warning'));
+                                    }}
+                                >
+                                    {copied ? '✓ COPIADO!' : 'COPIAR URL'}
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            );
+        };
+
+        // ─── TOAST SYSTEM ──────────────────────────────────────────────────────────
+        // Reemplaza todos los alert() por notificaciones no bloqueantes
+        const ToastSystem = () => {
+            const [toasts, setToasts] = useState([]);
+
+            useEffect(() => {
+                toastRef.show = (msg, type = 'info') => {
+                    const id = Date.now();
+                    setToasts(prev => [...prev, { id, msg, type }]);
+                    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+                };
+                return () => { toastRef.show = null; };
+            }, []);
+
+            if (toasts.length === 0) return null;
+            const icons = { success: '✓', error: '✗', warning: '⚠', info: 'ℹ' };
+
+            return (
+                <div className="toast-container">
+                    {toasts.map(t => (
+                        <div key={t.id} className={`toast ${t.type}`}>
+                            <span style={{ fontWeight: 900, flexShrink: 0 }}>{icons[t.type] || 'ℹ'}</span>
+                            <span>{t.msg}</span>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        // ─── APP ROOT ──────────────────────────────────────────────────────────────
+        // Un solo engine se instancia según el modo (no dos simultáneos)
+        const App = () => {
+            const [mode, setMode] = useState(null);
+
+            useEffect(() => {
+                const p = new URLSearchParams(window.location.search);
+                const m = p.get('mode') === 'overlay' ? 'overlay' : 'dashboard';
+                setMode(m);
+                if (m === 'overlay') {
+                    document.body.classList.add('overlay-mode');
+                    document.body.classList.remove('dashboard-mode');
+                } else {
+                    document.body.classList.add('dashboard-mode');
+                    document.body.classList.remove('overlay-mode');
+                }
+            }, []);
+
+            if (!mode) return null;
+
+            return (
+                <React.Fragment>
+                    <ToastSystem />
+                    {mode === 'overlay' ? <OverlayRoot /> : <DashboardRoot />}
+                </React.Fragment>
+            );
+        };
+
+        // Wrapper overlay — tiene su propio engine 'overlay'
+        const OverlayRoot = () => {
+            const engine = useEngine('overlay');
+            // En modo card: key cambia con activeIndex → fuerza re-mount de NewsOverlay
+            // → reinicia la animación CSS card-bar en cada cambio de noticia
+            const overlayKey = engine.config.style === 'card'
+                ? `card-${engine.config.activeIndex}`
+                : engine.config.style;
+            return (
+                <React.Fragment>
+                    {engine.status !== 'Online' && (
+                        <div className="mqtt-offline" title={`MQTT: ${engine.status}`} />
+                    )}
+                    <NewsOverlay key={overlayKey} config={engine.config} news={engine.data} />
+                </React.Fragment>
+            );
+        };
+
+        // Wrapper dashboard — tiene su propio engine 'dashboard'
+        const DashboardRoot = () => {
+            const engine = useEngine('dashboard');
+            return <Dashboard config={engine.config} update={engine.publish} status={engine.status} />;
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
