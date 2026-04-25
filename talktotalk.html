@@ -256,7 +256,12 @@
             text-align: center;
             background: radial-gradient(circle at top, #1e293b 0%, #000 100%);
             position: relative;
+            transition: box-shadow 0.2s ease-in-out;
         }
+
+        .director-layout.speaking { box-shadow: inset 0 0 50px rgba(239, 68, 68, 0.8); }
+        .crew-layout.speaking { box-shadow: inset 0 0 50px rgba(34, 197, 94, 0.8); }
+        .crew-layout.receiving { box-shadow: inset 0 0 50px rgba(239, 68, 68, 0.8); }
 
         .status-ring {
             width: 120px;
@@ -648,7 +653,7 @@
             }
 
             return (
-                <div className="director-layout relative">
+                <div className={`director-layout relative ${!micMuted ? 'speaking' : ''}`}>
                     {isOffline && (
                         <div className="absolute top-0 left-0 w-full h-full bg-red-900/90 z-50 flex flex-col items-center justify-center">
                             <h1 className="text-4xl font-black text-white mb-2">⚠ SIN CONEXIÓN</h1>
@@ -722,6 +727,7 @@
                                 <div className="flex justify-between items-center w-full">
                                     <div className="flex items-center gap-2">
                                         <span>📱 {crew.name}</span>
+                                        {crewData[crew.id]?.bat !== undefined && <span className="text-[10px] text-gray-400 font-bold">🔋 {crewData[crew.id].bat}%</span>}
                                         {talkingStates[crew.id] && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">HABLANDO</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -769,6 +775,21 @@
             const incomingAudioRef = useRef(null);
             const animRef = useRef(null);
             const reconnectTimer = useRef(null);
+            const backoffRef = useRef(1000);
+            const [networkQoS, setNetworkQoS] = useState('excelente');
+
+            const isDirectorTalking = vuLevel > 10;
+            const wasTalking = useRef(false);
+
+            useEffect(() => {
+                if (isDirectorTalking && !wasTalking.current) {
+                    if (navigator.vibrate) navigator.vibrate([150, 100, 150]);
+                    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                        new Notification("STREAMTALK V9", { body: "El director está hablando a tu canal." });
+                    }
+                }
+                wasTalking.current = isDirectorTalking;
+            }, [isDirectorTalking]);
 
             // --- WAKE LOCK IMPLACABLE (Mantiene la pantalla encendida eternamente) ---
             useEffect(() => {
@@ -849,11 +870,20 @@
 
                         conn.on('open', () => {
                             setStatus('Conectado. Esperando ruteo...');
+                            if (window.screen && screen.orientation && screen.orientation.lock) {
+                                screen.orientation.lock('portrait').catch(e => {});
+                            }
                             lastPongTime = Date.now();
                             if(pingTimerRef.current) clearInterval(pingTimerRef.current);
                             pingTimerRef.current = setInterval(() => {
                                 if (conn && conn.open) {
-                                    conn.send({ type: 'PING' });
+                                    if (navigator.getBattery) {
+                                        navigator.getBattery().then(b => {
+                                            conn.send({ type: 'PING', bat: Math.round(b.level * 100) });
+                                        }).catch(() => conn.send({ type: 'PING' }));
+                                    } else {
+                                        conn.send({ type: 'PING' });
+                                    }
                                     if (Date.now() - lastPongTime > 12000) {
                                         if(pingTimerRef.current) clearInterval(pingTimerRef.current);
                                         scheduleReconnect('Heartbeat perdido. Reconectando...');
@@ -888,6 +918,25 @@
                                 incomingAudioRef.current.play().catch(e => console.error("Autoplay bloqueado", e));
                             }
 
+                            backoffRef.current = 1000;
+                            if (call.peerConnection) {
+                                call.qosTimer = setInterval(async () => {
+                                    if(!call.peerConnection) return;
+                                    try {
+                                        const stats = await call.peerConnection.getStats();
+                                        stats.forEach(report => {
+                                            if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+                                                const pl = report.packetsLost || 0;
+                                                const j = report.jitter || 0;
+                                                if (j > 0.05 || (pl - (call._lastPl || 0)) > 5) setNetworkQoS('degradada');
+                                                else setNetworkQoS('excelente');
+                                                call._lastPl = pl;
+                                            }
+                                        });
+                                    } catch(e) {}
+                                }, 2500);
+                            }
+
                             try {
                                 if (animRef.current) cancelAnimationFrame(animRef.current);
                                 const audioCtx = window._globalAudioCtx;
@@ -910,6 +959,7 @@
                         call.on('close', () => {
                             setReceiving(false);
                             if (animRef.current) cancelAnimationFrame(animRef.current);
+                            if (call.qosTimer) clearInterval(call.qosTimer);
                             scheduleReconnect('Llamada finalizada.');
                         });
                     });
@@ -920,7 +970,14 @@
                 const scheduleReconnect = (msg) => {
                     setStatus(msg); setReceiving(false);
                     if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-                    reconnectTimer.current = setTimeout(connectToDirector, 3000);
+                    
+                    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                        new Notification("STREAMTALK V9", { body: "Señal perdida. Reconectando al Director..." });
+                    }
+
+                    const nextDelay = backoffRef.current + (Math.random() * 500);
+                    reconnectTimer.current = setTimeout(connectToDirector, nextDelay);
+                    backoffRef.current = Math.min(backoffRef.current * 2, 8000);
                 };
 
                 const handleOnline = () => scheduleReconnect('Red detectada. Reconectando...');
@@ -1084,11 +1141,20 @@
                 const m = params.get('mode');
                 const r = params.get('room');
 
+                const savedRoom = localStorage.getItem('st_roomName');
+                const savedCrew = localStorage.getItem('st_crewName');
+
                 if (r) setRoomName(r);
-                else setRoomName(Math.random().toString(36).substring(2, 6).toUpperCase());
+                else setRoomName(savedRoom || Math.random().toString(36).substring(2, 6).toUpperCase());
+
+                if (savedCrew) setTempInput(savedCrew);
 
                 if (m === 'director') setMode('director');
                 else if (m === 'crew') setMode('crew-setup');
+
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission().catch(()=>{});
+                }
             }, []);
 
             const enterAsDirector = () => {
@@ -1101,7 +1167,10 @@
 
             const submitCrewName = (name) => {
                 if (!name.trim()) return alert("Debes ingresar un nombre o rol.");
-                setCrewName(name.trim().toUpperCase());
+                const upperName = name.trim().toUpperCase();
+                localStorage.setItem('st_crewName', upperName);
+                localStorage.setItem('st_roomName', roomName);
+                setCrewName(upperName);
                 setMode('crew-active');
             };
 
