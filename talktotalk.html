@@ -443,6 +443,7 @@
             const [crewList, setCrewList] = useState([]);
             const [partyline, setPartyline] = useState(false);
             const [volumes, setVolumes] = useState({});
+            const [crewData, setCrewData] = useState({});
 
             const [targets, setTargets] = useState(['TODOS']);
             const [dynamicRoles, setDynamicRoles] = useState([]);
@@ -559,6 +560,9 @@
                             }
                             if (data.type === 'PING') {
                                 conn.send({ type: 'PONG' });
+                                if (data.bat !== undefined) {
+                                    setCrewData(prev => ({ ...prev, [conn.peer]: { ...prev[conn.peer], bat: data.bat } }));
+                                }
                             }
                         });
 
