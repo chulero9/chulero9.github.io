@@ -436,6 +436,8 @@
                 };
             }, []);
             const [crewList, setCrewList] = useState([]);
+            const [partyline, setPartyline] = useState(false);
+            const [volumes, setVolumes] = useState({});
 
             const [targets, setTargets] = useState(['TODOS']);
             const [dynamicRoles, setDynamicRoles] = useState([]);
@@ -449,6 +451,24 @@
 
             const audioStreamsRef = useRef({});
             const [talkingStates, setTalkingStates] = useState({});
+
+            const directorAudioCtx = useRef(null);
+            const outMixDest = useRef(null);
+            const dirMicSource = useRef(null);
+            const crewAudioSources = useRef({});
+
+            useEffect(() => {
+                if (!directorAudioCtx.current) return;
+                Object.keys(activePeers.current).forEach(peerId => {
+                    const srcNode = crewAudioSources.current[peerId];
+                    if (srcNode) {
+                        try { srcNode.disconnect(outMixDest.current); } catch (e) { }
+                        if (partyline && talkingStates[peerId]) {
+                            srcNode.connect(outMixDest.current);
+                        }
+                    }
+                });
+            }, [partyline, talkingStates]);
 
             useEffect(() => {
                 navigator.mediaDevices.getUserMedia({ audio: true }).then((tempStream) => {
@@ -503,6 +523,16 @@
                     baseStream.current = stream;
                     setIsSystemActive(true);
 
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (!directorAudioCtx.current) directorAudioCtx.current = new AudioContextClass();
+                    if (!outMixDest.current) outMixDest.current = directorAudioCtx.current.createMediaStreamDestination();
+                    
+                    if (dirMicSource.current) {
+                        try { dirMicSource.current.disconnect(); } catch(e) {}
+                    }
+                    dirMicSource.current = directorAudioCtx.current.createMediaStreamSource(stream);
+                    dirMicSource.current.connect(outMixDest.current);
+
                     const directorId = `st_dir_${roomName.replace(/\s+/g, '').toUpperCase()}`;
 
                     if (peer.current) peer.current.destroy();
@@ -530,7 +560,7 @@
                         conn.on('open', () => {
                             if (!baseStream.current) return;
 
-                            const clonedTrack = baseStream.current.getAudioTracks()[0].clone();
+                            const clonedTrack = outMixDest.current.stream.getAudioTracks()[0].clone();
                             clonedTrack.enabled = false;
                             const customStream = new MediaStream([clonedTrack]);
 
@@ -542,6 +572,10 @@
                             call.on('stream', (crewStream) => {
                                 audioStreamsRef.current[conn.peer] = crewStream;
                                 setTalkingStates(prev => ({ ...prev, [conn.peer]: false }));
+
+                                if (directorAudioCtx.current && !crewAudioSources.current[conn.peer]) {
+                                    crewAudioSources.current[conn.peer] = directorAudioCtx.current.createMediaStreamSource(crewStream);
+                                }
                             });
 
                             call.on('close', () => removePeer(conn.peer));
@@ -562,6 +596,10 @@
             };
 
             const removePeer = (id) => {
+                if (crewAudioSources.current[id]) {
+                    try { crewAudioSources.current[id].disconnect(); } catch (e) { }
+                    delete crewAudioSources.current[id];
+                }
                 if (activePeers.current[id]) {
                     if (activePeers.current[id].track) activePeers.current[id].track.stop();
                     delete activePeers.current[id];
@@ -625,8 +663,11 @@
                                 autoPlay
                                 playsInline
                                 ref={el => {
-                                    if (el && audioStreamsRef.current[peerId] && el.srcObject !== audioStreamsRef.current[peerId]) {
-                                        el.srcObject = audioStreamsRef.current[peerId];
+                                    if (el) {
+                                        if (audioStreamsRef.current[peerId] && el.srcObject !== audioStreamsRef.current[peerId]) {
+                                            el.srcObject = audioStreamsRef.current[peerId];
+                                        }
+                                        el.volume = volumes[peerId] !== undefined ? volumes[peerId] : 1;
                                     }
                                 }}
                                 muted={!talkingStates[peerId]}
@@ -644,8 +685,12 @@
                         </button>
                     </div>
 
-                    <div className="px-4 pt-3 pb-1">
+                    <div className="px-4 pt-3 pb-1 flex justify-between items-center">
                         <label className="text-[10px] font-bold text-gray-500">DESTINOS DE AUDIO (RUTEO)</label>
+                        <button className={`text-[10px] font-bold px-2 py-1 rounded ${partyline ? 'bg-purple-600 text-white shadow-[0_0_10px_#9333ea]' : 'bg-gray-800 text-gray-400'}`} 
+                                onClick={() => setPartyline(!partyline)}>
+                            {partyline ? '🔥 PARTY MIX ON' : '🎧 PARTY MIX OFF'}
+                        </button>
                     </div>
                     <div className="matrix-grid">
                         <button className={`matrix-btn ${targets.includes('TODOS') ? 'all-active' : ''}`} onClick={() => toggleTarget('TODOS')}>
@@ -673,14 +718,29 @@
                         {crewList.length === 0 && <div className="text-sm text-gray-600 italic">Esperando que el equipo se una...</div>}
 
                         {crewList.map(crew => (
-                            <div key={crew.id} className={`crew-item ${crew.receiving ? 'receiving' : ''}`}>
-                                <div className="flex items-center gap-2">
-                                    <span>📱 {crew.name}</span>
-                                    {talkingStates[crew.id] && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">HABLANDO</span>}
+                            <div key={crew.id} className={`crew-item flex-col items-start ${crew.receiving ? 'receiving' : ''}`}>
+                                <div className="flex justify-between items-center w-full">
+                                    <div className="flex items-center gap-2">
+                                        <span>📱 {crew.name}</span>
+                                        {talkingStates[crew.id] && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">HABLANDO</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button className="bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded transition-colors"
+                                                onClick={() => activePeers.current[crew.id]?.conn.send({ type: 'TALLY' })}>
+                                            [ ALERTA ]
+                                        </button>
+                                        <span className={crew.receiving ? "text-red-400 text-xs animate-pulse" : "text-gray-500 text-xs"}>
+                                            {crew.receiving ? 'Director Hablando' : 'En espera'}
+                                        </span>
+                                    </div>
                                 </div>
-                                <span className={crew.receiving ? "text-red-400 text-xs animate-pulse" : "text-gray-500 text-xs"}>
-                                    {crew.receiving ? 'Director Hablando' : 'En espera'}
-                                </span>
+                                <div className="w-full flex items-center gap-2 mt-2">
+                                    <span className="text-[10px] text-gray-400 font-bold">VOL</span>
+                                    <input type="range" className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer" 
+                                        min="0" max="1" step="0.05" 
+                                        value={volumes[crew.id] !== undefined ? volumes[crew.id] : 1} 
+                                        onChange={e => setVolumes(prev => ({...prev, [crew.id]: parseFloat(e.target.value)}))} />
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -696,6 +756,7 @@
             const [vuLevel, setVuLevel] = useState(0);
             const [isTalking, setIsTalking] = useState(false);
             const [pocketMode, setPocketMode] = useState(false);
+            const [tally, setTally] = useState(false);
 
             const [audioDevices, setAudioDevices] = useState([]);
             const [selectedAudio, setSelectedAudio] = useState('');
@@ -803,6 +864,11 @@
                         
                         conn.on('data', (data) => {
                             if (data && data.type === 'PONG') lastPongTime = Date.now();
+                            if (data && data.type === 'TALLY') {
+                                setTally(true);
+                                if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+                                setTimeout(() => setTally(false), 2500);
+                            }
                         });
 
                         conn.on('error', () => scheduleReconnect('Error de datos.'));
@@ -876,7 +942,7 @@
             }, [joined, roomName, crewName, selectedAudio]);
 
             const startTalk = (e) => {
-                e.preventDefault();
+                if (e && e.preventDefault) e.preventDefault();
                 setIsTalking(true);
                 if (dataConnRef.current && dataConnRef.current.open) {
                     dataConnRef.current.send({ type: 'PTT', state: true });
@@ -885,12 +951,30 @@
             };
 
             const stopTalk = (e) => {
-                e.preventDefault();
+                if (e && e.preventDefault) e.preventDefault();
                 setIsTalking(false);
                 if (dataConnRef.current && dataConnRef.current.open) {
                     dataConnRef.current.send({ type: 'PTT', state: false });
                 }
             };
+
+            useEffect(() => {
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({ title: 'StreamTalk PTT', artist: 'Crew' });
+                    navigator.mediaSession.setActionHandler('play', () => startTalk());
+                    navigator.mediaSession.setActionHandler('pause', () => stopTalk());
+                }
+                return () => {
+                    if ('mediaSession' in navigator) {
+                        navigator.mediaSession.setActionHandler('play', null);
+                        navigator.mediaSession.setActionHandler('pause', null);
+                    }
+                }
+            }, []);
+
+            useEffect(() => {
+                if (incomingAudioRef.current) incomingAudioRef.current.muted = isTalking;
+            }, [isTalking]);
 
             const handleJoin = () => {
                 if (!window._globalAudioCtx) {
@@ -910,6 +994,7 @@
 
             return (
                 <div style={{ width: '100%', height: '100%' }}>
+                    {tally && <div className="absolute top-0 left-0 w-full h-full bg-red-600 z-[9999] animate-ping opacity-80 pointer-events-none"></div>}
                     <audio ref={incomingAudioRef} autoPlay playsInline style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}></audio>
 
                     {/* --- POCKET MODE OVERLAY --- */}
