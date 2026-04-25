@@ -783,10 +783,12 @@
 
             useEffect(() => {
                 if (isDirectorTalking && !wasTalking.current) {
-                    if (navigator.vibrate) navigator.vibrate([150, 100, 150]);
-                    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-                        new Notification("STREAMTALK V9", { body: "El director está hablando a tu canal." });
-                    }
+                    try { if (navigator.vibrate) navigator.vibrate([150, 100, 150]); } catch(e) {}
+                    try {
+                        if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                            new Notification("STREAMTALK V9", { body: "El director está hablando a tu canal." });
+                        }
+                    } catch(e) {}
                 }
                 wasTalking.current = isDirectorTalking;
             }, [isDirectorTalking]);
@@ -896,7 +898,7 @@
                             if (data && data.type === 'PONG') lastPongTime = Date.now();
                             if (data && data.type === 'TALLY') {
                                 setTally(true);
-                                if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+                                try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]); } catch(e) {}
                                 setTimeout(() => setTally(false), 2500);
                             }
                         });
@@ -971,9 +973,11 @@
                     setStatus(msg); setReceiving(false);
                     if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
                     
-                    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-                        new Notification("STREAMTALK V9", { body: "Señal perdida. Reconectando al Director..." });
-                    }
+                    try {
+                        if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                            new Notification("STREAMTALK V9", { body: "Señal perdida. Reconectando al Director..." });
+                        }
+                    } catch(e) {}
 
                     const nextDelay = backoffRef.current + (Math.random() * 500);
                     reconnectTimer.current = setTimeout(connectToDirector, nextDelay);
@@ -1016,16 +1020,21 @@
             };
 
             useEffect(() => {
-                if ('mediaSession' in navigator) {
-                    navigator.mediaSession.metadata = new MediaMetadata({ title: 'StreamTalk PTT', artist: 'Crew' });
-                    navigator.mediaSession.setActionHandler('play', () => startTalk());
-                    navigator.mediaSession.setActionHandler('pause', () => stopTalk());
-                }
-                return () => {
+                try {
                     if ('mediaSession' in navigator) {
-                        navigator.mediaSession.setActionHandler('play', null);
-                        navigator.mediaSession.setActionHandler('pause', null);
+                        navigator.mediaSession.metadata = new MediaMetadata({ title: 'StreamTalk PTT', artist: 'Crew' });
+                        navigator.mediaSession.setActionHandler('play', () => startTalk(null));
+                        navigator.mediaSession.setActionHandler('pause', () => stopTalk(null));
                     }
+                } catch(e) {}
+                
+                return () => {
+                    try {
+                        if ('mediaSession' in navigator) {
+                            navigator.mediaSession.setActionHandler('play', null);
+                            navigator.mediaSession.setActionHandler('pause', null);
+                        }
+                    } catch(e) {}
                 }
             }, []);
 
@@ -1139,8 +1148,11 @@
                 const m = params.get('mode');
                 const r = params.get('room');
 
-                const savedRoom = localStorage.getItem('st_roomName');
-                const savedCrew = localStorage.getItem('st_crewName');
+                let savedRoom = '', savedCrew = '';
+                try {
+                    savedRoom = localStorage.getItem('st_roomName');
+                    savedCrew = localStorage.getItem('st_crewName');
+                } catch(e) {}
 
                 if (r) setRoomName(r);
                 else setRoomName(savedRoom || Math.random().toString(36).substring(2, 6).toUpperCase());
@@ -1150,9 +1162,12 @@
                 if (m === 'director') setMode('director');
                 else if (m === 'crew') setMode('crew-setup');
 
-                if ('Notification' in window && Notification.permission === 'default') {
-                    Notification.requestPermission().catch(()=>{});
-                }
+                try {
+                    if ('Notification' in window && Notification.permission === 'default') {
+                        const p = Notification.requestPermission();
+                        if (p && p.catch) p.catch(()=>{});
+                    }
+                } catch(e) {}
             }, []);
 
             const enterAsDirector = () => {
@@ -1166,8 +1181,12 @@
             const submitCrewName = (name) => {
                 if (!name.trim()) return alert("Debes ingresar un nombre o rol.");
                 const upperName = name.trim().toUpperCase();
-                localStorage.setItem('st_crewName', upperName);
-                localStorage.setItem('st_roomName', roomName);
+                
+                try {
+                    localStorage.setItem('st_crewName', upperName);
+                    localStorage.setItem('st_roomName', roomName);
+                } catch(e) {}
+                
                 setCrewName(upperName);
                 setMode('crew-active');
             };
