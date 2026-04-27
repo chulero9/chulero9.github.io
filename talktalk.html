@@ -461,22 +461,8 @@
             const [talkingStates, setTalkingStates] = useState({});
 
             const directorAudioCtx = useRef(null);
-            const outMixDest = useRef(null);
             const dirMicSource = useRef(null);
             const crewAudioSources = useRef({});
-
-            useEffect(() => {
-                if (!directorAudioCtx.current) return;
-                Object.keys(activePeers.current).forEach(peerId => {
-                    const srcNode = crewAudioSources.current[peerId];
-                    if (srcNode) {
-                        try { srcNode.disconnect(outMixDest.current); } catch (e) { }
-                        if (partyline && talkingStates[peerId]) {
-                            srcNode.connect(outMixDest.current);
-                        }
-                    }
-                });
-            }, [partyline, talkingStates]);
 
             useEffect(() => {
                 navigator.mediaDevices.getUserMedia({ audio: true }).then((tempStream) => {
@@ -495,13 +481,33 @@
             }, []);
 
             const applyAudioRouting = () => {
+                if (!directorAudioCtx.current) return;
                 const currentTargets = targets;
                 const isMasterMuted = micMuted;
 
-                Object.values(activePeers.current).forEach(p => {
-                    if (p.track) {
-                        const isTargeted = currentTargets.includes('TODOS') || currentTargets.includes(p.role);
-                        p.track.enabled = !isMasterMuted && isTargeted;
+                Object.values(activePeers.current).forEach(peerInfo => {
+                    const dest = peerInfo.dest;
+                    if (!dest) return;
+
+                    if (dirMicSource.current) {
+                        try { dirMicSource.current.disconnect(dest); } catch(e){}
+                        const isTargeted = currentTargets.includes('TODOS') || currentTargets.includes(peerInfo.role);
+                        if (!isMasterMuted && isTargeted) {
+                            dirMicSource.current.connect(dest);
+                        }
+                    }
+
+                    Object.keys(crewAudioSources.current).forEach(sourcePeerId => {
+                        const srcNode = crewAudioSources.current[sourcePeerId];
+                        if (!srcNode) return;
+                        try { srcNode.disconnect(dest); } catch(e){}
+                        if (partyline && talkingStates[sourcePeerId] && sourcePeerId !== peerInfo.id) {
+                            srcNode.connect(dest);
+                        }
+                    });
+
+                    if (peerInfo.track) {
+                        peerInfo.track.enabled = true;
                     }
                 });
 
@@ -511,7 +517,7 @@
                 })));
             };
 
-            useEffect(() => { applyAudioRouting(); }, [targets, micMuted]);
+            useEffect(() => { applyAudioRouting(); }, [targets, micMuted, partyline, talkingStates]);
 
             const startDirector = async () => {
                 if (!selectedAudio) return;
@@ -524,22 +530,20 @@
                             noiseSuppression: true,
                             autoGainControl: true,
                             channelCount: 1,
-                            sampleRate: 48000
+                            sampleRate: 48000,
+                            latency: 0
                         }
                     });
 
                     baseStream.current = stream;
                     setIsSystemActive(true);
-
                     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    if (!directorAudioCtx.current) directorAudioCtx.current = new AudioContextClass();
-                    if (!outMixDest.current) outMixDest.current = directorAudioCtx.current.createMediaStreamDestination();
+                    if (!directorAudioCtx.current) directorAudioCtx.current = new AudioContextClass({ latencyHint: 'interactive', sampleRate: 48000 });
 
                     if (dirMicSource.current) {
                         try { dirMicSource.current.disconnect(); } catch (e) { }
                     }
                     dirMicSource.current = directorAudioCtx.current.createMediaStreamSource(stream);
-                    dirMicSource.current.connect(outMixDest.current);
 
                     const directorId = `st_dir_${roomName.replace(/\s+/g, '').toUpperCase()}`;
 
@@ -566,18 +570,27 @@
                                     setCrewData(prev => ({ ...prev, [conn.peer]: { ...prev[conn.peer], bat: data.bat } }));
                                 }
                             }
+                            if (data.type === 'STATS') {
+                                setCrewData(prev => ({ 
+                                    ...prev, 
+                                    [conn.peer]: { 
+                                        ...prev[conn.peer], 
+                                        ...(data.ping !== undefined && { ping: data.ping }),
+                                        ...(data.qos !== undefined && { qos: data.qos })
+                                    } 
+                                }));
+                            }
                         });
 
                         conn.on('open', () => {
                             if (!baseStream.current) return;
 
-                            const clonedTrack = outMixDest.current.stream.getAudioTracks()[0].clone();
-                            clonedTrack.enabled = false;
-                            const customStream = new MediaStream([clonedTrack]);
+                            const peerDest = directorAudioCtx.current.createMediaStreamDestination();
+                            const customStream = peerDest.stream;
 
                             const call = peer.current.call(conn.peer, customStream);
 
-                            activePeers.current[conn.peer] = { id: conn.peer, conn, call, track: clonedTrack, role };
+                            activePeers.current[conn.peer] = { id: conn.peer, conn, call, track: customStream.getAudioTracks()[0], role, dest: peerDest };
                             applyAudioRouting();
 
                             call.on('stream', (crewStream) => {
@@ -734,6 +747,9 @@
                                     <div className="flex items-center gap-2">
                                         <span>📱 {crew.name}</span>
                                         {crewData[crew.id]?.bat !== undefined && <span className="text-[10px] text-gray-400 font-bold">🔋 {crewData[crew.id].bat}%</span>}
+                                        {crewData[crew.id]?.ping !== undefined && <span className="text-[10px] text-blue-400 font-bold">📡 {crewData[crew.id].ping}ms</span>}
+                                        {crewData[crew.id]?.qos === 'MALO' && <span className="text-[10px] text-red-500 font-bold animate-pulse">⚠️ RED MALA</span>}
+                                        {crewData[crew.id]?.qos === 'OK' && <span className="text-[10px] text-green-500 font-bold">✅ SEÑAL</span>}
                                         {talkingStates[crew.id] && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">HABLANDO</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -792,7 +808,7 @@
                     try { if (navigator.vibrate) navigator.vibrate([150, 100, 150]); } catch (e) { }
                     try {
                         if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-                            new Notification("STREAMTALK V9", { body: "El director está hablando a tu canal." });
+                            new Notification("STREAMTALK V9", { body: "Estás recibiendo audio en tu canal." });
                         }
                     } catch (e) { }
                 }
@@ -854,7 +870,8 @@
                                     noiseSuppression: true,
                                     autoGainControl: true,
                                     channelCount: 1,
-                                    sampleRate: 48000
+                                    sampleRate: 48000,
+                                    latency: 0
                                 }
                             });
                             localStreamRef.current = stream;
@@ -875,6 +892,7 @@
                         dataConnRef.current = conn;
 
                         let lastPongTime = Date.now();
+                        let lastPingSent = Date.now();
 
                         conn.on('open', () => {
                             setStatus('Conectado. Esperando ruteo...');
@@ -885,6 +903,7 @@
                             if (pingTimerRef.current) clearInterval(pingTimerRef.current);
                             pingTimerRef.current = setInterval(() => {
                                 if (conn && conn.open) {
+                                    lastPingSent = Date.now();
                                     if (navigator.getBattery) {
                                         navigator.getBattery().then(b => {
                                             conn.send({ type: 'PING', bat: Math.round(b.level * 100) });
@@ -901,7 +920,10 @@
                         });
 
                         conn.on('data', (data) => {
-                            if (data && data.type === 'PONG') lastPongTime = Date.now();
+                            if (data && data.type === 'PONG') {
+                                lastPongTime = Date.now();
+                                conn.send({ type: 'STATS', ping: lastPongTime - lastPingSent });
+                            }
                             if (data && data.type === 'TALLY') {
                                 setTally(true);
                                 try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]); } catch (e) { }
@@ -936,8 +958,11 @@
                                             if (report.type === 'inbound-rtp' && report.kind === 'audio') {
                                                 const pl = report.packetsLost || 0;
                                                 const j = report.jitter || 0;
-                                                if (j > 0.05 || (pl - (call._lastPl || 0)) > 5) setNetworkQoS('degradada');
-                                                else setNetworkQoS('excelente');
+                                                const isPoor = j > 0.05 || (pl - (call._lastPl || 0)) > 5;
+                                                setNetworkQoS(isPoor ? 'degradada' : 'excelente');
+                                                if (dataConnRef.current && dataConnRef.current.open) {
+                                                    dataConnRef.current.send({ type: 'STATS', qos: isPoor ? 'MALO' : 'OK' });
+                                                }
                                                 call._lastPl = pl;
                                             }
                                         });
@@ -1050,7 +1075,7 @@
 
             const handleJoin = () => {
                 if (!window._globalAudioCtx) {
-                    window._globalAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    window._globalAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive', sampleRate: 48000 });
                 }
                 if (window._globalAudioCtx.state === 'suspended') {
                     window._globalAudioCtx.resume();
@@ -1114,7 +1139,7 @@
 
                             <div className="h-6 mb-4">
                                 {isDirectorTalking ? (
-                                    <p className="text-lg font-bold text-red-400 animate-pulse uppercase">Director Hablando...</p>
+                                    <p className="text-lg font-bold text-red-400 animate-pulse uppercase">Recibiendo Audio...</p>
                                 ) : (
                                     receiving && <p className="text-sm font-bold text-[#4945A4] uppercase">Canal Silenciado</p>
                                 )}
