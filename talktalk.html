@@ -556,6 +556,14 @@
 
                     peer.current.on('connection', (conn) => {
                         const role = conn.metadata?.role?.toUpperCase() || 'INVITADO';
+                        
+                        if (role !== 'INVITADO') {
+                            const existingPeerId = Object.keys(activePeers.current).find(id => activePeers.current[id].role === role);
+                            if (existingPeerId) {
+                                removePeer(existingPeerId);
+                            }
+                        }
+
                         if (!DEFAULT_ROLES.includes(role) && role !== 'TODOS') {
                             setDynamicRoles(prev => prev.includes(role) ? prev : [...prev, role]);
                         }
@@ -626,11 +634,14 @@
                 }
                 if (activePeers.current[id]) {
                     if (activePeers.current[id].track) activePeers.current[id].track.stop();
+                    if (activePeers.current[id].call) activePeers.current[id].call.close();
+                    if (activePeers.current[id].conn) activePeers.current[id].conn.close();
                     delete activePeers.current[id];
                     applyAudioRouting();
                 }
                 delete audioStreamsRef.current[id];
                 setTalkingStates(prev => { const n = { ...prev }; delete n[id]; return n; });
+                setCrewData(prev => { const n = { ...prev }; delete n[id]; return n; });
             };
 
             const toggleTarget = (t) => {
@@ -874,6 +885,7 @@
                                     latency: 0
                                 }
                             });
+                            stream.getAudioTracks().forEach(t => t.enabled = false);
                             localStreamRef.current = stream;
                         }
                     } catch (e) {
@@ -1071,6 +1083,9 @@
 
             useEffect(() => {
                 if (incomingAudioRef.current) incomingAudioRef.current.muted = isTalking;
+                if (localStreamRef.current) {
+                    localStreamRef.current.getAudioTracks().forEach(t => t.enabled = isTalking);
+                }
             }, [isTalking]);
 
             const handleJoin = () => {
