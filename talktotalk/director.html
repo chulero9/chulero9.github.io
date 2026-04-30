@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StreamTalk V9.0 - Director Console</title>
+
+    <!-- LIBRERÍAS -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- PEER JS (WebRTC P2P) -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+        body {
+            background-color: #10111A;
+            color: #A9B0D8;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        /* --- LOBBY & SETUP --- */
+        .auth-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .glass-box {
+            background: #141522;
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #3E437C;
+            box-shadow: 0 0 35px rgba(62, 67, 124, 0.4);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        input {
+            box-sizing: border-box;
+            width: 100%;
+            background: #10111A;
+            border: 2px solid #3E437C;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 15px;
+            outline: none;
+            text-transform: uppercase;
+        }
+
+        input:focus {
+            border-color: #4945A4;
+        }
+
+        select {
+            box-sizing: border-box;
+            width: 100%;
+            background: #10111A;
+            border: 2px solid #3E437C;
+            color: #A9B0D8;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            outline: none;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            font-weight: bold;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            border: none;
+            transition: 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .btn-blue {
+            background: #4945A4;
+            color: white;
+        }
+
+        .btn-blue:hover {
+            background: #5A56C4;
+        }
+
+        .btn-green {
+            background: #4945A4;
+            color: white;
+        }
+
+        .btn-green:hover {
+            background: #5A56C4;
+        }
+
+        .btn-gray {
+            background: #23253A;
+            color: white;
+        }
+
+        .btn-dark {
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid #3E437C;
+            color: #888;
+        }
+
+        .btn-dark:hover {
+            border-color: #4945A4;
+            color: white;
+        }
+
+        /* --- DIRECTOR VIEW (DARK MATTE VIBE) --- */
+        .director-layout {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: #10111A;
+        }
+
+        .top-bar {
+            padding: 15px 25px;
+            background: #141522;
+            border-bottom: 2px solid #3E437C;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        /* MATRIZ DE RUTEO (Botones Destino) */
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            padding: 20px;
+            background: #141522;
+            border: 2px solid #3E437C;
+            border-radius: 12px;
+            margin: 15px 15px 0 15px;
+            box-shadow: 0 0 20px rgba(62, 67, 124, 0.2);
+        }
+
+        .matrix-btn {
+            padding: 12px 5px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-align: center;
+            background: transparent;
+            border: 2px solid #3E437C;
+            color: #A9B0D8;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .matrix-btn:hover {
+            border-color: #4945A4;
+            background: rgba(73, 69, 164, 0.1);
+        }
+
+        .matrix-btn.active {
+            background: #4945A4;
+            border-color: #4945A4;
+            color: white;
+        }
+
+        .matrix-btn.all-active {
+            background: #f59e0b;
+            border-color: #f59e0b;
+            color: black;
+        }
+
+        /* BOTÓN PTT (Push To Talk / Toggle) */
+        .mic-btn-huge {
+            flex: 1;
+            margin: 15px;
+            border-radius: 30px;
+            font-size: 1.8rem;
+            font-weight: bold;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .mic-btn-huge.on {
+            background: #152414;
+            border-color: #17291B;
+            color: #406D37;
+        }
+
+        .mic-btn-huge.off {
+            background: #12131C;
+            border-color: #3E437C;
+            color: #434483;
+        }
+
+        .mic-btn-huge:active {
+            transform: scale(0.98);
+        }
+
+
+
+        .crew-list {
+            padding: 15px;
+            background: #141522;
+            border-top: 2px solid #3E437C;
+            height: 250px;
+            overflow-y: auto;
+            margin: 0 15px 15px 15px;
+            border-radius: 12px;
+            border: 2px solid #3E437C;
+        }
+
+        .crew-item {
+            background: transparent;
+            border-bottom: 1px solid #23253A;
+            padding: 12px 5px;
+            margin-bottom: 5px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #A9B0D8;
+            transition: 0.2s;
+        }
+
+        .crew-item:hover {
+            color: white;
+        }
+
+        .crew-item.receiving {
+            border-left: 2px solid #ef4444;
+            padding-left: 10px;
+        }
+
+        /* SLIDERS DE VOLUMEN (Matte) */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #10111A;
+            border: 1px solid #3E437C;
+            border-radius: 10px;
+            height: 6px;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #a855f7;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+            transition: 0.2s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const PEER_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:global.stun.twilio.com:3478' },
+                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+                ]
+            }
+        };
+        const DEFAULT_ROLES = ['CAM 1', 'CAM 2', 'CAM 3', 'CAM 4', 'SONIDO', 'PISO'];
+
+        // --- COMPONENTE DIRECTOR ---
+        const DirectorView = ({ roomName }) => {
+            const [status, setStatus] = useState('Listo para iniciar');
+            const [isSystemActive, setIsSystemActive] = useState(false);
+            const [isOffline, setIsOffline] = useState(!navigator.onLine);
+            const [micMuted, setMicMuted] = useState(true);
+
+            useEffect(() => {
+                const handleOnline = () => {
+                    setIsOffline(false);
+                    if (peer.current && peer.current.disconnected && !peer.current.destroyed) {
+                        setStatus('Red recuperada. Reconectando...');
+                        peer.current.reconnect();
+                    }
+                };
+                const handleOffline = () => setIsOffline(true);
+                window.addEventListener('online', handleOnline);
+                window.addEventListener('offline', handleOffline);
+                return () => {
+                    window.removeEventListener('online', handleOnline);
+                    window.removeEventListener('offline', handleOffline);
+                };
+            }, []);
+            const [crewList, setCrewList] = useState([]);
+            const [partyline, setPartyline] = useState(false);
+            const [volumes, setVolumes] = useState({});
+            const [crewData, setCrewData] = useState({});
+
+            // Nuevas funcionalidades Pro
+            const [roomLocked, _setRoomLocked] = useState(false);
+            const roomLockedRef = useRef(false);
+            const setRoomLocked = (val) => {
+                roomLockedRef.current = val;
+                _setRoomLocked(val);
+            };
+            const [buses, setBuses] = useState([]);
+            const [crewMessages, setCrewMessages] = useState({});
+
+
+            const [targets, setTargets] = useState(['TODOS']);
+            const [dynamicRoles, setDynamicRoles] = useState([]);
+
+            const [audioDevices, setAudioDevices] = useState([]);
+            const [selectedAudio, setSelectedAudio] = useState('');
+
+            const peer = useRef(null);
+            const baseStream = useRef(null);
+            const activePeers = useRef({});
+
+            const audioStreamsRef = useRef({});
+            const [talkingStates, setTalkingStates] = useState({});
+
+            const directorAudioCtx = useRef(null);
+            const dirMicSource = useRef(null);
+            const crewAudioSources = useRef({});
+
+            useEffect(() => {
+                navigator.mediaDevices.getUserMedia({ audio: true }).then((tempStream) => {
+                    tempStream.getTracks().forEach(t => t.stop());
+                    navigator.mediaDevices.enumerateDevices().then(devs => {
+                        const audios = devs.filter(d => d.kind === 'audioinput');
+                        setAudioDevices(audios);
+                        if (audios.length > 0) setSelectedAudio(audios[0].deviceId);
+                    });
+                }).catch(e => setStatus('Error: Permiso de micrófono denegado.'));
+
+                return () => {
+                    if (peer.current) peer.current.destroy();
+                    if (baseStream.current) baseStream.current.getTracks().forEach(t => t.stop());
+                };
+            }, []);
+
+            const applyAudioRouting = () => {
+                if (!directorAudioCtx.current) return;
+                const currentTargets = targets;
+                const isMasterMuted = micMuted;
+
+                Object.values(activePeers.current).forEach(peerInfo => {
+                    const dest = peerInfo.dest;
+                    if (!dest) return;
+
+                    if (dirMicSource.current) {
+                        try { dirMicSource.current.disconnect(dest); } catch (e) { }
+                        const isTargeted = currentTargets.includes('TODOS') || currentTargets.includes(peerInfo.role);
+                        if (!isMasterMuted && isTargeted) {
+                            dirMicSource.current.connect(dest);
+                        }
+                    }
+
+                    Object.keys(crewAudioSources.current).forEach(sourcePeerId => {
+                        const srcNode = crewAudioSources.current[sourcePeerId];
+                        if (!srcNode) return;
+                        try { srcNode.disconnect(dest); } catch (e) { }
+                        if (partyline && talkingStates[sourcePeerId] && sourcePeerId !== peerInfo.id) {
+                            srcNode.connect(dest);
+                        }
+                    });
+
+                    if (peerInfo.track) {
+                        peerInfo.track.enabled = true;
+                    }
+                });
+
+                setCrewList(Object.values(activePeers.current).map(p => ({
+                    id: p.id, name: p.role,
+                    receiving: !isMasterMuted && (currentTargets.includes('TODOS') || currentTargets.includes(p.role))
+                })));
+            };
+
+            useEffect(() => { applyAudioRouting(); }, [targets, micMuted, partyline, talkingStates]);
+
+            const startDirector = async () => {
+                if (!selectedAudio) return;
+                try {
+                    setStatus('Conectando hardware...');
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            deviceId: { exact: selectedAudio },
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true,
+                            channelCount: 1,
+                            sampleRate: 48000,
+                            latency: 0
+                        }
+                    });
+
+                    baseStream.current = stream;
+                    setIsSystemActive(true);
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (!directorAudioCtx.current) directorAudioCtx.current = new AudioContextClass({ latencyHint: 'interactive', sampleRate: 48000 });
+
+                    if (dirMicSource.current) {
+                        try { dirMicSource.current.disconnect(); } catch (e) { }
+                    }
+                    dirMicSource.current = directorAudioCtx.current.createMediaStreamSource(stream);
+
+                    const directorId = `st_dir_${roomName.replace(/\s+/g, '').toUpperCase()}`;
+
+                    if (peer.current) peer.current.destroy();
+                    peer.current = new Peer(directorId, PEER_CONFIG);
+
+                    peer.current.on('open', () => {
+                        setStatus('Matriz Activa. Esperando al Crew...');
+                    });
+
+                    peer.current.on('connection', (conn) => {
+                        // Bloqueo de Sala
+                        if (roomLockedRef.current) {
+                            conn.on('open', () => {
+                                conn.send({ type: 'REJECT', reason: 'locked' });
+                                setTimeout(() => conn.close(), 500);
+                            });
+                            return;
+                        }
+
+                        const role = conn.metadata?.role?.toUpperCase() || 'INVITADO';
+
+                        if (role !== 'INVITADO') {
+                            const existingPeerId = Object.keys(activePeers.current).find(id => activePeers.current[id].role === role);
+                            if (existingPeerId) {
+                                removePeer(existingPeerId);
+                            }
+                        }
+
+                        if (!DEFAULT_ROLES.includes(role) && role !== 'TODOS') {
+                            setDynamicRoles(prev => prev.includes(role) ? prev : [...prev, role]);
+                        }
+
+                        conn.on('data', (data) => {
+                            if (data.type === 'PTT') {
+                                setTalkingStates(prev => ({ ...prev, [conn.peer]: data.state }));
+                            }
+                            if (data.type === 'PING') {
+                                conn.send({ type: 'PONG' });
+                                if (data.bat !== undefined) {
+                                    setCrewData(prev => ({ ...prev, [conn.peer]: { ...prev[conn.peer], bat: data.bat } }));
+                                }
+                            }
+                            if (data.type === 'STATS') {
+                                setCrewData(prev => ({
+                                    ...prev,
+                                    [conn.peer]: {
+                                        ...prev[conn.peer],
+                                        ...(data.ping !== undefined && { ping: data.ping }),
+                                        ...(data.qos !== undefined && { qos: data.qos })
+                                    }
+                                }));
+                            }
+                            if (data.type === 'QUICK_MSG') {
+                                setCrewMessages(prev => ({
+                                    ...prev,
+                                    [conn.peer]: { text: data.text, time: Date.now() }
+                                }));
+                                setTimeout(() => {
+                                    setCrewMessages(prev => {
+                                        const next = { ...prev };
+                                        if (next[conn.peer] && Date.now() - next[conn.peer].time > 9000) {
+                                            delete next[conn.peer];
+                                        }
+                                        return next;
+                                    });
+                                }, 10000);
+                            }
+                        });
+
+                        conn.on('open', () => {
+                            if (!baseStream.current) return;
+
+                            const peerDest = directorAudioCtx.current.createMediaStreamDestination();
+                            const customStream = peerDest.stream;
+
+                            const call = peer.current.call(conn.peer, customStream);
+
+                            activePeers.current[conn.peer] = { id: conn.peer, conn, call, track: customStream.getAudioTracks()[0], role, dest: peerDest };
+                            applyAudioRouting();
+
+                            call.on('stream', (crewStream) => {
+                                audioStreamsRef.current[conn.peer] = crewStream;
+                                setTalkingStates(prev => ({ ...prev, [conn.peer]: false }));
+
+                                if (directorAudioCtx.current && !crewAudioSources.current[conn.peer]) {
+                                    crewAudioSources.current[conn.peer] = directorAudioCtx.current.createMediaStreamSource(crewStream);
+                                }
+                            });
+
+                            call.on('close', () => removePeer(conn.peer));
+                            call.on('error', () => removePeer(conn.peer));
+                        });
+
+                        conn.on('close', () => removePeer(conn.peer));
+                    });
+
+                    peer.current.on('disconnected', () => {
+                        setStatus('Desconectado. Reconectando...');
+                        if (peer.current && !peer.current.destroyed) {
+                            setTimeout(() => {
+                                peer.current.reconnect();
+                            }, 1000);
+                        }
+                    });
+
+                    peer.current.on('error', (err) => {
+                        if (err.type === 'unavailable-id') {
+                            setStatus('Error: Sala ocupada. Reintenta en 10s.');
+                        } else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type)) {
+                            setStatus('Fallo de red. Reconectando...');
+                            if (peer.current && !peer.current.destroyed) {
+                                setTimeout(() => {
+                                    if (peer.current.disconnected) peer.current.reconnect();
+                                }, 2000);
+                            }
+                        } else {
+                            setStatus('Error de conexión de red.');
+                        }
+                    });
+
+                } catch (e) {
+                    setStatus('Error de hardware. Revisa permisos.');
+                }
+            };
+
+            const removePeer = (id) => {
+                if (crewAudioSources.current[id]) {
+                    try { crewAudioSources.current[id].disconnect(); } catch (e) { }
+                    delete crewAudioSources.current[id];
+                }
+                if (activePeers.current[id]) {
+                    if (activePeers.current[id].track) activePeers.current[id].track.stop();
+                    if (activePeers.current[id].call) activePeers.current[id].call.close();
+                    if (activePeers.current[id].conn) activePeers.current[id].conn.close();
+                    delete activePeers.current[id];
+                    applyAudioRouting();
+                }
+                delete audioStreamsRef.current[id];
+                setTalkingStates(prev => { const n = { ...prev }; delete n[id]; return n; });
+                setCrewData(prev => { const n = { ...prev }; delete n[id]; return n; });
+            };
+
+            const toggleTarget = (t) => {
+                setTargets(prev => {
+                    if (t === 'TODOS') return ['TODOS'];
+                    let newTargets = prev.filter(x => x !== 'TODOS');
+                    if (newTargets.includes(t)) {
+                        newTargets = newTargets.filter(x => x !== t);
+                        if (newTargets.length === 0) newTargets = ['TODOS'];
+                    } else newTargets.push(t);
+                    return newTargets;
+                });
+            };
+
+            // Teclas de Atajo (Shortcuts)
+            useEffect(() => {
+                if (!isSystemActive) return;
+                const handleKeyDown = (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        setMicMuted(false);
+                    }
+                    if (e.key >= '1' && e.key <= '9') {
+                        const idx = parseInt(e.key) - 1;
+                        const allRoles = [...DEFAULT_ROLES, ...dynamicRoles];
+                        if (allRoles[idx]) toggleTarget(allRoles[idx]);
+                    }
+                    if (e.key.toLowerCase() === 't') {
+                        toggleTarget('TODOS');
+                    }
+                };
+                const handleKeyUp = (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        setMicMuted(true);
+                    }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                window.addEventListener('keyup', handleKeyUp);
+                return () => {
+                    window.removeEventListener('keydown', handleKeyDown);
+                    window.removeEventListener('keyup', handleKeyUp);
+                };
+            }, [isSystemActive, dynamicRoles]);
+
+            // Buses de Audio
+            const saveBus = () => {
+                if (targets.includes('TODOS') || targets.length === 0) {
+                    alert('Selecciona algunos roles específicos en la matriz para crear un grupo.');
+                    return;
+                }
+                const name = prompt('Nombre del Grupo de Audio (Ej: CÁMARAS):');
+                if (name && name.trim()) {
+                    setBuses(prev => [...prev, { id: Date.now(), name: name.trim().toUpperCase(), targets: [...targets] }]);
+                }
+            };
+
+            const activateBus = (busTargets) => setTargets(busTargets);
+            const deleteBus = (id, e) => {
+                e.stopPropagation();
+                setBuses(prev => prev.filter(b => b.id !== id));
+            };
+
+
+            const copyLink = () => {
+                const url = `${window.location.href.split('?')[0]}?mode=crew&room=${roomName}`;
+                navigator.clipboard.writeText(url);
+                alert("Link copiado.");
+            };
+
+            const allMatrixRoles = [...DEFAULT_ROLES, ...dynamicRoles];
+
+            if (!isSystemActive) {
+                return (
+                    <div className="auth-container">
+                        <div className="glass-box">
+                            <h2 className="text-2xl font-black mb-2 text-[#4945A4]">PANEL DE DIRECTOR</h2>
+                            <p className="mb-4 text-sm text-[#A9B0D8]">Selecciona tu micrófono antes de abrir la sala.</p>
+
+                            <select value={selectedAudio} onChange={(e) => setSelectedAudio(e.target.value)}>
+                                {audioDevices.length === 0 && <option>Buscando audios...</option>}
+                                {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Micrófono'}</option>)}
+                            </select>
+
+                            <button className="btn btn-blue" onClick={startDirector}>INICIAR MATRIZ IFB</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className={`director-layout relative ${!micMuted ? 'speaking' : ''}`}>
+                    {isOffline && (
+                        <div className="absolute top-0 left-0 w-full h-full bg-red-900/90 z-50 flex flex-col items-center justify-center">
+                            <h1 className="text-4xl font-black text-white mb-2">⚠ SIN CONEXIÓN</h1>
+                            <p className="text-white text-lg">Internet interrumpido. Revisando red...</p>
+                        </div>
+                    )}
+                    {/* Renderizador oculto de audios entrantes (Controlados por estado de PTT) */}
+                    <div style={{ display: 'none' }}>
+                        {Object.keys(talkingStates).map(peerId => (
+                            <audio
+                                key={peerId}
+                                autoPlay
+                                playsInline
+                                ref={el => {
+                                    if (el) {
+                                        if (audioStreamsRef.current[peerId] && el.srcObject !== audioStreamsRef.current[peerId]) {
+                                            el.srcObject = audioStreamsRef.current[peerId];
+                                        }
+                                        el.volume = volumes[peerId] !== undefined ? volumes[peerId] : 1;
+                                    }
+                                }}
+                                muted={!talkingStates[peerId]}
+                            />
+                        ))}
+                    </div>
+
+                    <div className="top-bar">
+                        <div>
+                            <div className="font-black text-xl text-blue-400">STREAM<span className="text-white">TALK</span> V9.0</div>
+                            <div className="text-xs text-gray-400 font-bold tracking-widest">{status}</div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button className={`px-3 py-2 rounded text-xs font-bold text-white transition-colors shadow-lg ${roomLocked ? 'bg-red-600 hover:bg-red-500 shadow-[0_0_15px_#dc2626]' : 'bg-green-600 hover:bg-green-500'}`} onClick={() => setRoomLocked(!roomLocked)}>
+                                {roomLocked ? '🔒 SALA BLOQUEADA' : '🔓 SALA ABIERTA'}
+                            </button>
+                            <button className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded text-xs font-bold shadow-lg" onClick={copyLink}>
+                                🔗 COPIAR LINK
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="px-4 pt-3 pb-1 flex justify-between items-center">
+                        <label className="text-[10px] font-bold text-gray-500">GRUPOS DE AUDIO (BUSES)</label>
+                        <button className="text-[10px] font-bold bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded shadow-lg" onClick={saveBus}>
+                            + GUARDAR SELECCIÓN
+                        </button>
+                    </div>
+                    {buses.length > 0 && (
+                        <div className="px-4 py-2 flex gap-2 overflow-x-auto">
+                            {buses.map(bus => (
+                                <div key={bus.id} className="flex items-center bg-[#23253A] border border-[#3E437C] rounded overflow-hidden shadow-md">
+                                    <button className="px-3 py-1 text-xs font-bold text-[#A9B0D8] hover:bg-[#4945A4] hover:text-white transition-colors" onClick={() => activateBus(bus.targets)}>
+                                        {bus.name}
+                                    </button>
+                                    <button className="px-2 py-1 text-xs text-red-400 hover:bg-red-600 hover:text-white transition-colors" onClick={(e) => deleteBus(bus.id, e)}>
+                                        ✕
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="px-4 pt-3 pb-1 flex justify-between items-center mt-1">
+                        <label className="text-[10px] font-bold text-gray-500">DESTINOS DE AUDIO (RUTEO)</label>
+                        <button className={`text-[10px] font-bold px-2 py-1 rounded ${partyline ? 'bg-purple-600 text-white shadow-[0_0_10px_#9333ea]' : 'bg-gray-800 text-gray-400'}`}
+                            onClick={() => setPartyline(!partyline)}>
+                            {partyline ? '🔥 PARTY MIX ON' : '🎧 PARTY MIX OFF'}
+                        </button>
+                    </div>
+                    <div className="matrix-grid">
+                        <button className={`matrix-btn ${targets.includes('TODOS') ? 'all-active' : ''}`} onClick={() => toggleTarget('TODOS')}>
+                            📢 TODOS
+                        </button>
+                        {allMatrixRoles.map(role => (
+                            <button key={role} className={`matrix-btn ${targets.includes(role) ? 'active' : ''}`} onClick={() => toggleTarget(role)}>
+                                {role}
+                            </button>
+                        ))}
+                    </div>
+
+                    <button className={`mic-btn-huge ${micMuted ? 'off' : 'on'}`} onClick={() => setMicMuted(!micMuted)}>
+                        <span>{micMuted ? '🎙️ SILENCIO' : '🔴 HABLANDO'}</span>
+                        <span className="text-sm font-normal opacity-70">
+                            {micMuted ? 'Toca para hablar al destino' : `Enviando audio a: ${targets.join(', ')}`}
+                        </span>
+                    </button>
+
+                    <div className="crew-list">
+                        <div className="text-[10px] font-bold text-gray-500 mb-2 uppercase flex justify-between">
+                            <span>Conectados en sala ({crewList.length})</span>
+                            <span className="text-green-400">🎧 Recibiendo retorno del Crew</span>
+                        </div>
+                        {crewList.length === 0 && <div className="text-sm text-gray-600 italic">Esperando que el equipo se una...</div>}
+
+                        {crewList.map(crew => (
+                            <div key={crew.id} className={`crew-item flex-col items-start ${crew.receiving ? 'receiving' : ''}`}>
+                                <div className="flex justify-between items-center w-full">
+                                    <div className="flex items-center gap-2">
+                                        <span>📱 {crew.name}</span>
+                                        {crewData[crew.id]?.bat !== undefined && <span className="text-[10px] text-gray-400 font-bold">🔋 {crewData[crew.id].bat}%</span>}
+                                        {crewData[crew.id]?.ping !== undefined && <span className="text-[10px] text-blue-400 font-bold">📡 {crewData[crew.id].ping}ms</span>}
+                                        {crewData[crew.id]?.qos === 'MALO' && <span className="text-[10px] text-red-500 font-bold animate-pulse">⚠️ RED MALA</span>}
+                                        {crewData[crew.id]?.qos === 'OK' && <span className="text-[10px] text-green-500 font-bold">✅ SEÑAL</span>}
+                                        {talkingStates[crew.id] && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_10px_#ef4444]">HABLANDO</span>}
+                                        {crewMessages[crew.id] && <span className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_#eab308] animate-pulse">{crewMessages[crew.id].text}</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button className="bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded transition-colors"
+                                            onClick={() => activePeers.current[crew.id]?.conn.send({ type: 'TALLY' })}>
+                                            [ ALERTA ]
+                                        </button>
+                                        <span className={crew.receiving ? "text-red-400 text-xs animate-pulse" : "text-gray-500 text-xs"}>
+                                            {crew.receiving ? 'Director Hablando' : 'En espera'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="w-full flex items-center gap-2 mt-2">
+                                    <span className="text-[10px] text-gray-400 font-bold">VOL</span>
+                                    <input type="range" className="flex-1 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                                        min="0" max="1" step="0.05"
+                                        value={volumes[crew.id] !== undefined ? volumes[crew.id] : 1}
+                                        onChange={e => setVolumes(prev => ({ ...prev, [crew.id]: parseFloat(e.target.value) }))} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- LOBBY DIRECTOR ---
+        const App = () => {
+            const [mode, setMode] = useState('lobby');
+            const [roomName, setRoomName] = useState('');
+
+            React.useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                const r = params.get('room');
+                let savedRoom = '';
+                try { savedRoom = localStorage.getItem('st_roomName'); } catch (e) { }
+
+                if (r) {
+                    setRoomName(r);
+                    setMode('director');
+                } else {
+                    setRoomName(savedRoom || Math.random().toString(36).substring(2, 6).toUpperCase());
+                }
+            }, []);
+
+            const enterAsDirector = () => {
+                if (!roomName.trim()) return alert('Ingresa un nombre de sala');
+                try { localStorage.setItem('st_roomName', roomName); } catch (e) { }
+                const url = new URL(window.location);
+                url.searchParams.set('room', roomName);
+                window.history.pushState({}, '', url);
+                setMode('director');
+            };
+
+            if (mode === 'director') return <DirectorView roomName={roomName} />;
+
+            return (
+                <div className="auth-container">
+                    <div className="glass-box animate__animated animate__zoomIn">
+                        <h1 className="text-3xl font-black mb-2 text-[#A9B0D8]">STREAM<span className="text-[#4945A4]">TALK</span> V9</h1>
+                        <p className="text-[#A9B0D8] text-sm mb-8 font-bold">DIRECTOR CONSOLE</p>
+
+                        <label className="block text-left text-xs font-bold text-[#A9B0D8] mb-2">CÓDIGO DE PRODUCCIÓN</label>
+                        <input value={roomName} onChange={(e) => setRoomName(e.target.value.toUpperCase())} placeholder="EJ: SHOW-1" />
+
+                        <button className="btn btn-blue" onClick={enterAsDirector}>ENTRAR COMO DIRECTOR</button>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
