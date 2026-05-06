@@ -1460,6 +1460,7 @@
         const GuestView = ({ roomName }) => {
             const [joined, setJoined] = useState(false);
             const [quality, setQuality] = useState(Storage.load('pq', '720'));
+            const [fpsLimit, setFpsLimit] = useState(Storage.load('fps_limit', '24'));
             const [tally, setTally] = useState('idle');
             const [micOff, setMicOff] = useState(false);
             const [camOff, setCamOff] = useState(false);
@@ -1592,9 +1593,13 @@
                 });
             };
 
-            const getStreamWithFacingMode = async (facingMode, targetQuality = quality) => {
+            const getStreamWithFacingMode = async (facingMode, targetQuality = quality, targetFps = fpsLimit) => {
                 const res = { '360': [640, 360], '720': [1280, 720], '1080': [1920, 1080] };
                 const [w, h] = res[targetQuality] || res['720'];
+
+                let fr = { ideal: 24, max: 30 };
+                if (targetFps === '30') fr = { ideal: 30, max: 30 };
+                if (targetFps === '60') fr = { ideal: 60, max: 60 };
 
                 const audioConstraints = hiFiAudio ? {
                     echoCancellation: false,
@@ -1609,14 +1614,14 @@
 
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: { exact: facingMode }, frameRate: { ideal: 24, max: 30 } },
+                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: { exact: facingMode }, frameRate: fr },
                         audio: audioConstraints
                     });
                     return stream;
                 } catch (e) {
                     Logger.warn('getStream', `facingMode exact ${facingMode} falló, intentando ideal`);
                     const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: { ideal: facingMode }, frameRate: { ideal: 24, max: 30 } },
+                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: { ideal: facingMode }, frameRate: fr },
                         audio: audioConstraints
                     });
                     return stream;
@@ -1897,6 +1902,13 @@
                         <select value={camera} onChange={e => { setCamera(e.target.value); Storage.save('cm', e.target.value); }}>
                             <option value="user">Frontal (Selfie)</option>
                             <option value="environment">Trasera</option>
+                        </select>
+
+                        <label style={{ fontSize: '0.75rem', color: '#a1a1a1', display: 'block', marginBottom: 8, fontWeight: 'bold' }}>Fotogramas por Segundo (FPS)</label>
+                        <select value={fpsLimit} onChange={e => { setFpsLimit(e.target.value); Storage.save('fps_limit', e.target.value); }}>
+                            <option value="24">24 FPS — Ahorro Batería</option>
+                            <option value="30">30 FPS — Normal / Fluido</option>
+                            <option value="60">60 FPS — Extremo (Forzado)</option>
                         </select>
 
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: '#e4e4e7', background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: 8, marginBottom: 20, cursor: 'pointer', border: hiFiAudio ? '1px solid #8b5cf6' : '1px solid transparent' }}>
