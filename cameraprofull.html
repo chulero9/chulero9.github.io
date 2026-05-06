@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>StreamCall V10 PRO - Cámara Corregida</title>
+    <title>StreamCall V12 PRO FULL</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -164,16 +164,6 @@
             background: #000;
         }
 
-        .obs-video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
-
         .obs-status {
             position: relative;
             z-index: 9999;
@@ -204,12 +194,6 @@
             justify-content: center;
             overflow: hidden;
             background-image: radial-gradient(circle at center, #18181b 0%, #000 100%);
-        }
-
-        .remote-video {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
         }
 
         .director-controls {
@@ -384,16 +368,6 @@
             align-items: center;
             gap: 5px;
             font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-
-        .pip-icon {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2rem;
-            opacity: 0.4;
-            pointer-events: none;
         }
 
         .guest-overlay {
@@ -840,10 +814,9 @@
         };
 
         const Logger = {
-            logs: [],
-            info: (e, d) => { Logger.logs.push({ level: 'info', event: e, data: String(d), ts: Date.now() }); console.log(`[INFO] ${e}:`, d); },
-            error: (e, d) => { Logger.logs.push({ level: 'error', event: e, data: String(d), ts: Date.now() }); console.error(`[ERROR] ${e}:`, d); },
-            warn: (e, d) => { Logger.logs.push({ level: 'warn', event: e, data: String(d), ts: Date.now() }); console.warn(`[WARN] ${e}:`, d); }
+            info: (e, d) => { console.log(`[INFO] ${e}:`, d); },
+            error: (e, d) => { console.error(`[ERROR] ${e}:`, d); },
+            warn: (e, d) => { console.warn(`[WARN] ${e}:`, d); }
         };
 
         const Storage = {
