@@ -786,7 +786,7 @@
             background: #a78bfa;
             margin-top: -7px;
             border: 2px solid #fff;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
             cursor: pointer;
         }
     </style>
@@ -891,7 +891,7 @@
         };
 
         const AudioMeter = ({ stream }) => {
-            const [vol, setVol] = useState(0);
+            const barRef = useRef(null);
             const reqRef = useRef();
             useEffect(() => {
                 if (!stream || !stream.getAudioTracks().length) return;
@@ -901,27 +901,34 @@
                     if (!ctx) return;
                     src = ctx.createMediaStreamSource(stream);
                     analyser = ctx.createAnalyser();
-                    analyser.fftSize = 256;
+                    analyser.fftSize = 128;
                     src.connect(analyser);
                     const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                    const render = () => {
+                    let lastTime = 0;
+                    const render = (time) => {
+                        reqRef.current = requestAnimationFrame(render);
+                        if (time - lastTime < 100) return; // 10 FPS limit
+                        lastTime = time;
                         analyser.getByteFrequencyData(dataArray);
                         let sum = 0;
                         for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-                        setVol(sum / dataArray.length);
-                        reqRef.current = requestAnimationFrame(render);
+                        const vol = sum / dataArray.length;
+                        if (barRef.current) {
+                            barRef.current.style.width = `${Math.min(100, vol)}%`;
+                            barRef.current.style.background = vol > 25 ? '#10b981' : '#a78bfa';
+                        }
                     };
-                    render();
+                    reqRef.current = requestAnimationFrame(render);
                 } catch (e) { }
                 return () => {
-                    cancelAnimationFrame(reqRef.current);
+                    if (reqRef.current) cancelAnimationFrame(reqRef.current);
                     if (src) src.disconnect();
                 };
             }, [stream]);
 
             return (
                 <div style={{ width: '50px', height: '6px', background: '#27272a', borderRadius: '3px', overflow: 'hidden', marginTop: '6px' }}>
-                    <div style={{ width: `${Math.min(100, vol)}%`, height: '100%', background: vol > 25 ? '#10b981' : '#a78bfa', transition: 'width 0.1s linear' }} />
+                    <div ref={barRef} style={{ width: '0%', height: '100%', background: '#a78bfa', transition: 'width 0.1s linear' }} />
                 </div>
             );
         };
@@ -1114,8 +1121,8 @@
                             ? { deviceId: { exact: selectedARef.current }, echoCancellation: true, noiseSuppression: true }
                             : { echoCancellation: true, noiseSuppression: true },
                         video: selectedVRef.current
-                            ? { deviceId: { exact: selectedVRef.current }, width: { ideal: 640 }, height: { ideal: 360 } }
-                            : { width: { ideal: 640 }, height: { ideal: 360 } }
+                            ? { deviceId: { exact: selectedVRef.current }, width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 20, max: 24 } }
+                            : { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 20, max: 24 } }
                     };
 
                     dirStreamRef.current = await navigator.mediaDevices.getUserMedia(constraints);
@@ -1469,7 +1476,7 @@
             const [err, setErr] = useState(null);
             const [connState, setConnState] = useState('connecting');
             const [cameras, setCameras] = useState([]);
-            
+
             const [zoomSupported, setZoomSupported] = useState(false);
             const [zoomValue, setZoomValue] = useState(1);
             const [zoomMin, setZoomMin] = useState(1);
@@ -1504,7 +1511,7 @@
                         } else {
                             setZoomSupported(false);
                         }
-                    } catch(e) {
+                    } catch (e) {
                         setZoomSupported(false);
                     }
                 } else {
@@ -1602,14 +1609,14 @@
 
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: { exact: facingMode } },
+                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: { exact: facingMode }, frameRate: { ideal: 24, max: 30 } },
                         audio: audioConstraints
                     });
                     return stream;
                 } catch (e) {
                     Logger.warn('getStream', `facingMode exact ${facingMode} falló, intentando ideal`);
                     const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: { ideal: facingMode } },
+                        video: { width: { ideal: w }, height: { ideal: h }, facingMode: { ideal: facingMode }, frameRate: { ideal: 24, max: 30 } },
                         audio: audioConstraints
                     });
                     return stream;
@@ -1943,14 +1950,14 @@
                     <div className={`guest-ui-wrapper ${idle ? 'idle-hide' : ''}`}>
                         {zoomSupported && (
                             <div className="zoom-container">
-                                <span style={{fontSize: '1.2rem', filter: 'grayscale(100%) opacity(0.8)'}}>🔍</span>
-                                <input 
-                                    type="range" 
-                                    min={zoomMin} 
-                                    max={zoomMax} 
-                                    step={zoomStep} 
-                                    value={zoomValue} 
-                                    onChange={handleZoomChange} 
+                                <span style={{ fontSize: '1.2rem', filter: 'grayscale(100%) opacity(0.8)' }}>🔍</span>
+                                <input
+                                    type="range"
+                                    min={zoomMin}
+                                    max={zoomMax}
+                                    step={zoomStep}
+                                    value={zoomValue}
+                                    onChange={handleZoomChange}
                                     className="zoom-slider"
                                 />
                             </div>
