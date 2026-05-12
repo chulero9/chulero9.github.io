@@ -510,7 +510,7 @@ y nueva Sala</button>
             }
 
             document.getElementById('connecting-room-id').innerText = roomId;
-            updateConnectStatus('กำลังเชื่อมต่อ Firebase...');
+            updateConnectStatus('Conectando con Firebase...');
             startConnectionProcess(rejoin);
         }
 
@@ -551,12 +551,12 @@ y nueva Sala</button>
             pendingRejoin = rejoin;
 
             setStepStatus('step-firebase', 'loading');
-            updateConnectStatus('Conectando con Firebase....');
+            updateConnectStatus('Conectando con Firebase...');
 
             const isConnected = await waitForFirebaseConnection(5000);
 
             if (!isConnected) {
-                connectionFailed('No se pudo conectar con Firebase.');
+                connectionFailed('No se pudo conectar con Firebase');
                 return;
             }
 
@@ -564,8 +564,9 @@ y nueva Sala</button>
             await delay(1000);
 
             setStepStatus('step-room', 'loading');
-            updateConnectStatus(rejoin ? 'Entrando en la misma Sala....' : 'Estamos construyendo una nueva Sala....');
-Estamos construyendo una nueva habitación.
+            updateConnectStatus(rejoin ? 'Entrando en la misma Sala...' : 'Estamos construyendo una nueva Sala...');
+
+            try {
                 if (rejoin) {
                     const snap = await db.ref(`OBSCam_rooms/${roomId}/config/maxCams`).once('value');
                     if (snap.exists()) {
@@ -844,7 +845,7 @@ Estamos construyendo una nueva habitación.
         function updateRoomNameDisplay(name) {
             const textEl = document.getElementById('room-name-text');
             const input = document.getElementById('room-name-input');
-            textEl.innerText = name || 'ไม่มีชื่อห้อง';
+            textEl.innerText = name || 'Sin nombre de Sala';
             textEl.classList.toggle('italic', !name);
             input.value = name || '';
         }
@@ -891,7 +892,7 @@ Estamos construyendo una nueva habitación.
                         if (!isSleep) {
                             isSleep = true;
                             readyRef.set('sleep');
-                            document.getElementById('waiting-screen').innerText = 'SLEEP MODE (WAKE UP FROM CONTROL PANEL)';
+                            document.getElementById('waiting-screen').innerText = 'MODO DE REPOSO (DESPERTAR DESDE EL PANEL DE CONTROL))';
                             document.getElementById('waiting-screen').classList.remove('hidden');
                         }
                     } else {
@@ -905,7 +906,7 @@ Estamos construyendo una nueva habitación.
                     lastVideoTime = Date.now();
                     if (isSleep) {
                         isSleep = false;
-                        document.getElementById('waiting-screen').innerText = 'Waiting for Camera...';
+                        document.getElementById('waiting-screen').innerText = 'Esperando la cámara...';
                         document.getElementById('waiting-screen').classList.remove('hidden');
                         readyRef.set(Date.now());
                     }
@@ -1023,7 +1024,7 @@ Estamos construyendo una nueva habitación.
                 btn.innerHTML = '<i class="fas fa-times text-red-400"></i>';
 
                 if (e.message && (e.message.includes('connect') || e.message.includes('WebSocket'))) {
-                    alert('ไม่สามารถเชื่อมต่อ OBS WebSocket ได้\n\nกรุณาเปิด WebSocket Server ใน OBS:\nTools → WebSocket Server Settings\nPort: 4455 | No se ha introducido ningún código');
+                    alert('No se pudo conectar con OBS WebSocket\n\nPor favor, habilite el servidor WebSocket en OBS:\nTools → WebSocket Server Settings\nPort: 4455 | No se ha introducido ningún código');
                 } else if (e.code === 601) {
                     alert(`Source "OBSCam ${camNum}" Ya está disponible en OBS`);
                 } else {
