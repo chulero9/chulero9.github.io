@@ -142,7 +142,7 @@
     <div id="setup" class="p-6 flex flex-col items-center bg-slate-950">
         <button onclick="toggleSettingsModal(true)"
             class="absolute top-4 right-4 bg-gray-800 text-gray-300 hover:text-white px-3 py-2 rounded-lg text-xs font-bold border border-gray-700">
-            <i class="fas fa-cog mr-1"></i> SETTINGS
+            <i class="fas fa-cog mr-1"></i> AJUSTES
         </button>
 
         <button onclick="toggleFullScreen()" class="absolute top-4 left-4 text-gray-500 hover:text-white"><i
@@ -150,12 +150,12 @@
 
         <div class="simple-logo mt-10">
             <div class="logo-main">OBSCam</div>
-            <div class="logo-sub">SENDER</div>
+            <div class="logo-sub">REMITENTE</div>
         </div>
 
         <div class="space-y-4 max-w-sm w-full mb-10">
             <div class="bg-gray-900 p-4 rounded-xl border border-gray-800">
-                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Target Room ID</label>
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">ID de la Sala de Target</label>
                 <div class="flex gap-2">
                     <input type="tel" id="room-id" placeholder="######" maxlength="6" onkeyup="checkRoomConfig()"
                         class="w-full bg-black border border-gray-700 p-3 rounded-lg text-center text-3xl font-mono text-green-400 font-bold outline-none placeholder-gray-800 tracking-widest">
@@ -170,19 +170,19 @@
             </div>
 
             <div class="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
-                <label class="text-[10px] text-blue-300 font-bold uppercase block mb-1">Send To (Slot)</label>
+                <label class="text-[10px] text-blue-300 font-bold uppercase block mb-1">Enviar a (Slot)</label>
                 <select id="cam-index"
                     class="w-full bg-black text-white p-3 rounded-lg text-sm border border-blue-500/50 outline-none font-bold">
-                    <option value="1">CAMERA 1</option>
-                    <option value="2">CAMERA 2</option>
-                    <option value="3">CAMERA 3</option>
-                    <option value="4">CAMERA 4</option>
+                    <option value="1">CAMARA 1</option>
+                    <option value="2">CAMARA 2</option>
+                    <option value="3">CAMARA 3</option>
+                    <option value="4">CAMARA 4</option>
                 </select>
             </div>
 
             <button onclick="startStreaming()"
                 class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-xl font-bold text-xl shadow-lg active:scale-95 transition-transform text-white mb-4 mt-2">
-                START STREAMING
+                COMIENZA A TRANSMITIR
             </button>
 
             <div class="text-center pt-2">
@@ -196,25 +196,25 @@
 
     <div id="settings-ui" class="settings-modal overflow-y-auto">
         <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xl font-bold text-white"><i class="fas fa-sliders-h mr-2"></i> Settings</h2>
+            <h2 class="text-xl font-bold text-white"><i class="fas fa-sliders-h mr-2"></i> Ajustes</h2>
             <button onclick="toggleSettingsModal(false)" class="text-gray-400 hover:text-white text-lg"><i
                     class="fas fa-times"></i></button>
         </div>
 
         <div class="space-y-4 max-w-sm w-full mx-auto">
             <div class="bg-gray-900 p-3 rounded-xl border border-gray-800">
-                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Select Camera</label>
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Seleccionar cámara</label>
                 <select id="camera-select"
                     class="w-full bg-black text-white p-3 rounded-lg text-sm border border-gray-700 outline-none">
-                    <option value="">Default (Rear/Auto)</option>
+                    <option value="">Predeterminado (Trasero/Automático)</option>
                 </select>
             </div>
 
             <div class="bg-gray-900 p-3 rounded-xl border border-gray-800">
-                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Select Audio Input (Mic)</label>
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Seleccione la entrada de audio (micrófono)</label>
                 <select id="audio-source"
                     class="w-full bg-black text-white p-3 rounded-lg text-sm border border-gray-700 outline-none">
-                    <option value="">Default (Auto)</option>
+                    <option value="">Predeterminado (Automático)</option>
                 </select>
             </div>
 
@@ -253,16 +253,16 @@
             </div>
 
             <div class="bg-gray-900 p-3 rounded-xl border border-gray-800">
-                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Audio Start State</label>
+                <label class="text-[10px] text-gray-500 font-bold uppercase block mb-1">Estado de inicio del audio</label>
                 <select id="audio-enable"
                     class="w-full bg-black text-white p-2 rounded-lg text-xs border border-gray-700">
-                    <option value="false">Mute on Start</option>
-                    <option value="true" selected>Unmute on Start</option>
+                    <option value="false">Silenciar al iniciar</option>
+                    <option value="true" selected>Silenciar al inicio</option>
                 </select>
             </div>
 
             <button onclick="toggleSettingsModal(false)"
-                class="w-full bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-white mt-4">DONE</button>
+                class="w-full bg-green-600 hover:bg-green-500 py-3 rounded-lg font-bold text-white mt-4">HECHO</button>
         </div>
     </div>
 
@@ -289,9 +289,9 @@
                     <div class="flex items-center gap-2">
                         <div id="status-dot" class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></div>
                         <span id="status-txt"
-                            class="text-sm text-green-400 font-bold tracking-wide">CONNECTING...</span>
+                            class="text-sm text-green-400 font-bold tracking-wide">CONECTANDO...</span>
                     </div>
-                    <div class="text-[10px] text-white font-mono mt-0.5" id="room-info">Room: ----</div>
+                    <div class="text-[10px] text-white font-mono mt-0.5" id="room-info">Sala: ----</div>
                     <div id="live-room-name" class="hidden text-[11px] text-blue-300 font-bold mt-0.5"></div>
                 </div>
 
@@ -354,11 +354,11 @@
             <div class="absolute bottom-6 right-24 pointer-events-auto flex gap-2">
                 <select id="live-mic-select" onchange="switchMic(this.value)"
                     class="bg-black/60 text-white text-[10px] h-10 px-3 rounded-lg border border-white/20 outline-none backdrop-blur shadow-lg">
-                    <option value="">Change Mic...</option>
+                    <option value="">Cambiar micrófono...</option>
                 </select>
                 <select id="live-cam-select" onchange="switchCamera(this.value)"
                     class="bg-black/60 text-white text-[10px] h-10 px-3 rounded-lg border border-white/20 outline-none backdrop-blur shadow-lg">
-                    <option value="">Change Lens...</option>
+                    <option value="">Cambiar lente...</option>
                 </select>
             </div>
 
