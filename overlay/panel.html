@@ -1,0 +1,3079 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BROADCAST CTRL — Sports Overlay Controller</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.0.5/mqtt.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap"
+    rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-void: #0e0e0e;
+      --bg-panel: #1a1a1a;
+      --bg-card: #141414;
+      --bg-input: #111111;
+      --border: #2a2a2a;
+      --border-light: #333333;
+      --green: #4caf50;
+      --green-bright: #66bb6a;
+      --green-dim: #388e3c;
+      --green-glow: rgba(76, 175, 80, 0.12);
+      --blue: #1565c0;
+      --blue-bright: #1976d2;
+      --blue-glow: rgba(21, 101, 192, 0.15);
+      --red: #c62828;
+      --red-bright: #d32f2f;
+      --red-glow: rgba(198, 40, 40, 0.15);
+      --orange: #e65100;
+      --orange-bright: #ef6c00;
+      --orange-glow: rgba(230, 81, 0, 0.15);
+      --text-primary: #ffffff;
+      --text-secondary: #aaaaaa;
+      --text-dim: #555555;
+      --font-display: 'Rajdhani', sans-serif;
+      --font-ui: 'Rajdhani', sans-serif;
+      --font-mono: 'Share Tech Mono', monospace;
+      --radius: 6px;
+      --radius-lg: 8px;
+      --transition: all 0.15s ease;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: #111111;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 26px;
+      height: 26px;
+      background: var(--green);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .logo h1 {
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--text-primary);
+      text-transform: uppercase;
+    }
+
+    .logo span {
+      color: var(--text-secondary);
+      font-size: 10px;
+      letter-spacing: 1px;
+      display: block;
+      margin-top: -1px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .mqtt-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      background: #1f1f1f;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px 10px;
+    }
+
+    .mqtt-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--red);
+      transition: var(--transition);
+    }
+
+    .mqtt-dot.connected {
+      background: var(--green);
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    .btn-header {
+      font-family: var(--font-ui);
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      background: #1f1f1f;
+      color: var(--text-secondary);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .btn-header:hover {
+      border-color: var(--border-light);
+      color: var(--text-primary);
+      background: #252525;
+    }
+
+    /* ── COPY OVERLAY URL BUTTON ── */
+    .btn-copy-overlay {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 7px 18px;
+      background: #388e3c;
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-copy-overlay:hover {
+      background: #43a047;
+    }
+
+    .btn-copy-overlay:active {
+      transform: scale(0.97);
+    }
+
+    .btn-copy-overlay.copied {
+      background: #1b5e20;
+      color: #a5d6a7;
+      letter-spacing: 2px;
+    }
+
+    .btn-copy-overlay .copy-icon {
+      font-size: 14px;
+    }
+
+    /* ── LAYOUT ── */
+    .app {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto auto;
+      gap: 10px;
+      padding: 12px 14px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* ── PANEL ── */
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+
+    .panel::before {
+      display: none;
+    }
+
+    .panel:hover {
+      border-color: var(--border-light);
+    }
+
+    .panel-title {
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent-color, var(--green));
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .panel-title .icon {
+      font-size: 12px;
+    }
+
+    /* ── TEAMS PANEL ── */
+    .panel-teams {
+      grid-column: 1;
+      --accent-color: var(--green);
+    }
+
+    .team-blocks {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .team-block {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      transition: var(--transition);
+    }
+
+    .team-block.local {
+      border-left: 3px solid #1565c0;
+    }
+
+    .team-block.visitor {
+      border-left: 3px solid #c62828;
+    }
+
+    .team-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .team-label.local {
+      color: #5c8ecf;
+    }
+
+    .team-label.visitor {
+      color: #cf6565;
+    }
+
+    .team-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+      align-items: center;
+    }
+
+    .inp {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 10px;
+      transition: var(--transition);
+      outline: none;
+      width: 100%;
+    }
+
+    .inp:focus {
+      border-color: #444;
+    }
+
+    .inp.short {
+      width: 68px;
+      text-transform: uppercase;
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    .inp.url {
+      font-size: 10px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .inp::placeholder {
+      color: var(--text-dim);
+    }
+
+    .color-pick {
+      width: 34px;
+      height: 34px;
+      min-width: 34px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      overflow: hidden;
+      background: none;
+      padding: 2px;
+    }
+
+    .color-pick input[type="color"] {
+      width: 100%;
+      height: 100%;
+      border: none;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+
+    .team-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      font-family: var(--font-ui);
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: var(--transition);
+      outline: none;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn:active {
+      opacity: 0.85;
+      transform: scale(0.98);
+    }
+
+    .btn-ghost {
+      background: #222222;
+      border-color: var(--border-light);
+      color: #cccccc;
+      border: 1px solid #333;
+    }
+
+    .btn-ghost:hover {
+      background: #2a2a2a;
+      color: #ffffff;
+      border-color: #444;
+    }
+
+    .btn-green {
+      background: #388e3c;
+      color: #fff;
+      border-color: #2e7d32;
+    }
+
+    .btn-green:hover {
+      background: #43a047;
+    }
+
+    .btn-blue {
+      background: #1565c0;
+      color: #fff;
+      border-color: #0d47a1;
+    }
+
+    .btn-blue:hover {
+      background: #1976d2;
+    }
+
+    .btn-red {
+      background: #c62828;
+      color: #fff;
+      border-color: #b71c1c;
+    }
+
+    .btn-red:hover {
+      background: #d32f2f;
+    }
+
+    .btn-orange {
+      background: #e65100;
+      color: #fff;
+      border-color: #bf360c;
+    }
+
+    .btn-orange:hover {
+      background: #ef6c00;
+    }
+
+    .btn-outline-blue {
+      background: #0d1b2a;
+      border: 1px solid #1565c0;
+      color: #90caf9;
+    }
+
+    .btn-outline-blue:hover {
+      background: #0d2240;
+    }
+
+    .btn-outline-red {
+      background: #1c0a0a;
+      border: 1px solid #c62828;
+      color: #ef9a9a;
+    }
+
+    .btn-outline-red:hover {
+      background: #2a0f0f;
+    }
+
+    .btn-start {
+      font-size: 15px;
+      letter-spacing: 2px;
+      padding: 10px 28px;
+      flex: 1;
+    }
+
+    .btn-lg {
+      font-size: 13px;
+      padding: 10px 16px;
+    }
+
+    .btn-xl {
+      font-size: 16px;
+      padding: 16px 24px;
+      letter-spacing: 2px;
+    }
+
+    .btn-sm {
+      font-size: 11px;
+      padding: 6px 10px;
+    }
+
+    /* ── CLOCK & GOALS PANEL ── */
+    .panel-clock {
+      grid-column: 2;
+      --accent-color: #4caf50;
+    }
+
+    .clock-display {
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 46px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 4px;
+      margin: 8px 0 4px;
+      line-height: 1;
+      transition: var(--transition);
+      background: #111;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+    }
+
+    .clock-display.running {
+      color: #66bb6a;
+    }
+
+    .period-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .period-select {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      padding: 7px 10px;
+      outline: none;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .period-select:focus {
+      border-color: #444;
+    }
+
+    .hud-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      letter-spacing: 1px;
+      cursor: pointer;
+      padding: 7px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: #1f1f1f;
+      transition: var(--transition);
+      user-select: none;
+    }
+
+    .hud-toggle.on {
+      border-color: #388e3c;
+      color: #66bb6a;
+      background: #0d1a0d;
+    }
+
+    .hud-toggle.off {
+      border-color: #c62828;
+      color: #ef9a9a;
+      background: #1a0d0d;
+    }
+
+    .clock-controls {
+      display: flex;
+      gap: 6px;
+      margin: 8px 0;
+    }
+
+    .clock-controls .btn {
+      flex: 1;
+    }
+
+    /* SCORE */
+    .score-display {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin: 10px 0;
+      background: #111;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .score-team {
+      flex: 1;
+      padding: 12px 8px;
+      text-align: center;
+    }
+
+    .score-team-name {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .score-num {
+      font-family: var(--font-mono);
+      font-size: 44px;
+      font-weight: 900;
+      line-height: 1;
+      transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .score-num.local {
+      color: #90caf9;
+    }
+
+    .score-num.visitor {
+      color: #ef9a9a;
+    }
+
+    .score-num.bump {
+      transform: scale(1.25);
+    }
+
+    .score-sep {
+      font-family: var(--font-mono);
+      font-size: 32px;
+      font-weight: 900;
+      color: #444;
+      padding: 0 8px;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+    }
+
+    .goal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    /* ── PLANTELES PANEL ── */
+    .panel-planteles {
+      grid-column: 1 / -1;
+      --accent-color: #aaaaaa;
+    }
+
+    .planteles-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .planteles-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .planteles-col-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .planteles-col-title.local {
+      color: #90caf9;
+    }
+
+    .planteles-col-title.visitor {
+      color: #ef9a9a;
+    }
+
+    .textarea-label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 3px;
+      font-family: var(--font-mono);
+    }
+
+    textarea.inp {
+      resize: vertical;
+      min-height: 80px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      line-height: 1.6;
+    }
+
+    .planteles-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .planteles-actions .btn {
+      flex: 1;
+    }
+
+    /* ── MQTT PANEL ── */
+    .panel-mqtt {
+      grid-column: 1 / -1;
+      --accent-color: #aaaaaa;
+    }
+
+    .mqtt-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .mqtt-grid .inp-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mqtt-grid .inp-group label {
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .mqtt-log {
+      margin-top: 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      height: 76px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+      line-height: 1.8;
+    }
+
+    .mqtt-log::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .mqtt-log::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .mqtt-log::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    .log-entry {
+      display: flex;
+      gap: 10px;
+    }
+
+    .log-time {
+      color: var(--text-dim);
+    }
+
+    .log-topic {
+      color: #ffcc00;
+    }
+
+    .log-val {
+      color: #66bb6a;
+    }
+
+    .log-err {
+      color: #ef9a9a;
+    }
+
+    /* ── HIDE ALL BTN ── */
+    .panel-master {
+      grid-column: 1 / -1;
+      padding: 0;
+      background: none;
+      border: none;
+    }
+
+    .panel-master:hover {
+      border-color: transparent;
+    }
+
+    .panel-master::before {
+      display: none;
+    }
+
+    .btn-master {
+      width: 100%;
+      border-radius: var(--radius-lg);
+      font-size: 17px;
+      padding: 18px;
+      letter-spacing: 4px;
+      background: #e65100;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-family: var(--font-display);
+      font-weight: 700;
+      text-transform: uppercase;
+      transition: var(--transition);
+    }
+
+    .btn-master:hover {
+      background: #ef6c00;
+    }
+
+    .btn-master:active {
+      transform: scale(0.99);
+    }
+
+    .btn-master.hidden-state {
+      background: #333;
+      color: #888;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .modal-overlay.visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      width: 480px;
+      max-width: 95vw;
+      transform: translateY(16px);
+      transition: transform 0.2s ease;
+    }
+
+    .modal-overlay.visible .modal {
+      transform: translateY(0);
+    }
+
+    .modal h2 {
+      font-family: var(--font-display);
+      font-size: 12px;
+      letter-spacing: 2px;
+      color: #aaaaaa;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      justify-content: flex-end;
+    }
+
+    /* ── TOAST ── */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: #1f1f1f;
+      border: 1px solid #333;
+      border-radius: var(--radius);
+      padding: 8px 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #ccc;
+      transform: translateX(120%);
+      transition: transform 0.25s ease;
+      max-width: 280px;
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast.green {
+      border-color: #388e3c;
+      color: #66bb6a;
+    }
+
+    .toast.red {
+      border-color: #c62828;
+      color: #ef9a9a;
+    }
+
+    .toast.blue {
+      border-color: #1565c0;
+      color: #90caf9;
+    }
+
+    /* ── DIVIDER ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 10px 0;
+    }
+
+    /* Scrollbar global */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-void);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 3px;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .panel-teams,
+      .panel-clock {
+        grid-column: 1;
+      }
+
+      .mqtt-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .planteles-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon"></div>
+      <div>
+        <h1>BROADCAST CTRL</h1>
+        <span>Sports Overlay Controller • OBS Studio</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="mqtt-status">
+        <div class="mqtt-dot" id="mqttDot"></div>
+        <span id="mqttStatusText">DESCONECTADO</span>
+      </div>
+      <button class="btn-copy-overlay" id="btnCopyUrl" onclick="copyOverlayUrl()">
+        <span class="copy-icon">⧉</span> COPIAR URL MASTER
+      </button>
+      <button class="btn-header" onclick="openMqttModal()">⚙ MQTT</button>
+      <button class="btn-header" onclick="resetAll()">↺ RESET</button>
+      <button class="btn-header" onclick="openFullscreen()">⛶ FULL</button>
+    </div>
+  </header>
+
+  <!-- MAIN APP -->
+  <div class="app">
+
+    <!-- PANEL EQUIPOS -->
+    <div class="panel panel-teams">
+      <div class="panel-title"><span class="icon">◈</span> EQUIPOS</div>
+
+      <div class="team-blocks">
+        <!-- LOCAL -->
+        <div class="team-block local">
+          <div class="team-label local">▶ LOCAL</div>
+          <div class="team-row">
+            <input class="inp" id="homeName" placeholder="Equipo Local" value="River Plate" oninput="onTeamChange()">
+            <input class="inp short" id="homeAbbr" placeholder="RIV" value="RIV" maxlength="3" oninput="onTeamChange()">
+            <label class="color-pick" title="Color equipo">
+              <input type="color" id="homeColor" value="#00aaff" oninput="onTeamChange()">
+            </label>
+          </div>
+          <input class="inp url" id="homeLogo" placeholder="https://url-del-logo-local.png" oninput="onTeamChange()">
+        </div>
+
+        <!-- VISITANTE -->
+        <div class="team-block visitor">
+          <div class="team-label visitor">◀ VISITANTE</div>
+          <div class="team-row">
+            <input class="inp" id="awayName" placeholder="Equipo Visitante" value="Boca Juniors"
+              oninput="onTeamChange()">
+            <input class="inp short" id="awayAbbr" placeholder="BOC" value="BOC" maxlength="3" oninput="onTeamChange()">
+            <label class="color-pick" title="Color equipo">
+              <input type="color" id="awayColor" value="#ff2244" oninput="onTeamChange()">
+            </label>
+          </div>
+          <input class="inp url" id="awayLogo" placeholder="https://url-del-logo-visitante.png"
+            oninput="onTeamChange()">
+        </div>
+      </div>
+
+      <div class="team-actions" style="margin-top:16px;">
+        <button class="btn btn-ghost" onclick="setStatus('PREVIA')">PREVIA</button>
+        <button class="btn btn-ghost" onclick="setStatus('FINAL 1T')">FINAL 1T</button>
+        <button class="btn btn-ghost" onclick="setStatus('FINAL')">FINAL</button>
+        <button class="btn btn-green" onclick="updateTeams()">✓ ACTUALIZAR EQUIPOS</button>
+      </div>
+    </div>
+
+    <!-- PANEL RELOJ Y GOLES -->
+    <div class="panel panel-clock">
+      <div class="panel-title"><span class="icon">◉</span> RELOJ Y GOLES</div>
+
+      <div class="period-row">
+        <select class="period-select" id="periodSelect" onchange="changePeriod(this.value)">
+          <option value="1T">1T</option>
+          <option value="2T">2T</option>
+          <option value="ET">ET</option>
+          <option value="PEN">PEN</option>
+        </select>
+        <button class="btn btn-start btn-green" id="startBtn" onclick="toggleClock()">▶ START</button>
+        <div class="hud-toggle on" id="hudToggle" onclick="toggleHud()">
+          HUD: <span id="hudLabel">ON</span>
+        </div>
+      </div>
+
+      <div class="clock-display" id="clockDisplay">00:00</div>
+
+      <div class="clock-controls">
+        <button class="btn btn-ghost" onclick="resetClock()">↺ 00:00</button>
+        <button class="btn btn-ghost" onclick="setTargetTime()">🛑 LÍMITE</button>
+        <button class="btn btn-ghost" onclick="setExactTime()">⏱ FIJAR</button>
+      </div>
+      <div class="clock-controls">
+        <button class="btn btn-ghost" onclick="adjustTime(-60)">−1 min</button>
+        <button class="btn btn-ghost" onclick="adjustTime(60)">+1 min</button>
+        <button class="btn btn-outline-blue btn-sm" onclick="promptExtraTime()">+ EXTRA</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- SCORE -->
+      <div class="score-display">
+        <div class="score-team">
+          <div class="score-team-name" id="homeScoreName">RIV</div>
+          <div class="score-num local" id="homeScore">0</div>
+        </div>
+        <div class="score-sep">:</div>
+        <div class="score-team">
+          <div class="score-team-name" id="awayScoreName">BOC</div>
+          <div class="score-num visitor" id="awayScore">0</div>
+        </div>
+      </div>
+
+      <div class="goal-grid" style="grid-template-columns: 1fr 1fr;">
+        <button class="btn btn-blue btn-lg" onclick="addGoal('home')">⚽ GOL LOCAL</button>
+        <button class="btn btn-red btn-lg" onclick="addGoal('away')">⚽ GOL VISITANTE</button>
+        <button class="btn btn-outline-blue btn-sm" onclick="removeGoal('home')">− RESTAR GOL L</button>
+        <button class="btn btn-outline-red btn-sm" onclick="removeGoal('away')">− RESTAR GOL V</button>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-outline-blue btn-sm" style="flex:1;font-size:9px" onclick="addYellowCard('home')" oncontextmenu="removeYellowCard('home'); return false;">🟨 AMARILLA L</button>
+          <button class="btn btn-outline-blue btn-sm" style="flex:1;font-size:9px" onclick="addRedCard('home')" oncontextmenu="removeRedCard('home'); return false;">🟥 ROJA L</button>
+        </div>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-outline-red btn-sm" style="flex:1;font-size:9px" onclick="addYellowCard('away')" oncontextmenu="removeYellowCard('away'); return false;">🟨 AMARILLA V</button>
+          <button class="btn btn-outline-red btn-sm" style="flex:1;font-size:9px" onclick="addRedCard('away')" oncontextmenu="removeRedCard('away'); return false;">🟥 ROJA V</button>
+        </div>
+      </div>
+      <button class="btn btn-outline-blue btn-sm" style="margin-top:8px; width:100%" onclick="openPenaltiesModal()">⚽ TANDA DE PENALES</button>
+    </div>
+
+    <!-- PANEL PLANTELES -->
+    <div class="panel panel-planteles">
+      <div class="panel-title"><span class="icon">◫</span> PLANTELES</div>
+      <div class="planteles-grid">
+        <!-- LOCAL -->
+        <div class="planteles-col">
+          <div class="planteles-col-title local">▶ LOCAL</div>
+          <div>
+            <div class="textarea-label">Titulares</div>
+            <textarea class="inp" id="homeTitulares" rows="5"
+              placeholder="1-Apellido&#10;2-Apellido&#10;..."></textarea>
+          </div>
+          <div>
+            <div class="textarea-label">Suplentes</div>
+            <textarea class="inp" id="homeSuplentes" rows="3" placeholder="12-Apellido&#10;..."></textarea>
+          </div>
+          <div class="planteles-actions">
+            <button class="btn btn-blue btn-sm" onclick="cargarPlanteles('home')">↑ CARGAR L</button>
+            <button class="btn btn-outline-blue btn-sm" onclick="mostrarPlaca('home')">▣ PLACA L</button>
+          </div>
+        </div>
+        <!-- VISITANTE -->
+        <div class="planteles-col">
+          <div class="planteles-col-title visitor">◀ VISITANTE</div>
+          <div>
+            <div class="textarea-label">Titulares</div>
+            <textarea class="inp" id="awayTitulares" rows="5"
+              placeholder="1-Apellido&#10;2-Apellido&#10;..."></textarea>
+          </div>
+          <div>
+            <div class="textarea-label">Suplentes</div>
+            <textarea class="inp" id="awaySuplentes" rows="3" placeholder="12-Apellido&#10;..."></textarea>
+          </div>
+          <div class="planteles-actions">
+            <button class="btn btn-red btn-sm" onclick="cargarPlanteles('away')">↑ CARGAR V</button>
+            <button class="btn btn-outline-red btn-sm" onclick="mostrarPlaca('away')">▣ PLACA V</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL GRÁFICOS EXTRA -->
+    <div class="panel panel-planteles" style="margin-top:0px;">
+      <div class="panel-title"><span class="icon">★</span> GRÁFICOS EXTRA</div>
+      <div class="planteles-grid">
+        
+        <!-- VAR y Sustitución -->
+        <div class="planteles-col">
+          <div class="planteles-col-title" style="color:#aaa">SUSTITUCIONES Y ALERTAS</div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; gap:6px;">
+              <input class="inp" id="subOut" placeholder="Sale (# y Nombre)">
+              <input class="inp" id="subIn" placeholder="Entra (# y Nombre)">
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="btn btn-outline-blue btn-sm" onclick="showSub('home')">🔄 CAMBIO L</button>
+              <button class="btn btn-outline-red btn-sm" onclick="showSub('away')">🔄 CAMBIO V</button>
+            </div>
+          </div>
+          <div style="margin-top: 10px;">
+            <button class="btn btn-sm" style="background:#d500f9; color:white; width:100%; border:none; padding:12px; font-size:14px; letter-spacing:2px; cursor:pointer; font-weight:bold; border-radius:4px;" onclick="toggleVar()">🚨 ALERTA VAR (ON/OFF)</button>
+          </div>
+        </div>
+
+        <!-- Lower Thirds -->
+        <div class="planteles-col">
+          <div class="planteles-col-title" style="color:#aaa">ZÓCALOS / PRESENTACIÓN</div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <input class="inp" id="ltTitle" placeholder="Nombre / Título principal">
+            <input class="inp" id="ltDesc" placeholder="Descripción / Twitter / Rol">
+            <button class="btn btn-outline-blue btn-sm" style="color:#aaa; border-color:#555;" onclick="toggleLowerThird()">▣ MOSTRAR / OCULTAR ZÓCALO</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- PANEL ESTADÍSTICAS Y SPONSORS -->
+    <div class="panel panel-planteles" style="margin-top:0px;">
+      <div class="panel-title"><span class="icon">📊</span> ESTADÍSTICAS Y PATROCINADORES</div>
+      <div class="planteles-grid">
+        
+        <!-- Estadísticas -->
+        <div class="planteles-col">
+          <div class="planteles-col-title" style="color:#aaa">ESTADÍSTICAS DEL PARTIDO</div>
+          
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; align-items:center;">
+             <span style="font-size:10px; color:#90caf9; text-align:right;">LOCAL</span>
+             <span style="font-size:10px; color:#666; text-align:center;">DATO</span>
+             <span style="font-size:10px; color:#ef9a9a;">VISITANTE</span>
+             
+             <input class="inp short" id="statPossHome" style="width:100%; text-align:right" value="50">
+             <span style="font-size:9px; color:#fff; text-align:center;">Posesión (%)</span>
+             <input class="inp short" id="statPossAway" style="width:100%" value="50">
+             
+             <input class="inp short" id="statShotsHome" style="width:100%; text-align:right" value="0">
+             <span style="font-size:9px; color:#fff; text-align:center;">Remates</span>
+             <input class="inp short" id="statShotsAway" style="width:100%" value="0">
+             
+             <input class="inp short" id="statShotsTargetHome" style="width:100%; text-align:right" value="0">
+             <span style="font-size:9px; color:#fff; text-align:center;">Remates al arco</span>
+             <input class="inp short" id="statShotsTargetAway" style="width:100%" value="0">
+             
+             <input class="inp short" id="statFoulsHome" style="width:100%; text-align:right" value="0">
+             <span style="font-size:9px; color:#fff; text-align:center;">Faltas</span>
+             <input class="inp short" id="statFoulsAway" style="width:100%" value="0">
+             
+             <input class="inp short" id="statYellowHome" style="width:100%; text-align:right" value="0">
+             <span style="font-size:9px; color:#fff; text-align:center;">T. Amarillas</span>
+             <input class="inp short" id="statYellowAway" style="width:100%" value="0">
+             
+             <input class="inp short" id="statRedHome" style="width:100%; text-align:right" value="0">
+             <span style="font-size:9px; color:#fff; text-align:center;">T. Rojas</span>
+             <input class="inp short" id="statRedAway" style="width:100%" value="0">
+             
+             <input class="inp short" id="statOffsideHome" style="width:100%; text-align:right" value="0">
+             <span style="font-size:9px; color:#fff; text-align:center;">Fuera de juego</span>
+             <input class="inp short" id="statOffsideAway" style="width:100%" value="0">
+             
+             <input class="inp short" id="statCornersHome" style="width:100%; text-align:right" value="0">
+             <span style="font-size:9px; color:#fff; text-align:center;">Tiros de esquina</span>
+             <input class="inp short" id="statCornersAway" style="width:100%" value="0">
+          </div>
+          <div style="margin-top: 10px;">
+             <button class="btn btn-outline-blue btn-sm" style="color:#aaa; border-color:#555; width:100%;" onclick="toggleStats()">📊 MOSTRAR / OCULTAR ESTADÍSTICAS</button>
+          </div>
+        </div>
+
+        <!-- Patrocinadores -->
+        <div class="planteles-col">
+          <div class="planteles-col-title" style="color:#aaa">ROTADOR DE PATROCINADORES</div>
+          <div>
+            <div class="textarea-label">URLs de Logos (una por línea)</div>
+            <textarea class="inp" id="sponsorList" rows="4" placeholder="https://logo1.png&#10;https://logo2.png"></textarea>
+          </div>
+          <div style="margin-top:6px; display:flex; gap:6px;">
+            <button class="btn btn-outline-blue btn-sm" style="flex:1;" onclick="updateSponsors()">↑ ACTUALIZAR</button>
+            <button class="btn btn-outline-blue btn-sm" style="flex:1; color:#aaa; border-color:#555;" onclick="toggleSponsors()">🔄 ON / OFF</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- PANEL MASTER -->
+    <div class="panel-master panel">
+      <button class="btn-master" id="masterBtn" onclick="toggleMaster()">
+        ◈ OCULTAR TODO
+      </button>
+    </div>
+
+  </div><!-- /app -->
+
+  <!-- MODAL PENALES -->
+  <div class="modal-overlay" id="penaltiesModal">
+    <div class="modal" style="width:400px;">
+      <h2>⚽ TANDA DE PENALES</h2>
+      
+      <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+        <!-- LOCAL PENALTY -->
+        <div style="flex:1;">
+          <h3 style="font-size:12px; color:#90caf9;" id="penHomeTitle">LOCAL</h3>
+          <div style="display:flex; gap:6px; margin-top:8px;" id="penHomeDotsUi">
+             <!-- JS will inject circles -->
+          </div>
+        </div>
+        <!-- AWAY PENALTY -->
+        <div style="flex:1; text-align:right;">
+          <h3 style="font-size:12px; color:#ef9a9a;" id="penAwayTitle">VISITANTE</h3>
+          <div style="display:flex; gap:6px; margin-top:8px; justify-content:flex-end;" id="penAwayDotsUi">
+             <!-- JS will inject circles -->
+          </div>
+        </div>
+      </div>
+      
+      <div style="color:#aaa; font-size:10px; margin-bottom:16px; text-align:center;">Clic izquierdo: 🟢 Gol | Clic derecho: 🔴 Fallo | Medio: ⚪ Pendiente</div>
+
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closePenaltiesModal()">CERRAR</button>
+        <button class="btn btn-ghost btn-sm" style="color:#aaa;border-color:#555" onclick="togglePenaltiesOverlay()">▣ MOSTRAR / OCULTAR PLACA</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL MQTT -->
+  <div class="modal-overlay" id="mqttModal">
+    <div class="modal">
+      <h2>⚡ CONFIGURACIÓN MQTT</h2>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="inp-group" style="display:flex;flex-direction:column;gap:4px;">
+          <label
+            style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);font-family:var(--font-mono);">Broker
+            WebSocket URL</label>
+          <input class="inp" id="mqttBroker" placeholder="ws://broker.hivemq.com:8000/mqtt" value="">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label
+              style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);font-family:var(--font-mono);">Usuario</label>
+            <input class="inp" id="mqttUser" placeholder="usuario">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label
+              style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);font-family:var(--font-mono);">Password</label>
+            <input class="inp" id="mqttPass" type="password" placeholder="••••••••">
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label
+            style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);font-family:var(--font-mono);">Topic
+            Base</label>
+          <input class="inp" id="mqttTopic" placeholder="overlay/match" value="overlay/match">
+        </div>
+      </div>
+      <div class="mqtt-log" id="mqttLog"><span style="color:var(--text-dim)">// Log de mensajes MQTT aparecerá
+          aquí...</span></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeMqttModal()">CERRAR</button>
+        <button class="btn btn-ghost btn-sm" onclick="disconnectMqtt()"
+          style="color:var(--red);border-color:rgba(255,34,68,0.3)">DESCONECTAR</button>
+        <button class="btn btn-green" onclick="connectMqtt()">⚡ CONECTAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOASTS -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    /* ═══════════════════════════════════════════
+       STATE
+    ═══════════════════════════════════════════ */
+    const state = {
+      home: { name: 'River Plate', abbr: 'RIV', color: '#00aaff', logo: '', goals: 0, redcards: 0, yellowcards: 0 },
+      away: { name: 'Boca Juniors', abbr: 'BOC', color: '#ff2244', logo: '', goals: 0, redcards: 0, yellowcards: 0 },
+      clock: { seconds: 0, running: false, interval: null, targetSeconds: null },
+      period: '1T',
+      hud: true,
+      masterVisible: true,
+      status: 'LIVE',
+      penalties: { show: false, home: [0,0,0,0,0], away: [0,0,0,0,0] }, // 0: pending, 1: goal, 2: miss
+      varAlert: false,
+      lowerThird: false,
+      stats: false,
+      sponsors: false,
+      mqtt: { client: null, broker: '', user: '', pass: '', topic: 'overlay/match' }
+    };
+
+    /* ═══════════════════════════════════════════
+       PERSISTENCE
+    ═══════════════════════════════════════════ */
+    function saveState() {
+      const toSave = { home: state.home, away: state.away, clock: { seconds: state.clock.seconds, targetSeconds: state.clock.targetSeconds }, period: state.period, hud: state.hud };
+      localStorage.setItem('broadcastCtrl_state', JSON.stringify(toSave));
+      const mqttCfg = { broker: document.getElementById('mqttBroker').value, user: document.getElementById('mqttUser').value, topic: document.getElementById('mqttTopic').value };
+      localStorage.setItem('broadcastCtrl_mqtt', JSON.stringify(mqttCfg));
+    }
+
+    function loadState() {
+      try {
+        const s = JSON.parse(localStorage.getItem('broadcastCtrl_state'));
+        if (s) {
+          Object.assign(state.home, s.home);
+          Object.assign(state.away, s.away);
+          state.clock.seconds = s.clock?.seconds || 0;
+          state.clock.targetSeconds = s.clock?.targetSeconds || null;
+          state.period = s.period || '1T';
+          state.hud = s.hud !== undefined ? s.hud : true;
+        }
+        const m = JSON.parse(localStorage.getItem('broadcastCtrl_mqtt'));
+        if (m) {
+          document.getElementById('mqttBroker').value = m.broker || '';
+          document.getElementById('mqttUser').value = m.user || '';
+          document.getElementById('mqttTopic').value = m.topic || 'overlay/match';
+        }
+      } catch (e) { }
+    }
+
+    function applyStateToUI() {
+      document.getElementById('homeName').value = state.home.name;
+      document.getElementById('homeAbbr').value = state.home.abbr;
+      document.getElementById('homeColor').value = state.home.color;
+      document.getElementById('awayName').value = state.away.name;
+      document.getElementById('awayAbbr').value = state.away.abbr;
+      document.getElementById('awayColor').value = state.away.color;
+      document.getElementById('homeScore').textContent = state.home.goals;
+      document.getElementById('awayScore').textContent = state.away.goals;
+      document.getElementById('homeScoreName').textContent = state.home.abbr;
+      document.getElementById('awayScoreName').textContent = state.away.abbr;
+      document.getElementById('periodSelect').value = state.period;
+      updateClockDisplay();
+      updateHudUI();
+    }
+
+    /* ═══════════════════════════════════════════
+       AUDIO
+    ═══════════════════════════════════════════ */
+    function playAlertSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const playBeep = (time) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(880, time);
+          gain.gain.setValueAtTime(0.1, time);
+          gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(time);
+          osc.stop(time + 0.3);
+        };
+        playBeep(ctx.currentTime);
+        playBeep(ctx.currentTime + 0.4);
+      } catch (e) {}
+    }
+
+    /* ═══════════════════════════════════════════
+       CLOCK
+    ═══════════════════════════════════════════ */
+    function changePeriod(val) {
+      state.period = val;
+      publishBase('period', val);
+      publishBase('extratime', '');
+      saveState();
+    }
+
+    function toggleClock() {
+      if (state.clock.running) stopClock(); else startClock();
+    }
+
+    function startClock() {
+      state.clock.running = true;
+      const btn = document.getElementById('startBtn');
+      btn.textContent = '⏹ STOP';
+      btn.classList.remove('btn-green'); btn.classList.add('btn-red');
+      document.getElementById('clockDisplay').classList.add('running');
+      state.clock.interval = setInterval(() => {
+        state.clock.seconds++;
+        updateClockDisplay();
+        publishBase('time', formatTime(state.clock.seconds));
+        if (state.clock.seconds % 30 === 0) publishAll();
+        
+        if (state.clock.targetSeconds !== null && state.clock.seconds >= state.clock.targetSeconds) {
+          stopClock();
+          playAlertSound();
+          showToast('Tiempo límite alcanzado', 'blue');
+        } else {
+          saveState();
+        }
+      }, 1000);
+      publishBase('status', 'RUNNING');
+      showToast('Cronómetro iniciado', 'green');
+    }
+
+    function stopClock(suppressPublish = false) {
+      state.clock.running = false;
+      clearInterval(state.clock.interval);
+      const btn = document.getElementById('startBtn');
+      btn.textContent = '▶ START';
+      btn.classList.remove('btn-red'); btn.classList.add('btn-green');
+      document.getElementById('clockDisplay').classList.remove('running');
+      if (!suppressPublish) {
+        publishBase('status', 'STOPPED');
+      }
+      saveState();
+      showToast('Cronómetro pausado', 'blue');
+    }
+
+    function adjustTime(secs) {
+      state.clock.seconds = Math.max(0, state.clock.seconds + secs);
+      updateClockDisplay();
+      publishBase('time', formatTime(state.clock.seconds));
+      saveState();
+    }
+
+    function resetClock() {
+      if (confirm('¿Resetear reloj a 00:00?')) {
+        state.clock.seconds = 0;
+        stopClock();
+        updateClockDisplay();
+        publishBase('time', formatTime(state.clock.seconds));
+        saveState();
+        showToast('Reloj reseteado a 00:00', 'blue');
+      }
+    }
+
+    function setTargetTime() {
+      const v = prompt('Fijar LÍMITE (MM:SS) (Dejar vacío para sin límite):', state.clock.targetSeconds ? formatTime(state.clock.targetSeconds) : '45:00');
+      if (v === null) return;
+      if (v.trim() === '') {
+        state.clock.targetSeconds = null;
+        showToast('Límite eliminado', 'blue');
+        saveState();
+        return;
+      }
+      const parts = v.split(':');
+      if (parts.length === 2) {
+        const m = parseInt(parts[0], 10);
+        const s = parseInt(parts[1], 10);
+        if (!isNaN(m) && !isNaN(s)) {
+          state.clock.targetSeconds = (m * 60) + s;
+          saveState();
+          showToast(`Límite fijado en ${v}`, 'green');
+          
+          if (state.clock.running && state.clock.seconds >= state.clock.targetSeconds) {
+            stopClock();
+            playAlertSound();
+            showToast('Tiempo límite alcanzado', 'blue');
+          }
+        }
+      }
+    }
+
+    function promptExtraTime() {
+      const v = prompt('Minutos de tiempo extra (ej. 5):', '5');
+      if (v !== null) {
+        const msg = v.trim() ? `+${v}'` : '';
+        publishBase('extratime', msg);
+        
+        const extraMins = parseInt(v, 10);
+        if (!isNaN(extraMins) && extraMins > 0 && state.clock.targetSeconds) {
+          if (confirm(`¿Quieres sumar estos ${extraMins} min al reloj para que siga contando (Ej: llegar a ${formatTime(state.clock.targetSeconds + extraMins * 60)})?`)) {
+            state.clock.targetSeconds += (extraMins * 60);
+            saveState();
+            showToast('Límite de tiempo extendido', 'green');
+          }
+        }
+        
+        showToast(msg ? `Extra Time: ${msg}` : 'Extra Time borrado', 'blue');
+      }
+    }
+
+    function setExactTime() {
+      const v = prompt('Fijar tiempo (MM:SS):', '45:00');
+      if (v) {
+        const parts = v.split(':');
+        if (parts.length === 2) {
+          const m = parseInt(parts[0], 10);
+          const s = parseInt(parts[1], 10);
+          if (!isNaN(m) && !isNaN(s)) {
+            state.clock.seconds = (m * 60) + s;
+            updateClockDisplay();
+            publishBase('time', formatTime(state.clock.seconds));
+            saveState();
+            showToast(`Tiempo fijado en ${v}`, 'green');
+          }
+        }
+      }
+    }
+
+    function updateClockDisplay() {
+      document.getElementById('clockDisplay').textContent = formatTime(state.clock.seconds);
+    }
+
+    function formatTime(s) {
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    }
+
+    /* ═══════════════════════════════════════════
+       GOALS
+    ═══════════════════════════════════════════ */
+    function addGoal(team) {
+      state[team].goals++;
+      updateScore(team);
+      publishBase(`${team}/score`, state[team].goals);
+      publishBase('goal_event', team);
+      bumpScore(team);
+      showToast(`⚽ GOL ${team === 'home' ? state.home.name : state.away.name}!`, team === 'home' ? 'blue' : 'red');
+    }
+
+    function removeGoal(team) {
+      if (state[team].goals > 0) {
+        state[team].goals--;
+        updateScore(team);
+        publishBase(`${team}/score`, state[team].goals);
+      }
+    }
+
+    function updateScore(team) {
+      const id = team === 'home' ? 'homeScore' : 'awayScore';
+      document.getElementById(id).textContent = state[team].goals;
+      saveState();
+    }
+
+    function bumpScore(team) {
+      const id = team === 'home' ? 'homeScore' : 'awayScore';
+      const el = document.getElementById(id);
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 300);
+    }
+
+    function addRedCard(team) {
+      state[team].redcards++;
+      publishBase(`${team}/redcards`, state[team].redcards);
+      saveState();
+      showToast(`🟥 Roja ${team === 'home' ? 'Local' : 'Visitante'}`, team === 'home' ? 'blue' : 'red');
+    }
+
+    function removeRedCard(team) {
+      if (state[team].redcards > 0) {
+        state[team].redcards--;
+        publishBase(`${team}/redcards`, state[team].redcards);
+        saveState();
+        showToast(`🟥 Roja restada ${team === 'home' ? 'Local' : 'Visitante'}`, team === 'home' ? 'blue' : 'red');
+      }
+    }
+
+    function addYellowCard(team) {
+      state[team].yellowcards = (state[team].yellowcards || 0) + 1;
+      publishBase(`${team}/yellowcards`, state[team].yellowcards);
+      saveState();
+      showToast(`🟨 Amarilla ${team === 'home' ? 'Local' : 'Visitante'}`, 'blue');
+    }
+
+    function removeYellowCard(team) {
+      if ((state[team].yellowcards || 0) > 0) {
+        state[team].yellowcards--;
+        publishBase(`${team}/yellowcards`, state[team].yellowcards);
+        saveState();
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       TEAMS
+    ═══════════════════════════════════════════ */
+    function onTeamChange() { /* live preview */ }
+
+    function updateTeams() {
+      state.home.name = document.getElementById('homeName').value;
+      state.home.abbr = document.getElementById('homeAbbr').value.toUpperCase();
+      state.home.color = document.getElementById('homeColor').value;
+      state.home.logo = document.getElementById('homeLogo').value;
+      state.away.name = document.getElementById('awayName').value;
+      state.away.abbr = document.getElementById('awayAbbr').value.toUpperCase();
+      state.away.color = document.getElementById('awayColor').value;
+      state.away.logo = document.getElementById('awayLogo').value;
+
+      document.getElementById('homeScoreName').textContent = state.home.abbr;
+      document.getElementById('awayScoreName').textContent = state.away.abbr;
+
+      publishAll();
+      saveState();
+      showToast('Equipos actualizados', 'green');
+    }
+
+    function setStatus(s) {
+      if ((s === 'PREVIA' || s === 'FINAL 1T' || s === 'FINAL') && state.status === s) {
+        s = state.clock.running ? 'RUNNING' : 'STOPPED';
+      }
+
+      if (s === 'FINAL 1T' || s === 'FINAL') {
+        stopClock(true);
+      }
+
+      state.status = s;
+      publishBase('status', s);
+      showToast(`Estado: ${s}`, 'blue');
+
+      if (currentPlaca && s !== 'RUNNING' && s !== 'STOPPED') {
+        publish('overlay/placa', 'OFF');
+        currentPlaca = null;
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       HUD
+    ═══════════════════════════════════════════ */
+    function toggleHud() {
+      state.hud = !state.hud;
+      updateHudUI();
+      publish('overlay/visibility', state.hud ? 'ON' : 'OFF');
+      saveState();
+    }
+
+    function updateHudUI() {
+      const el = document.getElementById('hudToggle');
+      const lbl = document.getElementById('hudLabel');
+      lbl.textContent = state.hud ? 'ON' : 'OFF';
+      el.className = 'hud-toggle ' + (state.hud ? 'on' : 'off');
+    }
+
+    /* ═══════════════════════════════════════════
+       MASTER
+    ═══════════════════════════════════════════ */
+    function toggleMaster() {
+      state.masterVisible = !state.masterVisible;
+      const btn = document.getElementById('masterBtn');
+      if (state.masterVisible) {
+        btn.textContent = '◈ OCULTAR TODO';
+        btn.classList.remove('hidden-state');
+      } else {
+        btn.textContent = '◈ MOSTRAR TODO';
+        btn.classList.add('hidden-state');
+      }
+      publish('overlay/master', state.masterVisible ? 'SHOW' : 'HIDE');
+      showToast(state.masterVisible ? 'Overlays visibles' : 'Overlays ocultos', 'blue');
+    }
+
+    /* ═══════════════════════════════════════════
+       PLANTELES
+    ═══════════════════════════════════════════ */
+    function cargarPlanteles(team) {
+      const titKey = team === 'home' ? 'homeTitulares' : 'awayTitulares';
+      const supKey = team === 'home' ? 'homeSuplentes' : 'awaySuplentes';
+      const titulares = document.getElementById(titKey).value;
+      const suplentes = document.getElementById(supKey).value;
+      publishBase(`${team}/titulares`, titulares);
+      publishBase(`${team}/suplentes`, suplentes);
+      showToast(`Plantel ${team === 'home' ? 'Local' : 'Visitante'} enviado`, team === 'home' ? 'blue' : 'red');
+    }
+
+    let currentPlaca = null;
+    function mostrarPlaca(team) {
+      if (currentPlaca === team) {
+        publish('overlay/placa', 'OFF');
+        currentPlaca = null;
+        showToast('Placa oculta', 'blue');
+      } else {
+        publish('overlay/placa', team);
+        currentPlaca = team;
+        showToast(`Placa ${team === 'home' ? 'Local' : 'Visitante'} activada`, 'green');
+      }
+    }
+
+    /* ═══════════════════════════════════════════
+       NUEVAS FUNCIONES (VAR, ZOCALOS, STATS, ETC)
+    ═══════════════════════════════════════════ */
+    function toggleVar() {
+      state.varAlert = !state.varAlert;
+      publish('overlay/var', state.varAlert ? 'ON' : 'OFF');
+      showToast(state.varAlert ? 'ALERTA VAR ACTIVADA' : 'VAR Desactivado', state.varAlert ? 'red' : 'blue');
+    }
+
+    function toggleLowerThird() {
+      state.lowerThird = !state.lowerThird;
+      if(state.lowerThird) {
+         publishBase('lowerthird/title', document.getElementById('ltTitle').value);
+         publishBase('lowerthird/desc', document.getElementById('ltDesc').value);
+      }
+      publish('overlay/lowerthird', state.lowerThird ? 'ON' : 'OFF');
+    }
+
+    function toggleStats() {
+      state.stats = !state.stats;
+      if(state.stats) {
+         publishBase('stats/posshome', document.getElementById('statPossHome').value);
+         publishBase('stats/possaway', document.getElementById('statPossAway').value);
+         publishBase('stats/shotshome', document.getElementById('statShotsHome').value);
+         publishBase('stats/shotsaway', document.getElementById('statShotsAway').value);
+         publishBase('stats/shotstargethome', document.getElementById('statShotsTargetHome').value);
+         publishBase('stats/shotstargetaway', document.getElementById('statShotsTargetAway').value);
+         publishBase('stats/foulshome', document.getElementById('statFoulsHome').value);
+         publishBase('stats/foulsaway', document.getElementById('statFoulsAway').value);
+         publishBase('stats/yellowhome', document.getElementById('statYellowHome').value);
+         publishBase('stats/yellowaway', document.getElementById('statYellowAway').value);
+         publishBase('stats/redhome', document.getElementById('statRedHome').value);
+         publishBase('stats/redaway', document.getElementById('statRedAway').value);
+         publishBase('stats/offsidehome', document.getElementById('statOffsideHome').value);
+         publishBase('stats/offsideaway', document.getElementById('statOffsideAway').value);
+         publishBase('stats/cornershome', document.getElementById('statCornersHome').value);
+         publishBase('stats/cornersaway', document.getElementById('statCornersAway').value);
+      }
+      publish('overlay/stats', state.stats ? 'ON' : 'OFF');
+    }
+
+    function updateSponsors() {
+       const list = document.getElementById('sponsorList').value.split('\n').filter(l => l.trim().length > 0);
+       publishBase('sponsors/list', JSON.stringify(list));
+       showToast('Sponsors actualizados', 'green');
+    }
+    function toggleSponsors() {
+      state.sponsors = !state.sponsors;
+      publish('overlay/sponsors', state.sponsors ? 'ON' : 'OFF');
+    }
+
+    function showSub(team) {
+      const outP = document.getElementById('subOut').value;
+      const inP = document.getElementById('subIn').value;
+      publishBase('sub/team', team);
+      publishBase('sub/out', outP);
+      publishBase('sub/in', inP);
+      publish('overlay/sub', 'TRIGGER');
+      showToast('Sustitución animada en pantalla', 'green');
+    }
+
+    function openPenaltiesModal() {
+       document.getElementById('penHomeTitle').textContent = state.home.abbr;
+       document.getElementById('penAwayTitle').textContent = state.away.abbr;
+       renderPenaltiesUi();
+       document.getElementById('penaltiesModal').classList.add('visible');
+    }
+    function closePenaltiesModal() { document.getElementById('penaltiesModal').classList.remove('visible'); }
+    
+    function renderPenaltiesUi() {
+       const r = (team) => state.penalties[team].map((st, i) => {
+         const color = st===0 ? '#444' : (st===1 ? '#4caf50' : '#e53935');
+         return `<div style="width:24px;height:24px;border-radius:50%;background:${color};cursor:pointer;border:2px solid #222;"
+                   onclick="setPenalty('${team}',${i},1)"
+                   oncontextmenu="setPenalty('${team}',${i},2); return false;"
+                   onauxclick="setPenalty('${team}',${i},0); return false;"></div>`;
+       }).join('');
+       document.getElementById('penHomeDotsUi').innerHTML = r('home');
+       document.getElementById('penAwayDotsUi').innerHTML = r('away');
+    }
+    function setPenalty(team, index, st) {
+       state.penalties[team][index] = st;
+       renderPenaltiesUi();
+       publishBase(`penalties/${team}`, JSON.stringify(state.penalties[team]));
+       saveState();
+    }
+    function togglePenaltiesOverlay() {
+       state.penalties.show = !state.penalties.show;
+       publish('overlay/penalties', state.penalties.show ? 'ON' : 'OFF');
+    }
+
+    /* ═══════════════════════════════════════════
+       MQTT
+    ═══════════════════════════════════════════ */
+    function connectMqtt() {
+      let broker = document.getElementById('mqttBroker').value.trim();
+      const user = document.getElementById('mqttUser').value.trim();
+      const pass = document.getElementById('mqttPass').value;
+      let topic = document.getElementById('mqttTopic').value.trim();
+
+      if (!broker) {
+        broker = 'ws://broker.hivemq.com:8000/mqtt';
+        document.getElementById('mqttBroker').value = broker;
+      }
+      if (!topic) {
+        topic = 'overlay/match';
+        document.getElementById('mqttTopic').value = topic;
+      }
+      state.mqtt.topic = topic;
+
+      if (state.mqtt.client) {
+        try { state.mqtt.client.end(true); } catch (e) { }
+      }
+
+      logMqtt('SYS', `Conectando a ${broker}...`);
+
+      const opts = { clientId: 'broadcastCtrl_' + Math.random().toString(16).substr(2, 8) };
+      if (user) opts.username = user;
+      if (pass) opts.password = pass;
+      opts.reconnectPeriod = 3000;
+
+      try {
+        state.mqtt.client = mqtt.connect(broker, opts);
+      } catch (e) {
+        logMqtt('ERR', e.message, true);
+        showToast('Error al conectar', 'red');
+        return;
+      }
+
+      state.mqtt.client.on('connect', () => {
+        setMqttStatus(true);
+        logMqtt('SYS', 'Conexión MQTT establecida');
+        state.mqtt.client.subscribe(topic + '/#', { qos: 0 });
+        showToast('MQTT Conectado', 'green');
+        publishAll();
+        saveState();
+      });
+
+      state.mqtt.client.on('error', (err) => {
+        logMqtt('ERR', err.message, true);
+        setMqttStatus(false);
+      });
+
+      state.mqtt.client.on('close', () => {
+        setMqttStatus(false);
+        logMqtt('SYS', 'Desconectado del broker');
+      });
+
+      state.mqtt.client.on('message', (topicReceived, message) => {
+        const msg = message.toString();
+        logMqtt(topicReceived, msg);
+
+        // Auto-sync for late joiners (OBS Overlay)
+        if (topicReceived === state.mqtt.topic + '/sync' && msg === 'REQUEST') {
+          publishAll();
+        }
+      });
+    }
+
+    function disconnectMqtt() {
+      if (state.mqtt.client) {
+        state.mqtt.client.end(true);
+        state.mqtt.client = null;
+      }
+      setMqttStatus(false);
+      showToast('MQTT Desconectado', 'red');
+    }
+
+    function setMqttStatus(connected) {
+      const dot = document.getElementById('mqttDot');
+      const txt = document.getElementById('mqttStatusText');
+      dot.className = 'mqtt-dot' + (connected ? ' connected' : '');
+      txt.textContent = connected ? 'CONECTADO' : 'DESCONECTADO';
+    }
+
+    function publish(topic, value) {
+      logMqtt(topic, String(value));
+      if (state.mqtt.client && state.mqtt.client.connected) {
+        try {
+          state.mqtt.client.publish(topic, String(value), { qos: 0, retain: true });
+        } catch (e) { }
+      }
+    }
+
+    function publishBase(subtopic, value) {
+      const base = state.mqtt.topic || 'overlay/match';
+      publish(`${base}/${subtopic}`, value);
+    }
+
+    function publishAll() {
+      publishBase('home/name', state.home.name);
+      publishBase('home/abbr', state.home.abbr);
+      publishBase('home/color', state.home.color);
+      publishBase('home/logo', state.home.logo);
+      publishBase('home/score', state.home.goals);
+      publishBase('home/redcards', state.home.redcards || 0);
+      publishBase('home/yellowcards', state.home.yellowcards || 0);
+      publishBase('away/name', state.away.name);
+      publishBase('away/abbr', state.away.abbr);
+      publishBase('away/color', state.away.color);
+      publishBase('away/logo', state.away.logo);
+      publishBase('away/score', state.away.goals);
+      publishBase('away/redcards', state.away.redcards || 0);
+      publishBase('away/yellowcards', state.away.yellowcards || 0);
+      publishBase('penalties/home', JSON.stringify(state.penalties.home));
+      publishBase('penalties/away', JSON.stringify(state.penalties.away));
+      publishBase('time', formatTime(state.clock.seconds));
+      publishBase('period', state.period);
+      publishBase('status', state.status);
+      publish(`overlay/visibility`, state.hud ? 'ON' : 'OFF');
+      publish(`overlay/master`, state.masterVisible ? 'SHOW' : 'HIDE');
+    }
+
+    function logMqtt(topic, val, isErr = false) {
+      const log = document.getElementById('mqttLog');
+      const now = new Date();
+      const ts = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      if (isErr) {
+        entry.innerHTML = `<span class="log-time">${ts}</span> <span class="log-err">✗ ${topic}: ${val}</span>`;
+      } else {
+        entry.innerHTML = `<span class="log-time">${ts}</span> <span class="log-topic">${topic}</span> <span class="log-val">→ ${String(val).substring(0, 60)}</span>`;
+      }
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+      // Keep log short
+      while (log.children.length > 50) log.removeChild(log.firstChild);
+    }
+
+    /* ═══════════════════════════════════════════
+       MODAL
+    ═══════════════════════════════════════════ */
+    function openMqttModal() { document.getElementById('mqttModal').classList.add('visible'); }
+    function closeMqttModal() { document.getElementById('mqttModal').classList.remove('visible'); }
+    document.getElementById('mqttModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeMqttModal();
+    });
+
+    /* ═══════════════════════════════════════════
+       TOAST
+    ═══════════════════════════════════════════ */
+    function showToast(msg, type = '') {
+      const c = document.getElementById('toastContainer');
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.textContent = msg;
+      c.appendChild(t);
+      requestAnimationFrame(() => { requestAnimationFrame(() => t.classList.add('show')); });
+      setTimeout(() => {
+        t.classList.remove('show');
+        setTimeout(() => t.remove(), 400);
+      }, 2500);
+    }
+
+    /* ═══════════════════════════════════════════
+       MISC
+    ═══════════════════════════════════════════ */
+    function resetAll() {
+      if (!confirm('¿Resetear todo el estado del partido?')) return;
+      state.home.goals = 0; state.away.goals = 0;
+      state.home.redcards = 0; state.away.redcards = 0;
+      state.home.yellowcards = 0; state.away.yellowcards = 0;
+      state.clock.seconds = 0; stopClock();
+      state.penalties = { show: false, home: [0,0,0,0,0], away: [0,0,0,0,0] };
+      document.getElementById('homeScore').textContent = '0';
+      document.getElementById('awayScore').textContent = '0';
+      publishAll();
+      saveState();
+      showToast('Estado reseteado completamente', 'blue');
+    }
+
+    function openFullscreen() {
+      const el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen();
+    }
+
+    /* ═══════════════════════════════════════════
+       OVERLAY MODE — Visual scoreboard for OBS
+    ═══════════════════════════════════════════ */
+    function injectOverlay(broker, topic, user) {
+      // Inject overlay CSS
+      const style = document.createElement('style');
+      style.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@700;900&family=Share+Tech+Mono&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: transparent !important; overflow: hidden; transition: opacity 0.4s; }
+
+    #obs-overlay {
+      position: fixed; top: 40px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center;
+      font-family: 'Rajdhani', sans-serif;
+      filter: drop-shadow(0 4px 16px rgba(0,0,0,0.8));
+      min-width: 560px;
+    }
+
+    /* HOME */
+    .ov-home {
+      display: flex; align-items: center; gap: 0;
+      background: var(--home-color, #1565c0);
+      padding: 0 20px 0 16px;
+      clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
+      min-width: 190px;
+    }
+    .ov-home-name {
+      font-size: 22px; font-weight: 900; letter-spacing: 1px;
+      color: #fff; text-transform: uppercase;
+      padding: 10px 0;
+      flex: 1;
+    }
+
+    /* SCORES CENTER */
+    .ov-center {
+      background: #111;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 10px;
+      position: relative; z-index: 2;
+    }
+    .ov-period {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 9px; letter-spacing: 3px; color: #888;
+      padding-top: 4px; text-transform: uppercase;
+    }
+    .ov-scores {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 6px;
+    }
+    .ov-score {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 36px; font-weight: 900; color: #fff;
+      min-width: 36px; text-align: center;
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .ov-score.bump { transform: scale(1.4); }
+    .ov-sep { color: #555; font-size: 28px; font-family: 'Share Tech Mono', monospace; }
+    .ov-time {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; color: #66bb6a; letter-spacing: 2px;
+      padding-bottom: 4px;
+    }
+    .ov-time.running { animation: timePulse 1s ease-in-out infinite; }
+    @keyframes timePulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    /* LOGOS */
+    .ov-logo-main {
+      width: 26px; height: 26px; object-fit: contain;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    }
+    .ov-home .ov-logo-main { margin-right: 10px; }
+    .ov-away .ov-logo-main { margin-left: 10px; }
+
+    /* AWAY */
+    .ov-away {
+      display: flex; align-items: center;
+      background: var(--away-color, #c62828);
+      padding: 0 16px 0 20px;
+      clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%);
+      min-width: 190px;
+    }
+    .ov-away-name {
+      font-size: 22px; font-weight: 900; letter-spacing: 1px;
+      color: #fff; text-transform: uppercase;
+      padding: 10px 0;
+      flex: 1; text-align: right;
+    }
+
+    /* STATUS BADGE */
+    .ov-status {
+      position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+      background: #111; border: 1px solid #333;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 9px; letter-spacing: 3px; color: #888;
+      padding: 3px 12px; border-radius: 4px 4px 0 0;
+      text-transform: uppercase; white-space: nowrap;
+    }
+    .ov-status.live { 
+      background: #d32f2f; 
+      color: #fff; 
+      border-color: #b71c1c; 
+      animation: statusPulse 1.5s infinite; 
+    }
+    @keyframes statusPulse {
+      0%, 100% { background: #d32f2f; }
+      50% { background: #8e0000; }
+    }
+
+    /* HIDDEN */
+    #obs-overlay.hidden { opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+    #obs-overlay { transition: opacity 0.4s; }
+
+    /* YELLOW CARDS */
+    .ov-yellowcards { display: flex; gap: 3px; margin: 0 8px; justify-content: center; }
+    .yellow-card { width: 8px; height: 12px; background: #ffeb3b; border-radius: 1px; box-shadow: 0 0 4px rgba(255,235,59,0.6); }
+
+    /* VAR ALERT */
+    #obs-var {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.4s;
+    }
+    #obs-var.visible { opacity: 1; pointer-events: auto; }
+    .var-text {
+      font-size: 140px; font-weight: 900; color: #ff00ff; letter-spacing: 16px;
+      text-transform: uppercase; text-shadow: 0 0 50px #ff00ff;
+      animation: varFlash 0.6s infinite alternate; text-align: center; line-height: 1.1;
+    }
+    @keyframes varFlash { 0% { opacity: 0.6; transform: scale(0.97); } 100% { opacity: 1; transform: scale(1.03); } }
+
+    /* LOWER THIRD */
+    #obs-lowerthird {
+      position: fixed; bottom: 80px; left: 80px; z-index: 90;
+      display: flex; flex-direction: column;
+      transform: translateX(-150%); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #obs-lowerthird.visible { transform: translateX(0); }
+    .lt-title {
+      background: var(--home-color, #1565c0); color: white;
+      font-size: 36px; font-weight: 900; padding: 12px 40px;
+      text-transform: uppercase; letter-spacing: 2px;
+      clip-path: polygon(0 0, 100% 0, calc(100% - 20px) 100%, 0 100%);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      border-bottom: 4px solid rgba(255,255,255,0.2);
+    }
+    .lt-desc {
+      background: #111; color: #ccc;
+      font-size: 24px; font-weight: 600; padding: 8px 40px;
+      clip-path: polygon(0 0, calc(100% - 20px) 0, calc(100% - 30px) 100%, 0 100%);
+      align-self: flex-start; margin-top: -2px;
+    }
+
+    /* STATS */
+    #obs-stats {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(15,15,15,0.95); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px;
+      padding: 40px 60px; width: 800px; z-index: 95;
+      opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 40px 100px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+    #obs-stats.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+    .stats-title { font-size: 32px; color: #fff; text-align: center; margin-bottom: 30px; letter-spacing: 6px; font-weight: 900; text-transform: uppercase; }
+    .stat-row { display: flex; align-items: center; margin-bottom: 16px; }
+    .stat-row:last-child { margin-bottom: 0; }
+    .stat-val { font-size: 40px; font-family: 'Share Tech Mono', monospace; font-weight: 900; width: 120px; text-align: center; }
+    .stat-val.local { color: #90caf9; }
+    .stat-val.visitor { color: #ef9a9a; }
+    .stat-label { flex: 1; text-align: center; color: #aaa; font-size: 20px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
+
+    /* SPONSORS */
+    #obs-sponsors {
+      position: fixed; bottom: 80px; right: 80px; z-index: 80;
+      width: 240px; height: 120px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.5s;
+    }
+    #obs-sponsors.visible { opacity: 1; }
+    .sponsor-img {
+      max-width: 100%; max-height: 100%; object-fit: contain;
+      animation: fadeSponsor 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+    }
+    @keyframes fadeSponsor { 0% { opacity: 0; transform: scale(0.85) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+
+    /* SUBSTITUTIONS */
+    #obs-sub {
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(300px);
+      background: #111; border-radius: 16px; display: flex; align-items: center;
+      padding: 0; overflow: hidden; z-index: 92;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05);
+      transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #obs-sub.visible { transform: translateX(-50%) translateY(0); }
+    .sub-side { padding: 20px 40px; display: flex; align-items: center; gap: 20px; min-width: 300px; }
+    .sub-out { background: #c62828; color: #fff; }
+    .sub-in { background: #2e7d32; color: #fff; }
+    .sub-icon { font-size: 36px; font-weight: 900; }
+    .sub-name { font-size: 32px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* PENALTIES */
+    #obs-penalties {
+      position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%) translateY(250px);
+      background: rgba(10,12,16,0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
+      padding: 24px 50px; z-index: 85; display: flex; align-items: center; gap: 60px;
+      transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.9); backdrop-filter: blur(20px);
+    }
+    #obs-penalties.visible { transform: translateX(-50%) translateY(0); }
+    .pen-team { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .pen-team-name { font-size: 32px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 2px; }
+    .pen-dots { display: flex; gap: 12px; }
+    .pen-dot { width: 26px; height: 26px; border-radius: 50%; background: #333; border: 3px solid #111; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+    .pen-dot.goal { background: #4caf50; border-color: #1b5e20; box-shadow: 0 0 16px rgba(76,175,80,0.6); }
+    .pen-dot.miss { background: #e53935; border-color: #b71c1c; box-shadow: 0 0 16px rgba(229,57,53,0.6); }
+    .pen-score { font-family: 'Share Tech Mono', monospace; font-size: 80px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 4px 16px rgba(0,0,0,0.8); }
+
+    /* PREVIA OVERLAY */
+    #obs-previa {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      opacity: 0; pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+      background: transparent;
+      transform: scale(0.98);
+    }
+    #obs-previa.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(0.7);
+    }
+    .previa-card {
+      width: 1000px;
+      background: rgba(15, 15, 15, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 32px;
+      box-shadow: 0 32px 128px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.05);
+      padding: 70px 50px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .previa-card::after {
+      content: "";
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 6px;
+      background: #4caf50;
+      box-shadow: 0 -4px 48px rgba(76, 175, 80, 0.8);
+    }
+    .previa-title {
+      font-size: 32px;
+      font-weight: 900;
+      color: #66bb6a;
+      letter-spacing: 12px;
+      text-transform: uppercase;
+      margin-bottom: 0px;
+      text-shadow: 0 0 24px rgba(102, 187, 106, 0.5);
+    }
+    .previa-teams {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      gap: 0px;
+    }
+    .previa-team {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+    .previa-logo {
+      width: 240px;
+      height: 240px;
+      object-fit: contain;
+      filter: drop-shadow(0 16px 32px rgba(0,0,0,0.6));
+    }
+    .previa-name {
+      font-size: 42px;
+      font-weight: 800;
+      color: #ffffff;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-align: center;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.8);
+    }
+    .previa-vs {
+      font-size: 72px;
+      font-style: italic;
+      font-weight: 900;
+      color: rgba(255,255,255,0.15);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 40px;
+    }
+    .previa-divider {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      height: 200%;
+      width: 2px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.15), transparent);
+    }
+
+    /* FINAL OVERLAY */
+    #obs-final {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      opacity: 0; pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+      background: transparent;
+      transform: scale(0.98);
+    }
+    #obs-final.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(0.7);
+    }
+    .final-score-center {
+      display: flex; align-items: center; justify-content: center; gap: 30px;
+      padding: 0 40px;
+    }
+    .final-score-num {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 110px; font-weight: 900; color: #ffffff;
+      text-shadow: 0 4px 16px rgba(0,0,0,0.8);
+      min-width: 80px; text-align: center;
+    }
+    .final-score-sep {
+      font-size: 64px; font-weight: 900; color: rgba(255,255,255,0.2);
+    }
+
+    /* PLANTEL OVERLAY */
+    #obs-plantel {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      opacity: 0; pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 110;
+      background: transparent;
+      transform: scale(0.98);
+    }
+    #obs-plantel.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(0.7);
+    }
+    .plantel-card {
+      width: 1300px;
+      background: rgba(10, 12, 16, 0.9);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-top: 8px solid var(--team-color, #1565c0);
+      border-radius: 24px;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.02);
+      padding: 50px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    .plantel-header {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 30px;
+    }
+    .plantel-logo {
+      height: 120px;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+    }
+    .plantel-name {
+      font-size: 80px;
+      font-weight: 900;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      text-shadow: 0 4px 16px rgba(0,0,0,0.8);
+    }
+    .plantel-body {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 80px;
+    }
+    .plantel-section-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .plantel-grid {
+      display: grid;
+      gap: 16px;
+    }
+    .titulares-grid {
+      grid-template-columns: 1fr 1fr;
+      column-gap: 40px;
+    }
+    .suplentes-grid {
+      grid-template-columns: 1fr;
+    }
+    .player-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .player-num {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      background: var(--team-color, #1565c0);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .suplentes-grid .player-num {
+      background: #333;
+      color: #aaa;
+      box-shadow: none;
+    }
+    .player-name {
+      font-size: 32px;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ov-extratime {
+      color: #ffd700;
+      margin-left: 4px;
+      text-shadow: 0 0 5px rgba(255,215,0,0.5);
+    }
+    .ov-redcards {
+      display: flex; gap: 3px; margin: 0 8px;
+    }
+    .red-card {
+      width: 8px; height: 12px; background: #e53935; border-radius: 1px;
+      box-shadow: 0 0 4px rgba(229,57,53,0.6);
+    }
+    .ov-goal-banner {
+      position: absolute; top: 100%; left: 0; width: 100%;
+      height: 36px;
+      background: var(--goal-color, #111);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 20px; font-weight: 900; letter-spacing: 2px;
+      transform: translateY(-100%);
+      opacity: 0;
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: -1; 
+      border-radius: 0 0 8px 8px;
+    }
+    .ov-goal-banner.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  `;
+      document.head.appendChild(style);
+
+      // Inject overlay HTML
+      const div = document.createElement('div');
+      div.id = 'obs-overlay';
+      div.innerHTML = `
+      <div class="ov-goal-banner" id="ov-goal-banner">
+      <span id="ov-goal-text">¡GOL!</span>
+    </div>
+    <div class="ov-home" id="ov-home" style="--home-color:#1565c0">
+      <img class="ov-logo-main" id="ov-home-logo-main" src="" style="display:none;">
+      <span class="ov-home-name" id="ov-home-name">LOCAL</span>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <div class="ov-redcards" id="ov-home-redcards"></div>
+        <div class="ov-yellowcards" id="ov-home-yellowcards"></div>
+      </div>
+    </div>
+    <div class="ov-center">
+      <div class="ov-status live" id="ov-status">EN VIVO</div>
+      <div class="ov-period" id="ov-period">1T</div>
+      <div class="ov-scores">
+        <span class="ov-score" id="ov-score-home">0</span>
+        <span class="ov-sep">:</span>
+        <span class="ov-score" id="ov-score-away">0</span>
+      </div>
+      <div style="display:flex; align-items:center;">
+        <div class="ov-time" id="ov-time">00:00</div>
+        <span class="ov-extratime" id="ov-extratime"></span>
+      </div>
+    </div>
+    <div class="ov-away" id="ov-away" style="--away-color:#c62828">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <div class="ov-redcards" id="ov-away-redcards"></div>
+        <div class="ov-yellowcards" id="ov-away-yellowcards"></div>
+      </div>
+      <span class="ov-away-name" id="ov-away-name">VISITANTE</span>
+      <img class="ov-logo-main" id="ov-away-logo-main" src="" style="display:none;">
+    </div>
+  `;
+      document.body.appendChild(div);
+
+      // Inject extra broadcast graphics HTML
+      const extrasDiv = document.createElement('div');
+      extrasDiv.id = 'obs-extras';
+      extrasDiv.innerHTML = `
+        <!-- VAR -->
+        <div id="obs-var"><div class="var-text">VAR<br><span style="font-size:50px">REVISANDO JUGADA</span></div></div>
+        
+        <!-- LOWER THIRD -->
+        <div id="obs-lowerthird">
+          <div class="lt-title" id="ov-lt-title">NOMBRE</div>
+          <div class="lt-desc" id="ov-lt-desc">DESCRIPCIÓN</div>
+        </div>
+
+        <!-- SPONSORS -->
+        <div id="obs-sponsors">
+          <img class="sponsor-img" id="ov-sponsor-img" src="" style="display:none;">
+        </div>
+
+        <!-- STATS -->
+        <div id="obs-stats">
+          <div class="stats-title">ESTADÍSTICAS</div>
+          <div class="stat-row">
+            <div class="stat-val local" id="ov-stat-poss-h">50%</div>
+            <div class="stat-label">Posesión</div>
+            <div class="stat-val visitor" id="ov-stat-poss-a">50%</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-val local" id="ov-stat-shots-h">0</div>
+            <div class="stat-label">Remates</div>
+            <div class="stat-val visitor" id="ov-stat-shots-a">0</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-val local" id="ov-stat-shotstarget-h">0</div>
+            <div class="stat-label">Remates al arco</div>
+            <div class="stat-val visitor" id="ov-stat-shotstarget-a">0</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-val local" id="ov-stat-fouls-h">0</div>
+            <div class="stat-label">Faltas</div>
+            <div class="stat-val visitor" id="ov-stat-fouls-a">0</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-val local" id="ov-stat-yellow-h">0</div>
+            <div class="stat-label">Tarjetas amarillas</div>
+            <div class="stat-val visitor" id="ov-stat-yellow-a">0</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-val local" id="ov-stat-red-h">0</div>
+            <div class="stat-label">Tarjetas rojas</div>
+            <div class="stat-val visitor" id="ov-stat-red-a">0</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-val local" id="ov-stat-offside-h">0</div>
+            <div class="stat-label">Fuera de juego</div>
+            <div class="stat-val visitor" id="ov-stat-offside-a">0</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-val local" id="ov-stat-corners-h">0</div>
+            <div class="stat-label">Tiros de esquina</div>
+            <div class="stat-val visitor" id="ov-stat-corners-a">0</div>
+          </div>
+        </div>
+
+        <!-- SUBSTITUTION -->
+        <div id="obs-sub">
+          <div class="sub-side sub-out">
+            <div class="sub-icon">▼</div>
+            <div class="sub-name" id="ov-sub-out">SALE</div>
+          </div>
+          <div class="sub-side sub-in">
+            <div class="sub-icon">▲</div>
+            <div class="sub-name" id="ov-sub-in">ENTRA</div>
+          </div>
+        </div>
+
+        <!-- PENALTIES -->
+        <div id="obs-penalties">
+          <div class="pen-team">
+            <div class="pen-team-name" id="ov-pen-home-name">LOCAL</div>
+            <div class="pen-dots" id="ov-pen-home-dots"></div>
+          </div>
+          <div class="pen-score" id="ov-pen-home-score">0</div>
+          <div class="pen-score" style="color:#555">-</div>
+          <div class="pen-score" id="ov-pen-away-score">0</div>
+          <div class="pen-team">
+            <div class="pen-team-name" id="ov-pen-away-name">VISITANTE</div>
+            <div class="pen-dots" id="ov-pen-away-dots"></div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(extrasDiv);
+
+      // Inject previa overlay HTML
+      const previaDiv = document.createElement('div');
+      previaDiv.id = 'obs-previa';
+      previaDiv.innerHTML = `
+    <div class="previa-card">
+      <div class="previa-title">PREVIA</div>
+      <div class="previa-teams">
+        <div class="previa-team">
+          <img class="previa-logo" id="ov-previa-home-logo" src="" alt="" style="display:none;">
+          <div class="previa-name" id="ov-previa-home-name">LOCAL</div>
+        </div>
+        <div class="previa-vs">VS<div class="previa-divider"></div></div>
+        <div class="previa-team">
+          <img class="previa-logo" id="ov-previa-away-logo" src="" alt="" style="display:none;">
+          <div class="previa-name" id="ov-previa-away-name">VISITANTE</div>
+        </div>
+      </div>
+    </div>
+  `;
+      document.body.appendChild(previaDiv);
+
+      // Inject final overlay HTML
+      const finalDiv = document.createElement('div');
+      finalDiv.id = 'obs-final';
+      finalDiv.innerHTML = `
+    <div class="previa-card">
+      <div class="previa-title" id="ov-final-title">RESULTADO PRIMER TIEMPO</div>
+      <div class="previa-teams">
+        <div class="previa-team">
+          <img class="previa-logo" id="ov-final-home-logo" src="" alt="" style="display:none;">
+          <div class="previa-name" id="ov-final-home-name">LOCAL</div>
+        </div>
+        <div class="final-score-center">
+          <span class="final-score-num" id="ov-final-home-score">0</span>
+          <span class="final-score-sep">-</span>
+          <span class="final-score-num" id="ov-final-away-score">0</span>
+        </div>
+        <div class="previa-team">
+          <img class="previa-logo" id="ov-final-away-logo" src="" alt="" style="display:none;">
+          <div class="previa-name" id="ov-final-away-name">VISITANTE</div>
+        </div>
+      </div>
+    </div>
+  `;
+      document.body.appendChild(finalDiv);
+
+      // Inject plantel overlay HTML
+      const plantelDiv = document.createElement('div');
+      plantelDiv.id = 'obs-plantel';
+      plantelDiv.innerHTML = `
+        <div class="plantel-card" id="plantel-card" style="--team-color: #1565c0;">
+          <div class="plantel-header">
+            <img class="plantel-logo" id="ov-plantel-logo" src="" alt="" style="display:none;">
+            <div class="plantel-name" id="ov-plantel-name">EQUIPO</div>
+          </div>
+          <div class="plantel-body">
+            <div class="plantel-section titulares-section">
+              <div class="plantel-section-title" id="ov-plantel-titulares-title" style="color: var(--team-color);">TITULARES</div>
+              <div class="plantel-grid titulares-grid" id="ov-plantel-titulares"></div>
+            </div>
+            <div class="plantel-section suplentes-section">
+              <div class="plantel-section-title" style="color: #888;">SUPLENTES</div>
+              <div class="plantel-grid suplentes-grid" id="ov-plantel-suplentes"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(plantelDiv);
+
+      // Connect MQTT and update overlay
+      if (!broker) return;
+
+      const opts = { clientId: 'obs_overlay_' + Math.random().toString(16).substr(2, 6) };
+      if (user) opts.username = user;
+      opts.reconnectPeriod = 4000;
+
+      let client;
+      try {
+        const wsUrl = broker.startsWith('ws') ? broker : `ws://${broker}:8000/mqtt`;
+        client = mqtt.connect(wsUrl, opts);
+      } catch (e) { return; }
+
+      client.on('connect', () => {
+        client.subscribe(topic + '/#', { qos: 0 });
+        client.subscribe('overlay/visibility', { qos: 0 });
+        client.subscribe('overlay/placa', { qos: 0 });
+        client.subscribe('overlay/master', { qos: 0 });
+        client.subscribe('overlay/var', { qos: 0 });
+        client.subscribe('overlay/lowerthird', { qos: 0 });
+        client.subscribe('overlay/stats', { qos: 0 });
+        client.subscribe('overlay/penalties', { qos: 0 });
+        client.subscribe('overlay/sub', { qos: 0 });
+        client.subscribe('overlay/sponsors', { qos: 0 });
+
+        // Request initial state from panel
+        client.publish(topic + '/sync', 'REQUEST');
+      });
+
+      let plantelesCache = {
+        home: { titulares: '', suplentes: '', name: '', logo: '', color: '' },
+        away: { titulares: '', suplentes: '', name: '', logo: '', color: '' }
+      };
+
+      let sponsorList = [];
+      let sponsorIndex = 0;
+      let sponsorTimer = null;
+
+      function renderSponsor() {
+         if (!sponsorList.length) return;
+         const img = document.getElementById('ov-sponsor-img');
+         img.style.display = 'none'; // reset animation
+         void img.offsetWidth; // trigger reflow
+         img.src = sponsorList[sponsorIndex];
+         img.style.display = 'block';
+         sponsorIndex = (sponsorIndex + 1) % sponsorList.length;
+      }
+      function startSponsors() {
+         if (sponsorTimer) clearInterval(sponsorTimer);
+         renderSponsor();
+         sponsorTimer = setInterval(renderSponsor, 8000); // Rotate every 8s
+      }
+      function stopSponsors() {
+         if (sponsorTimer) clearInterval(sponsorTimer);
+      }
+
+      function renderPlantel(team) {
+        const data = plantelesCache[team];
+        const card = document.getElementById('plantel-card');
+        card.style.setProperty('--team-color', data.color || '#1565c0');
+
+        const logoEl = document.getElementById('ov-plantel-logo');
+        if (data.logo) { logoEl.src = data.logo; logoEl.style.display = 'block'; }
+        else { logoEl.style.display = 'none'; }
+
+        document.getElementById('ov-plantel-name').textContent = data.name || 'EQUIPO';
+        document.getElementById('ov-plantel-titulares-title').style.color = data.color || '#1565c0';
+
+        const parsePlayers = (text) => {
+          if (!text) return '';
+          return text.split('\n').map(line => {
+            const match = line.match(/^(\d+)[-\s]+(.+)$/);
+            if (match) {
+              return `<div class="player-row"><div class="player-num">${match[1]}</div><div class="player-name">${match[2].trim()}</div></div>`;
+            } else if (line.trim()) {
+              return `<div class="player-row"><div class="player-num">-</div><div class="player-name">${line.trim()}</div></div>`;
+            }
+            return '';
+          }).join('');
+        };
+
+        document.getElementById('ov-plantel-titulares').innerHTML = parsePlayers(data.titulares);
+        document.getElementById('ov-plantel-suplentes').innerHTML = parsePlayers(data.suplentes);
+      }
+
+      client.on('message', (t, msg) => {
+        const v = msg.toString();
+        const base = topic + '/';
+
+        if (t === 'overlay/var') { document.getElementById('obs-var').classList.toggle('visible', v === 'ON'); }
+        if (t === 'overlay/lowerthird') { document.getElementById('obs-lowerthird').classList.toggle('visible', v === 'ON'); }
+        if (t === 'overlay/stats') { document.getElementById('obs-stats').classList.toggle('visible', v === 'ON'); }
+        if (t === 'overlay/penalties') {
+          document.getElementById('obs-penalties').classList.toggle('visible', v === 'ON');
+          document.getElementById('obs-overlay').style.opacity = (v === 'ON') ? '0' : '';
+        }
+        if (t === 'overlay/sub' && v === 'TRIGGER') {
+           const subEl = document.getElementById('obs-sub');
+           subEl.classList.add('visible');
+           setTimeout(() => subEl.classList.remove('visible'), 8000);
+        }
+        if (t === 'overlay/sponsors') {
+           const spEl = document.getElementById('obs-sponsors');
+           if (v === 'ON') { spEl.classList.add('visible'); startSponsors(); } 
+           else { spEl.classList.remove('visible'); stopSponsors(); }
+        }
+
+        if (t === 'overlay/visibility') {
+          div.classList.toggle('hidden', v === 'HIDE' || v === 'OFF');
+          return;
+        }
+        if (t === 'overlay/master') {
+          document.body.style.opacity = (v === 'HIDE' || v === 'OFF') ? '0' : '1';
+          return;
+        }
+        if (t === 'overlay/placa') {
+          const plantel = document.getElementById('obs-plantel');
+          if (v === 'home' || v === 'away') {
+            renderPlantel(v);
+            plantel.classList.add('visible');
+            document.getElementById('obs-previa').classList.remove('visible');
+            document.getElementById('obs-final').classList.remove('visible');
+            document.getElementById('obs-overlay').style.opacity = '0'; // Ocultar marcador base
+          } else {
+            plantel.classList.remove('visible');
+            document.getElementById('obs-overlay').style.opacity = ''; // Restaurar marcador base
+          }
+        }
+
+        if (t === base + 'home/titulares') plantelesCache.home.titulares = v;
+        if (t === base + 'home/suplentes') plantelesCache.home.suplentes = v;
+        if (t === base + 'away/titulares') plantelesCache.away.titulares = v;
+        if (t === base + 'away/suplentes') plantelesCache.away.suplentes = v;
+
+        if (t === base + 'home/name') {
+          plantelesCache.home.name = v;
+          document.getElementById('ov-home-name').textContent = v;
+          document.getElementById('ov-previa-home-name').textContent = v;
+          document.getElementById('ov-final-home-name').textContent = v;
+        }
+        if (t === base + 'away/name') {
+          plantelesCache.away.name = v;
+          document.getElementById('ov-away-name').textContent = v;
+          document.getElementById('ov-previa-away-name').textContent = v;
+          document.getElementById('ov-final-away-name').textContent = v;
+        }
+        if (t === base + 'home/color') {
+          plantelesCache.home.color = v;
+          document.getElementById('ov-home').style.setProperty('--home-color', v);
+        }
+        if (t === base + 'away/color') {
+          plantelesCache.away.color = v;
+          document.getElementById('ov-away').style.setProperty('--away-color', v);
+        }
+        if (t === base + 'home/logo') {
+          plantelesCache.home.logo = v;
+          const elP = document.getElementById('ov-previa-home-logo');
+          const elF = document.getElementById('ov-final-home-logo');
+          const elM = document.getElementById('ov-home-logo-main');
+          if (v) {
+            elP.src = v; elP.style.display = 'block';
+            elF.src = v; elF.style.display = 'block';
+            elM.src = v; elM.style.display = 'block';
+          } else {
+            elP.style.display = 'none';
+            elF.style.display = 'none';
+            elM.style.display = 'none';
+          }
+        }
+        if (t === base + 'away/logo') {
+          plantelesCache.away.logo = v;
+          const elP = document.getElementById('ov-previa-away-logo');
+          const elF = document.getElementById('ov-final-away-logo');
+          const elM = document.getElementById('ov-away-logo-main');
+          if (v) {
+            elP.src = v; elP.style.display = 'block';
+            elF.src = v; elF.style.display = 'block';
+            elM.src = v; elM.style.display = 'block';
+          } else {
+            elP.style.display = 'none';
+            elF.style.display = 'none';
+            elM.style.display = 'none';
+          }
+        }
+        if (t === base + 'extratime') {
+          document.getElementById('ov-extratime').textContent = v;
+        }
+        if (t === base + 'lowerthird/title') document.getElementById('ov-lt-title').textContent = v;
+        if (t === base + 'lowerthird/desc') document.getElementById('ov-lt-desc').textContent = v;
+        if (t === base + 'sponsors/list') {
+           sponsorList = JSON.parse(v);
+           sponsorIndex = 0;
+           renderSponsor();
+        }
+        if (t === base + 'stats/posshome') document.getElementById('ov-stat-poss-h').textContent = v + '%';
+        if (t === base + 'stats/possaway') document.getElementById('ov-stat-poss-a').textContent = v + '%';
+        if (t === base + 'stats/shotshome') document.getElementById('ov-stat-shots-h').textContent = v;
+        if (t === base + 'stats/shotsaway') document.getElementById('ov-stat-shots-a').textContent = v;
+        if (t === base + 'stats/shotstargethome') document.getElementById('ov-stat-shotstarget-h').textContent = v;
+        if (t === base + 'stats/shotstargetaway') document.getElementById('ov-stat-shotstarget-a').textContent = v;
+        if (t === base + 'stats/foulshome') document.getElementById('ov-stat-fouls-h').textContent = v;
+        if (t === base + 'stats/foulsaway') document.getElementById('ov-stat-fouls-a').textContent = v;
+        if (t === base + 'stats/yellowhome') document.getElementById('ov-stat-yellow-h').textContent = v;
+        if (t === base + 'stats/yellowaway') document.getElementById('ov-stat-yellow-a').textContent = v;
+        if (t === base + 'stats/redhome') document.getElementById('ov-stat-red-h').textContent = v;
+        if (t === base + 'stats/redaway') document.getElementById('ov-stat-red-a').textContent = v;
+        if (t === base + 'stats/offsidehome') document.getElementById('ov-stat-offside-h').textContent = v;
+        if (t === base + 'stats/offsideaway') document.getElementById('ov-stat-offside-a').textContent = v;
+        if (t === base + 'stats/cornershome') document.getElementById('ov-stat-corners-h').textContent = v;
+        if (t === base + 'stats/cornersaway') document.getElementById('ov-stat-corners-a').textContent = v;
+        
+        if (t === base + 'sub/out') document.getElementById('ov-sub-out').textContent = v;
+        if (t === base + 'sub/in') document.getElementById('ov-sub-in').textContent = v;
+        if (t === base + 'sub/team') {
+           const outEl = document.querySelector('.sub-out');
+           const inEl = document.querySelector('.sub-in');
+           outEl.style.background = plantelesCache[v].color || (v === 'home' ? '#1565c0' : '#c62828');
+        }
+
+        if (t === base + 'home/yellowcards') document.getElementById('ov-home-yellowcards').innerHTML = '<div class="yellow-card"></div>'.repeat(parseInt(v) || 0);
+        if (t === base + 'away/yellowcards') document.getElementById('ov-away-yellowcards').innerHTML = '<div class="yellow-card"></div>'.repeat(parseInt(v) || 0);
+
+        if (t === base + 'penalties/home' || t === base + 'penalties/away') {
+           const isHome = t.includes('home');
+           const dotsId = isHome ? 'ov-pen-home-dots' : 'ov-pen-away-dots';
+           const scoreId = isHome ? 'ov-pen-home-score' : 'ov-pen-away-score';
+           try {
+             const arr = JSON.parse(v);
+             let html = '';
+             let goals = 0;
+             arr.forEach(st => {
+                let cls = 'pen-dot';
+                if (st === 1) { cls += ' goal'; goals++; }
+                if (st === 2) { cls += ' miss'; }
+                html += `<div class="${cls}"></div>`;
+             });
+             document.getElementById(dotsId).innerHTML = html;
+             document.getElementById(scoreId).textContent = goals;
+           } catch(e){}
+        }
+        if (t === base + 'home/redcards') {
+          document.getElementById('ov-home-redcards').innerHTML = '<div class="red-card"></div>'.repeat(parseInt(v) || 0);
+        }
+        if (t === base + 'away/redcards') {
+          document.getElementById('ov-away-redcards').innerHTML = '<div class="red-card"></div>'.repeat(parseInt(v) || 0);
+        }
+        if (t === base + 'goal_event') {
+          const banner = document.getElementById('ov-goal-banner');
+          const textEl = document.getElementById('ov-goal-text');
+          const data = plantelesCache[v];
+          if (data) {
+            banner.style.setProperty('--goal-color', data.color || (v === 'home' ? '#1565c0' : '#c62828'));
+            textEl.textContent = `¡GOL DE ${data.name || (v === 'home' ? 'LOCAL' : 'VISITANTE')}!`;
+            banner.classList.add('show');
+            setTimeout(() => banner.classList.remove('show'), 6000);
+          }
+        }
+        if (t === base + 'home/score') {
+          bumpOv('ov-score-home', v);
+          bumpOv('ov-final-home-score', v);
+        }
+        if (t === base + 'away/score') {
+          bumpOv('ov-score-away', v);
+          bumpOv('ov-final-away-score', v);
+        }
+        if (t === base + 'time') { document.getElementById('ov-time').textContent = v; }
+        if (t === base + 'period') { document.getElementById('ov-period').textContent = v; }
+        if (t === base + 'status') {
+          const s = document.getElementById('ov-status');
+          
+          if (v === 'STOPPED') {
+            s.textContent = 'PAUSADO';
+            s.className = 'ov-status';
+          } else if (v === 'FINAL 1T' || v === 'FINAL') {
+            s.textContent = v;
+            s.className = 'ov-status live';
+          } else {
+            s.textContent = 'EN VIVO';
+            s.className = 'ov-status live';
+          }
+          
+          document.getElementById('ov-time').classList.toggle('running', v === 'RUNNING');
+
+          const previa = document.getElementById('obs-previa');
+          const finalOv = document.getElementById('obs-final');
+
+          if (v === 'PREVIA') {
+            previa.classList.add('visible');
+            finalOv.classList.remove('visible');
+            document.getElementById('obs-plantel')?.classList.remove('visible');
+            document.getElementById('obs-overlay').style.opacity = '0';
+          } else if (v === 'FINAL 1T' || v === 'FINAL') {
+            document.getElementById('ov-final-title').textContent = v === 'FINAL 1T' ? 'RESULTADO PRIMER TIEMPO' : 'RESULTADO FINAL';
+            finalOv.classList.add('visible');
+            previa.classList.remove('visible');
+            document.getElementById('obs-plantel')?.classList.remove('visible');
+            document.getElementById('obs-overlay').style.opacity = '0';
+          } else {
+            previa.classList.remove('visible');
+            finalOv.classList.remove('visible');
+            document.getElementById('obs-plantel')?.classList.remove('visible');
+            document.getElementById('obs-overlay').style.opacity = '';
+          }
+        }
+      });
+    }
+
+    function bumpOv(id, val) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = val;
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 300);
+    }
+
+
+    function copyOverlayUrl() {
+      let broker = document.getElementById('mqttBroker').value.trim();
+      const user = document.getElementById('mqttUser').value.trim();
+      let topic = document.getElementById('mqttTopic').value.trim();
+
+      if (!broker) broker = 'ws://broker.hivemq.com:8000/mqtt';
+      if (!topic) topic = 'overlay/match';
+
+      // Build URL based on current page location, stripping hash
+      const base = window.location.href.split('?')[0].split('#')[0];
+      const params = new URLSearchParams();
+      params.set('mode', 'overlay');
+
+      // Solo agregar a la URL si NO son los valores por defecto
+      if (topic !== 'overlay/match') params.set('topic', topic);
+      if (broker !== 'ws://broker.hivemq.com:8000/mqtt') params.set('broker', broker);
+      if (user) params.set('user', user);
+
+      let url = `${base}?mode=overlay`;
+      if (params.toString() !== 'mode=overlay') {
+        url = `${base}?${params.toString()}`;
+      }
+
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = document.getElementById('btnCopyUrl');
+        btn.classList.add('copied');
+        btn.innerHTML = '<span class="copy-icon">✓</span> URL COPIADA';
+        showToast('URL del overlay copiada al portapapeles', 'green');
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<span class="copy-icon">⧉</span> COPIAR URL MASTER';
+        }, 2500);
+      }).catch(() => {
+        // Fallback for OBS browser (no clipboard API)
+        prompt('Copia esta URL para OBS Browser Source:', url);
+      });
+    }
+
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // ── OVERLAY MODE via URL params ──
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'overlay') {
+        // Hide the controller UI, show only overlay
+        document.querySelector('header').style.display = 'none';
+        document.querySelector('.app').style.display = 'none';
+        document.body.style.background = 'transparent';
+
+        // Read config from URL (usa default si la URL viene limpia)
+        const broker = params.get('broker') || 'ws://broker.hivemq.com:8000/mqtt';
+        const topic = params.get('topic') || 'overlay/match';
+        const user = params.get('user') || '';
+
+        // Inject overlay scoreboard UI
+        injectOverlay(broker, topic, user);
+        return;
+      }
+
+      loadState();
+      applyStateToUI();
+      setMqttStatus(false);
+    });
+
+    window.addEventListener('beforeunload', saveState);
+  </script>
+</body>
+
+</html>
