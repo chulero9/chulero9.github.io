@@ -1493,14 +1493,17 @@
           state.clock.seconds = s.clock?.seconds || 0;
           state.clock.targetSeconds = s.clock?.targetSeconds || null;
           state.period = s.period || '1T';
-          state.hud = s.hud !== undefined ? s.hud : false;
-          if (s.penalties) state.penalties = s.penalties;
+          state.hud = false;
+          if (s.penalties) {
+            state.penalties = s.penalties;
+            state.penalties.show = false;
+          }
           
           if (s.extras) {
-            state.varAlert = s.extras.varAlert || false;
-            state.lowerThird = s.extras.lowerThird || false;
-            state.stats = s.extras.stats || false;
-            state.sponsors = s.extras.sponsors || false;
+            state.varAlert = false;
+            state.lowerThird = false;
+            state.stats = false;
+            state.sponsors = false;
             
             document.getElementById('ltTitle').value = s.extras.ltTitle || '';
             document.getElementById('ltDesc').value = s.extras.ltDesc || '';
