@@ -1120,8 +1120,8 @@
           <option value="PEN">PEN</option>
         </select>
         <button class="btn btn-start btn-green" id="startBtn" onclick="toggleClock()">▶ START</button>
-        <div class="hud-toggle on" id="hudToggle" onclick="toggleHud()">
-          HUD: <span id="hudLabel">ON</span>
+        <div class="hud-toggle off" id="hudToggle" onclick="toggleHud()">
+          HUD: <span id="hudLabel">OFF</span>
         </div>
       </div>
 
@@ -1316,8 +1316,8 @@
 
     <!-- PANEL MASTER -->
     <div class="panel-master panel">
-      <button class="btn-master" id="masterBtn" onclick="toggleMaster()">
-        ◈ OCULTAR TODO
+      <button class="btn-master hidden-state" id="masterBtn" onclick="toggleMaster()">
+        ◈ MOSTRAR TODO
       </button>
     </div>
 
@@ -1407,8 +1407,8 @@
       away: { name: 'Boca Juniors', abbr: 'BOC', color: '#ff2244', logo: '', goals: 0, redcards: 0, yellowcards: 0 },
       clock: { seconds: 0, running: false, interval: null, targetSeconds: null },
       period: '1T',
-      hud: true,
-      masterVisible: true,
+      hud: false,
+      masterVisible: false,
       status: 'LIVE',
       penalties: { show: false, home: [0,0,0,0,0], away: [0,0,0,0,0] }, // 0: pending, 1: goal, 2: miss
       varAlert: false,
@@ -1493,7 +1493,7 @@
           state.clock.seconds = s.clock?.seconds || 0;
           state.clock.targetSeconds = s.clock?.targetSeconds || null;
           state.period = s.period || '1T';
-          state.hud = s.hud !== undefined ? s.hud : true;
+          state.hud = s.hud !== undefined ? s.hud : false;
           if (s.penalties) state.penalties = s.penalties;
           
           if (s.extras) {
@@ -2687,6 +2687,7 @@
       // Inject overlay HTML
       const div = document.createElement('div');
       div.id = 'obs-overlay';
+      div.classList.add('hidden');
       div.innerHTML = `
       <div class="ov-goal-banner" id="ov-goal-banner">
       <span id="ov-goal-text">¡GOL!</span>
