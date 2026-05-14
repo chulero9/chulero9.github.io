@@ -1985,8 +1985,10 @@
       const pass = document.getElementById('mqttPass').value;
       let topic = document.getElementById('mqttTopic').value.trim();
 
+      const defaultBroker = window.location.protocol === 'https:' ? 'wss://broker.hivemq.com:8884/mqtt' : 'ws://broker.hivemq.com:8000/mqtt';
+
       if (!broker) {
-        broker = 'ws://broker.hivemq.com:8000/mqtt';
+        broker = defaultBroker;
         document.getElementById('mqttBroker').value = broker;
       }
       if (!topic) {
@@ -3203,7 +3205,9 @@
       const user = document.getElementById('mqttUser').value.trim();
       let topic = document.getElementById('mqttTopic').value.trim();
 
-      if (!broker) broker = 'ws://broker.hivemq.com:8000/mqtt';
+      const defaultBroker = window.location.protocol === 'https:' ? 'wss://broker.hivemq.com:8884/mqtt' : 'ws://broker.hivemq.com:8000/mqtt';
+
+      if (!broker) broker = defaultBroker;
       if (!topic) topic = 'overlay/match';
 
       // Build URL based on current page location, stripping hash
@@ -3213,7 +3217,7 @@
 
       // Solo agregar a la URL si NO son los valores por defecto
       if (topic !== 'overlay/match') params.set('topic', topic);
-      if (broker !== 'ws://broker.hivemq.com:8000/mqtt') params.set('broker', broker);
+      if (broker !== defaultBroker) params.set('broker', broker);
       if (user) params.set('user', user);
 
       let url = `${base}?mode=overlay`;
@@ -3249,7 +3253,8 @@
         document.body.style.background = 'transparent';
 
         // Read config from URL (usa default si la URL viene limpia)
-        const broker = params.get('broker') || 'ws://broker.hivemq.com:8000/mqtt';
+        const defaultBroker = window.location.protocol === 'https:' ? 'wss://broker.hivemq.com:8884/mqtt' : 'ws://broker.hivemq.com:8000/mqtt';
+        const broker = params.get('broker') || defaultBroker;
         const topic = params.get('topic') || 'overlay/match';
         const user = params.get('user') || '';
 
