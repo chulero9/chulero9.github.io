@@ -1442,7 +1442,43 @@
        PERSISTENCE
     ═══════════════════════════════════════════ */
     function saveState() {
-      const toSave = { home: state.home, away: state.away, clock: { seconds: state.clock.seconds, targetSeconds: state.clock.targetSeconds }, period: state.period, hud: state.hud };
+      const toSave = { 
+        home: state.home, 
+        away: state.away, 
+        clock: { seconds: state.clock.seconds, targetSeconds: state.clock.targetSeconds }, 
+        period: state.period, 
+        hud: state.hud,
+        penalties: state.penalties,
+        extras: {
+          ltTitle: document.getElementById('ltTitle').value,
+          ltDesc: document.getElementById('ltDesc').value,
+          statPossHome: document.getElementById('statPossHome').value,
+          statPossAway: document.getElementById('statPossAway').value,
+          statShotsHome: document.getElementById('statShotsHome').value,
+          statShotsAway: document.getElementById('statShotsAway').value,
+          statShotsTargetHome: document.getElementById('statShotsTargetHome').value,
+          statShotsTargetAway: document.getElementById('statShotsTargetAway').value,
+          statFoulsHome: document.getElementById('statFoulsHome').value,
+          statFoulsAway: document.getElementById('statFoulsAway').value,
+          statYellowHome: document.getElementById('statYellowHome').value,
+          statYellowAway: document.getElementById('statYellowAway').value,
+          statRedHome: document.getElementById('statRedHome').value,
+          statRedAway: document.getElementById('statRedAway').value,
+          statOffsideHome: document.getElementById('statOffsideHome').value,
+          statOffsideAway: document.getElementById('statOffsideAway').value,
+          statCornersHome: document.getElementById('statCornersHome').value,
+          statCornersAway: document.getElementById('statCornersAway').value,
+          sponsorList: document.getElementById('sponsorList').value,
+          homeTitulares: document.getElementById('homeTitulares').value,
+          homeSuplentes: document.getElementById('homeSuplentes').value,
+          awayTitulares: document.getElementById('awayTitulares').value,
+          awaySuplentes: document.getElementById('awaySuplentes').value,
+          varAlert: state.varAlert,
+          lowerThird: state.lowerThird,
+          stats: state.stats,
+          sponsors: state.sponsors
+        }
+      };
       localStorage.setItem('broadcastCtrl_state', JSON.stringify(toSave));
       const mqttCfg = { broker: document.getElementById('mqttBroker').value, user: document.getElementById('mqttUser').value, topic: document.getElementById('mqttTopic').value };
       localStorage.setItem('broadcastCtrl_mqtt', JSON.stringify(mqttCfg));
@@ -1458,6 +1494,38 @@
           state.clock.targetSeconds = s.clock?.targetSeconds || null;
           state.period = s.period || '1T';
           state.hud = s.hud !== undefined ? s.hud : true;
+          if (s.penalties) state.penalties = s.penalties;
+          
+          if (s.extras) {
+            state.varAlert = s.extras.varAlert || false;
+            state.lowerThird = s.extras.lowerThird || false;
+            state.stats = s.extras.stats || false;
+            state.sponsors = s.extras.sponsors || false;
+            
+            document.getElementById('ltTitle').value = s.extras.ltTitle || '';
+            document.getElementById('ltDesc').value = s.extras.ltDesc || '';
+            document.getElementById('statPossHome').value = s.extras.statPossHome || '50';
+            document.getElementById('statPossAway').value = s.extras.statPossAway || '50';
+            document.getElementById('statShotsHome').value = s.extras.statShotsHome || '0';
+            document.getElementById('statShotsAway').value = s.extras.statShotsAway || '0';
+            document.getElementById('statShotsTargetHome').value = s.extras.statShotsTargetHome || '0';
+            document.getElementById('statShotsTargetAway').value = s.extras.statShotsTargetAway || '0';
+            document.getElementById('statFoulsHome').value = s.extras.statFoulsHome || '0';
+            document.getElementById('statFoulsAway').value = s.extras.statFoulsAway || '0';
+            document.getElementById('statYellowHome').value = s.extras.statYellowHome || '0';
+            document.getElementById('statYellowAway').value = s.extras.statYellowAway || '0';
+            document.getElementById('statRedHome').value = s.extras.statRedHome || '0';
+            document.getElementById('statRedAway').value = s.extras.statRedAway || '0';
+            document.getElementById('statOffsideHome').value = s.extras.statOffsideHome || '0';
+            document.getElementById('statOffsideAway').value = s.extras.statOffsideAway || '0';
+            document.getElementById('statCornersHome').value = s.extras.statCornersHome || '0';
+            document.getElementById('statCornersAway').value = s.extras.statCornersAway || '0';
+            document.getElementById('sponsorList').value = s.extras.sponsorList || '';
+            document.getElementById('homeTitulares').value = s.extras.homeTitulares || '';
+            document.getElementById('homeSuplentes').value = s.extras.homeSuplentes || '';
+            document.getElementById('awayTitulares').value = s.extras.awayTitulares || '';
+            document.getElementById('awaySuplentes').value = s.extras.awaySuplentes || '';
+          }
         }
         const m = JSON.parse(localStorage.getItem('broadcastCtrl_mqtt'));
         if (m) {
@@ -2028,6 +2096,46 @@
       publishBase('status', state.status);
       publish(`overlay/visibility`, state.hud ? 'ON' : 'OFF');
       publish(`overlay/master`, state.masterVisible ? 'SHOW' : 'HIDE');
+
+      // Sync Extras & Stats
+      publish('overlay/var', state.varAlert ? 'ON' : 'OFF');
+      publishBase('lowerthird/title', document.getElementById('ltTitle').value);
+      publishBase('lowerthird/desc', document.getElementById('ltDesc').value);
+      publish('overlay/lowerthird', state.lowerThird ? 'ON' : 'OFF');
+      
+      publishBase('stats/posshome', document.getElementById('statPossHome').value);
+      publishBase('stats/possaway', document.getElementById('statPossAway').value);
+      publishBase('stats/shotshome', document.getElementById('statShotsHome').value);
+      publishBase('stats/shotsaway', document.getElementById('statShotsAway').value);
+      publishBase('stats/shotstargethome', document.getElementById('statShotsTargetHome').value);
+      publishBase('stats/shotstargetaway', document.getElementById('statShotsTargetAway').value);
+      publishBase('stats/foulshome', document.getElementById('statFoulsHome').value);
+      publishBase('stats/foulsaway', document.getElementById('statFoulsAway').value);
+      publishBase('stats/yellowhome', document.getElementById('statYellowHome').value);
+      publishBase('stats/yellowaway', document.getElementById('statYellowAway').value);
+      publishBase('stats/redhome', document.getElementById('statRedHome').value);
+      publishBase('stats/redaway', document.getElementById('statRedAway').value);
+      publishBase('stats/offsidehome', document.getElementById('statOffsideHome').value);
+      publishBase('stats/offsideaway', document.getElementById('statOffsideAway').value);
+      publishBase('stats/cornershome', document.getElementById('statCornersHome').value);
+      publishBase('stats/cornersaway', document.getElementById('statCornersAway').value);
+      publish('overlay/stats', state.stats ? 'ON' : 'OFF');
+
+      const sponsorListArray = document.getElementById('sponsorList').value.split('\n').filter(l => l.trim().length > 0);
+      publishBase('sponsors/list', JSON.stringify(sponsorListArray));
+      publish('overlay/sponsors', state.sponsors ? 'ON' : 'OFF');
+      publish('overlay/penalties', state.penalties.show ? 'ON' : 'OFF');
+
+      // Sync Planteles
+      publishBase('home/titulares', document.getElementById('homeTitulares').value);
+      publishBase('home/suplentes', document.getElementById('homeSuplentes').value);
+      publishBase('away/titulares', document.getElementById('awayTitulares').value);
+      publishBase('away/suplentes', document.getElementById('awaySuplentes').value);
+      if (typeof currentPlaca !== 'undefined' && currentPlaca) {
+        publish('overlay/placa', currentPlaca);
+      } else {
+        publish('overlay/placa', 'OFF');
+      }
     }
 
     function logMqtt(topic, val, isErr = false) {
