@@ -3135,6 +3135,8 @@
       if (params.get('mode') === 'overlay') {
         // Hide the controller UI, show only overlay
         document.querySelector('header').style.display = 'none';
+        const tabsNav = document.querySelector('.tabs-nav');
+        if (tabsNav) tabsNav.style.display = 'none';
         document.querySelector('.app').style.display = 'none';
         document.body.style.background = 'transparent';
 
