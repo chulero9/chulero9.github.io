@@ -940,6 +940,61 @@
       margin: 10px 0;
     }
 
+    /* ── TABS ── */
+    .tabs-nav {
+      display: flex;
+      gap: 24px;
+      max-width: 1400px;
+      margin: 14px auto 0 auto;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 10px 4px;
+      cursor: pointer;
+      position: relative;
+      transition: var(--transition);
+      outline: none;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-btn.active {
+      color: var(--text-primary);
+    }
+
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: var(--red);
+      transform: scaleX(0);
+      transition: transform 0.2s ease;
+      transform-origin: center;
+    }
+
+    .tab-btn.active::after {
+      transform: scaleX(1);
+    }
+
+    .tab-panel-hidden {
+      display: none !important;
+    }
+
     /* Scrollbar global */
     ::-webkit-scrollbar {
       width: 5px;
@@ -1002,11 +1057,17 @@
     </div>
   </header>
 
+  <!-- TABS NAV -->
+  <nav class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('main')">📺 PRINCIPAL</button>
+    <button class="tab-btn" onclick="switchTab('extra')">🌟 EXTRAS</button>
+  </nav>
+
   <!-- MAIN APP -->
   <div class="app">
 
     <!-- PANEL EQUIPOS -->
-    <div class="panel panel-teams">
+    <div class="panel panel-teams" data-tab="main">
       <div class="panel-title"><span class="icon">◈</span> EQUIPOS</div>
 
       <div class="team-blocks">
@@ -1048,7 +1109,7 @@
     </div>
 
     <!-- PANEL RELOJ Y GOLES -->
-    <div class="panel panel-clock">
+    <div class="panel panel-clock" data-tab="main">
       <div class="panel-title"><span class="icon">◉</span> RELOJ Y GOLES</div>
 
       <div class="period-row">
@@ -1110,7 +1171,7 @@
     </div>
 
     <!-- PANEL PLANTELES -->
-    <div class="panel panel-planteles">
+    <div class="panel panel-planteles" data-tab="main">
       <div class="panel-title"><span class="icon">◫</span> PLANTELES</div>
       <div class="planteles-grid">
         <!-- LOCAL -->
@@ -1151,7 +1212,7 @@
     </div>
 
     <!-- PANEL GRÁFICOS EXTRA -->
-    <div class="panel panel-planteles" style="margin-top:0px;">
+    <div class="panel panel-planteles tab-panel-hidden" data-tab="extra" style="margin-top:0px;">
       <div class="panel-title"><span class="icon">★</span> GRÁFICOS EXTRA</div>
       <div class="planteles-grid">
         
@@ -1187,7 +1248,7 @@
     </div>
 
     <!-- PANEL ESTADÍSTICAS Y SPONSORS -->
-    <div class="panel panel-planteles" style="margin-top:0px;">
+    <div class="panel panel-planteles tab-panel-hidden" data-tab="extra" style="margin-top:0px;">
       <div class="panel-title"><span class="icon">📊</span> ESTADÍSTICAS Y PATROCINADORES</div>
       <div class="planteles-grid">
         
@@ -1356,6 +1417,26 @@
       sponsors: false,
       mqtt: { client: null, broker: '', user: '', pass: '', topic: 'overlay/match' }
     };
+
+    /* ═══════════════════════════════════════════
+       TABS NAVIGATION
+    ═══════════════════════════════════════════ */
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('onclick').includes(tabId)) {
+          btn.classList.add('active');
+        }
+      });
+      
+      document.querySelectorAll('[data-tab]').forEach(panel => {
+        if (panel.getAttribute('data-tab') === tabId) {
+          panel.classList.remove('tab-panel-hidden');
+        } else {
+          panel.classList.add('tab-panel-hidden');
+        }
+      });
+    }
 
     /* ═══════════════════════════════════════════
        PERSISTENCE
