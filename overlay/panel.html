@@ -416,7 +416,7 @@
     .btn-ghost:hover {
       background: #2a2a2a;
       color: #ffffff;
-      border-color: #444;
+      border-color: var(--accent-color, #444);
     }
 
     .btn-green {
@@ -1052,7 +1052,9 @@
         <span class="copy-icon">⧉</span> COPIAR URL MASTER
       </button>
       <button class="btn-header" onclick="openMqttModal()">⚙ MQTT</button>
-      <button class="btn-header" onclick="resetAll()">↺ RESET</button>
+      <button class="btn-header" onclick="resetAll()" title="Resetear Partido">↺ RESET</button>
+      <button class="btn-header" onclick="clearCache()" title="Borrar Caché y Recargar" style="color:#ef9a9a;">🗑️
+        CACHÉ</button>
       <button class="btn-header" onclick="openFullscreen()">⛶ FULL</button>
     </div>
   </header>
@@ -1159,15 +1161,20 @@
         <button class="btn btn-outline-blue btn-sm" onclick="removeGoal('home')">− RESTAR GOL L</button>
         <button class="btn btn-outline-red btn-sm" onclick="removeGoal('away')">− RESTAR GOL V</button>
         <div style="display:flex;gap:4px;">
-          <button class="btn btn-outline-blue btn-sm" style="flex:1;font-size:9px" onclick="addYellowCard('home')" oncontextmenu="removeYellowCard('home'); return false;">🟨 AMARILLA L</button>
-          <button class="btn btn-outline-blue btn-sm" style="flex:1;font-size:9px" onclick="addRedCard('home')" oncontextmenu="removeRedCard('home'); return false;">🟥 ROJA L</button>
+          <button class="btn btn-outline-blue btn-sm" style="flex:1;font-size:9px" onclick="addYellowCard('home')"
+            oncontextmenu="removeYellowCard('home'); return false;">🟨 AMARILLA L</button>
+          <button class="btn btn-outline-blue btn-sm" style="flex:1;font-size:9px" onclick="addRedCard('home')"
+            oncontextmenu="removeRedCard('home'); return false;">🟥 ROJA L</button>
         </div>
         <div style="display:flex;gap:4px;">
-          <button class="btn btn-outline-red btn-sm" style="flex:1;font-size:9px" onclick="addYellowCard('away')" oncontextmenu="removeYellowCard('away'); return false;">🟨 AMARILLA V</button>
-          <button class="btn btn-outline-red btn-sm" style="flex:1;font-size:9px" onclick="addRedCard('away')" oncontextmenu="removeRedCard('away'); return false;">🟥 ROJA V</button>
+          <button class="btn btn-outline-red btn-sm" style="flex:1;font-size:9px" onclick="addYellowCard('away')"
+            oncontextmenu="removeYellowCard('away'); return false;">🟨 AMARILLA V</button>
+          <button class="btn btn-outline-red btn-sm" style="flex:1;font-size:9px" onclick="addRedCard('away')"
+            oncontextmenu="removeRedCard('away'); return false;">🟥 ROJA V</button>
         </div>
       </div>
-      <button class="btn btn-outline-blue btn-sm" style="margin-top:8px; width:100%" onclick="openPenaltiesModal()">⚽ TANDA DE PENALES</button>
+      <button class="btn btn-outline-blue btn-sm" style="margin-top:8px; width:100%" onclick="openPenaltiesModal()">⚽
+        TANDA DE PENALES</button>
     </div>
 
     <!-- PANEL PLANTELES -->
@@ -1215,7 +1222,7 @@
     <div class="panel panel-planteles tab-panel-hidden" data-tab="extra" style="margin-top:0px;">
       <div class="panel-title"><span class="icon">★</span> GRÁFICOS EXTRA</div>
       <div class="planteles-grid">
-        
+
         <!-- VAR y Sustitución -->
         <div class="planteles-col">
           <div class="planteles-col-title" style="color:#aaa">SUSTITUCIONES Y ALERTAS</div>
@@ -1230,7 +1237,9 @@
             </div>
           </div>
           <div style="margin-top: 10px;">
-            <button class="btn btn-sm" style="background:#d500f9; color:white; width:100%; border:none; padding:12px; font-size:14px; letter-spacing:2px; cursor:pointer; font-weight:bold; border-radius:4px;" onclick="toggleVar()">🚨 ALERTA VAR (ON/OFF)</button>
+            <button class="btn btn-sm"
+              style="background:#d500f9; color:white; width:100%; border:none; padding:12px; font-size:14px; letter-spacing:2px; cursor:pointer; font-weight:bold; border-radius:4px;"
+              onclick="toggleVar()">🚨 ALERTA VAR (ON/OFF)</button>
           </div>
         </div>
 
@@ -1240,7 +1249,8 @@
           <div style="display:flex; flex-direction:column; gap:6px;">
             <input class="inp" id="ltTitle" placeholder="Nombre / Título principal">
             <input class="inp" id="ltDesc" placeholder="Descripción / Twitter / Rol">
-            <button class="btn btn-outline-blue btn-sm" style="color:#aaa; border-color:#555;" onclick="toggleLowerThird()">▣ MOSTRAR / OCULTAR ZÓCALO</button>
+            <button class="btn btn-outline-blue btn-sm" style="color:#aaa; border-color:#555;"
+              onclick="toggleLowerThird()">▣ MOSTRAR / OCULTAR ZÓCALO</button>
           </div>
         </div>
 
@@ -1251,50 +1261,51 @@
     <div class="panel panel-planteles tab-panel-hidden" data-tab="extra" style="margin-top:0px;">
       <div class="panel-title"><span class="icon">📊</span> ESTADÍSTICAS Y PATROCINADORES</div>
       <div class="planteles-grid">
-        
+
         <!-- Estadísticas -->
         <div class="planteles-col">
           <div class="planteles-col-title" style="color:#aaa">ESTADÍSTICAS DEL PARTIDO</div>
-          
+
           <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; align-items:center;">
-             <span style="font-size:10px; color:#90caf9; text-align:right;">LOCAL</span>
-             <span style="font-size:10px; color:#666; text-align:center;">DATO</span>
-             <span style="font-size:10px; color:#ef9a9a;">VISITANTE</span>
-             
-             <input class="inp short" id="statPossHome" style="width:100%; text-align:right" value="50">
-             <span style="font-size:9px; color:#fff; text-align:center;">Posesión (%)</span>
-             <input class="inp short" id="statPossAway" style="width:100%" value="50">
-             
-             <input class="inp short" id="statShotsHome" style="width:100%; text-align:right" value="0">
-             <span style="font-size:9px; color:#fff; text-align:center;">Remates</span>
-             <input class="inp short" id="statShotsAway" style="width:100%" value="0">
-             
-             <input class="inp short" id="statShotsTargetHome" style="width:100%; text-align:right" value="0">
-             <span style="font-size:9px; color:#fff; text-align:center;">Remates al arco</span>
-             <input class="inp short" id="statShotsTargetAway" style="width:100%" value="0">
-             
-             <input class="inp short" id="statFoulsHome" style="width:100%; text-align:right" value="0">
-             <span style="font-size:9px; color:#fff; text-align:center;">Faltas</span>
-             <input class="inp short" id="statFoulsAway" style="width:100%" value="0">
-             
-             <input class="inp short" id="statYellowHome" style="width:100%; text-align:right" value="0">
-             <span style="font-size:9px; color:#fff; text-align:center;">T. Amarillas</span>
-             <input class="inp short" id="statYellowAway" style="width:100%" value="0">
-             
-             <input class="inp short" id="statRedHome" style="width:100%; text-align:right" value="0">
-             <span style="font-size:9px; color:#fff; text-align:center;">T. Rojas</span>
-             <input class="inp short" id="statRedAway" style="width:100%" value="0">
-             
-             <input class="inp short" id="statOffsideHome" style="width:100%; text-align:right" value="0">
-             <span style="font-size:9px; color:#fff; text-align:center;">Fuera de juego</span>
-             <input class="inp short" id="statOffsideAway" style="width:100%" value="0">
-             
-             <input class="inp short" id="statCornersHome" style="width:100%; text-align:right" value="0">
-             <span style="font-size:9px; color:#fff; text-align:center;">Tiros de esquina</span>
-             <input class="inp short" id="statCornersAway" style="width:100%" value="0">
+            <span style="font-size:10px; color:#90caf9; text-align:right;">LOCAL</span>
+            <span style="font-size:10px; color:#666; text-align:center;">DATO</span>
+            <span style="font-size:10px; color:#ef9a9a;">VISITANTE</span>
+
+            <input class="inp short" id="statPossHome" style="width:100%; text-align:right" value="50">
+            <span style="font-size:9px; color:#fff; text-align:center;">Posesión (%)</span>
+            <input class="inp short" id="statPossAway" style="width:100%" value="50">
+
+            <input class="inp short" id="statShotsHome" style="width:100%; text-align:right" value="0">
+            <span style="font-size:9px; color:#fff; text-align:center;">Remates</span>
+            <input class="inp short" id="statShotsAway" style="width:100%" value="0">
+
+            <input class="inp short" id="statShotsTargetHome" style="width:100%; text-align:right" value="0">
+            <span style="font-size:9px; color:#fff; text-align:center;">Remates al arco</span>
+            <input class="inp short" id="statShotsTargetAway" style="width:100%" value="0">
+
+            <input class="inp short" id="statFoulsHome" style="width:100%; text-align:right" value="0">
+            <span style="font-size:9px; color:#fff; text-align:center;">Faltas</span>
+            <input class="inp short" id="statFoulsAway" style="width:100%" value="0">
+
+            <input class="inp short" id="statYellowHome" style="width:100%; text-align:right" value="0">
+            <span style="font-size:9px; color:#fff; text-align:center;">T. Amarillas</span>
+            <input class="inp short" id="statYellowAway" style="width:100%" value="0">
+
+            <input class="inp short" id="statRedHome" style="width:100%; text-align:right" value="0">
+            <span style="font-size:9px; color:#fff; text-align:center;">T. Rojas</span>
+            <input class="inp short" id="statRedAway" style="width:100%" value="0">
+
+            <input class="inp short" id="statOffsideHome" style="width:100%; text-align:right" value="0">
+            <span style="font-size:9px; color:#fff; text-align:center;">Fuera de juego</span>
+            <input class="inp short" id="statOffsideAway" style="width:100%" value="0">
+
+            <input class="inp short" id="statCornersHome" style="width:100%; text-align:right" value="0">
+            <span style="font-size:9px; color:#fff; text-align:center;">Tiros de esquina</span>
+            <input class="inp short" id="statCornersAway" style="width:100%" value="0">
           </div>
           <div style="margin-top: 10px;">
-             <button class="btn btn-outline-blue btn-sm" style="color:#aaa; border-color:#555; width:100%;" onclick="toggleStats()">📊 MOSTRAR / OCULTAR ESTADÍSTICAS</button>
+            <button class="btn btn-outline-blue btn-sm" style="color:#aaa; border-color:#555; width:100%;"
+              onclick="toggleStats()">📊 MOSTRAR / OCULTAR ESTADÍSTICAS</button>
           </div>
         </div>
 
@@ -1303,14 +1314,77 @@
           <div class="planteles-col-title" style="color:#aaa">ROTADOR DE PATROCINADORES</div>
           <div>
             <div class="textarea-label">URLs de Logos (una por línea)</div>
-            <textarea class="inp" id="sponsorList" rows="4" placeholder="https://logo1.png&#10;https://logo2.png"></textarea>
+            <textarea class="inp" id="sponsorList" rows="4"
+              placeholder="https://logo1.png&#10;https://logo2.png"></textarea>
           </div>
           <div style="margin-top:6px; display:flex; gap:6px;">
             <button class="btn btn-outline-blue btn-sm" style="flex:1;" onclick="updateSponsors()">↑ ACTUALIZAR</button>
-            <button class="btn btn-outline-blue btn-sm" style="flex:1; color:#aaa; border-color:#555;" onclick="toggleSponsors()">🔄 ON / OFF</button>
+            <button class="btn btn-outline-blue btn-sm" style="flex:1; color:#aaa; border-color:#555;"
+              onclick="toggleSponsors()">🔄 ON / OFF</button>
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- PANEL LOGO / BUG -->
+    <div class="panel tab-panel-hidden" data-tab="extra"
+      style="grid-column: 1 / -1; --accent-color: #dfff00; margin-top: 0px;">
+      <div class="panel-title"
+        style="justify-content: center; color: #dfff00; display: flex; align-items: center; gap: 8px;">
+        <span style="background:#fff; width:10px; height:10px; display:inline-block; border-radius:2px;"></span> LOGO /
+        BUG
+      </div>
+
+      <div class="panel" style="background: #141414; border: 1px solid #1f1f1f; margin-bottom: 0px;">
+        <div
+          style="border: 1px dashed #2a2a2a; border-radius: 6px; padding: 20px; text-align: center; margin-bottom: 10px; background: #0e0e0e; min-height: 80px; display: flex; align-items: center; justify-content: center;">
+          <span id="logoBugPreviewText" style="color: #fff; font-size: 16px; font-weight: 600;">Sin logo</span>
+          <img id="logoBugPreviewImg" src="" style="display:none; max-height: 70px; max-width: 100%;">
+        </div>
+
+        <button class="btn btn-ghost"
+          style="width: 100%; border: 1px dashed #333; color: #888; margin-bottom: 16px; background: #1a1a1a;"
+          onclick="uploadLogoBug()">
+          ⬆ Subir logo / imagen
+        </button>
+
+        <div class="textarea-label" style="margin-bottom: 8px; color:#aaa;">POSICIÓN EN PANTALLA</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+          <button class="btn btn-ghost logo-corner-btn" data-corner="TL"
+            style="justify-content:center; font-size:12px; padding:12px;" onclick="setLogoBugCorner('TL')">↖ Superior
+            izq.</button>
+          <button class="btn btn-ghost logo-corner-btn" data-corner="TR"
+            style="justify-content:center; font-size:12px; padding:12px; background: var(--accent-color, #dfff00); color: #000; border-color: var(--accent-color, #dfff00);"
+            onclick="setLogoBugCorner('TR')">↗ Superior der.</button>
+          <button class="btn btn-ghost logo-corner-btn" data-corner="BL"
+            style="justify-content:center; font-size:12px; padding:12px;" onclick="setLogoBugCorner('BL')">↙ Inferior
+            izq.</button>
+          <button class="btn btn-ghost logo-corner-btn" data-corner="BR"
+            style="justify-content:center; font-size:12px; padding:12px;" onclick="setLogoBugCorner('BR')">↘ Inferior
+            der.</button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+          <div class="textarea-label" style="margin: 0; color:#aaa;">TAMAÑO</div>
+          <input type="range" id="logoBugSize" min="50" max="300" value="120" style="flex: 1; accent-color: #dfff00;"
+            oninput="updateLogoBugSize(this.value)">
+          <div style="font-family: var(--font-mono); color: #dfff00; font-weight: bold; width: 40px; text-align: right;"
+            id="logoBugSizeVal">120px</div>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <button class="btn btn-outline-blue btn-sm" style="color:#aaa; border-color:#555; width:100%;"
+            onclick="toggleLogoBug()">▣ MOSTRAR / OCULTAR LOGO</button>
+        </div>
+
+        <div
+          style="background: #111; border: 1px solid #222; border-radius: 4px; padding: 10px; font-size: 11px; color: #666; display: flex; align-items: center; gap: 8px;">
+          <span style="display:inline-block; width:12px; height:4px; background:#666;"></span>
+          <span style="color:#dfff00;">Enter</span> mostrar
+          <span style="color:#dfff00;">Esc</span> ocultar
+          <span style="color:#dfff00;">1</span> - <span style="color:#dfff00;">8</span> cambiar estilo
+        </div>
       </div>
     </div>
 
@@ -1327,29 +1401,31 @@
   <div class="modal-overlay" id="penaltiesModal">
     <div class="modal" style="width:400px;">
       <h2>⚽ TANDA DE PENALES</h2>
-      
+
       <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
         <!-- LOCAL PENALTY -->
         <div style="flex:1;">
           <h3 style="font-size:12px; color:#90caf9;" id="penHomeTitle">LOCAL</h3>
           <div style="display:flex; gap:6px; margin-top:8px;" id="penHomeDotsUi">
-             <!-- JS will inject circles -->
+            <!-- JS will inject circles -->
           </div>
         </div>
         <!-- AWAY PENALTY -->
         <div style="flex:1; text-align:right;">
           <h3 style="font-size:12px; color:#ef9a9a;" id="penAwayTitle">VISITANTE</h3>
           <div style="display:flex; gap:6px; margin-top:8px; justify-content:flex-end;" id="penAwayDotsUi">
-             <!-- JS will inject circles -->
+            <!-- JS will inject circles -->
           </div>
         </div>
       </div>
-      
-      <div style="color:#aaa; font-size:10px; margin-bottom:16px; text-align:center;">Clic izquierdo: 🟢 Gol | Clic derecho: 🔴 Fallo | Medio: ⚪ Pendiente</div>
+
+      <div style="color:#aaa; font-size:10px; margin-bottom:16px; text-align:center;">Clic izquierdo: 🟢 Gol | Clic
+        derecho: 🔴 Fallo | Medio: ⚪ Pendiente</div>
 
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closePenaltiesModal()">CERRAR</button>
-        <button class="btn btn-ghost btn-sm" style="color:#aaa;border-color:#555" onclick="togglePenaltiesOverlay()">▣ MOSTRAR / OCULTAR PLACA</button>
+        <button class="btn btn-ghost btn-sm" style="color:#aaa;border-color:#555" onclick="togglePenaltiesOverlay()">▣
+          MOSTRAR / OCULTAR PLACA</button>
       </div>
     </div>
   </div>
@@ -1410,11 +1486,12 @@
       hud: false,
       masterVisible: false,
       status: 'LIVE',
-      penalties: { show: false, home: [0,0,0,0,0], away: [0,0,0,0,0] }, // 0: pending, 1: goal, 2: miss
+      penalties: { show: false, home: [0, 0, 0, 0, 0], away: [0, 0, 0, 0, 0] }, // 0: pending, 1: goal, 2: miss
       varAlert: false,
       lowerThird: false,
       stats: false,
       sponsors: false,
+      logoBug: { url: '', corner: 'TR', size: 120, visible: false, style: 1 },
       mqtt: { client: null, broker: '', user: '', pass: '', topic: 'overlay/match' }
     };
 
@@ -1428,7 +1505,7 @@
           btn.classList.add('active');
         }
       });
-      
+
       document.querySelectorAll('[data-tab]').forEach(panel => {
         if (panel.getAttribute('data-tab') === tabId) {
           panel.classList.remove('tab-panel-hidden');
@@ -1442,11 +1519,11 @@
        PERSISTENCE
     ═══════════════════════════════════════════ */
     function saveState() {
-      const toSave = { 
-        home: state.home, 
-        away: state.away, 
-        clock: { seconds: state.clock.seconds, targetSeconds: state.clock.targetSeconds }, 
-        period: state.period, 
+      const toSave = {
+        home: state.home,
+        away: state.away,
+        clock: { seconds: state.clock.seconds, targetSeconds: state.clock.targetSeconds },
+        period: state.period,
         hud: state.hud,
         penalties: state.penalties,
         extras: {
@@ -1476,7 +1553,8 @@
           varAlert: state.varAlert,
           lowerThird: state.lowerThird,
           stats: state.stats,
-          sponsors: state.sponsors
+          sponsors: state.sponsors,
+          logoBug: state.logoBug
         }
       };
       localStorage.setItem('broadcastCtrl_state', JSON.stringify(toSave));
@@ -1498,13 +1576,25 @@
             state.penalties = s.penalties;
             state.penalties.show = false;
           }
-          
+
           if (s.extras) {
             state.varAlert = false;
             state.lowerThird = false;
             state.stats = false;
             state.sponsors = false;
-            
+
+            if (s.extras.logoBug) {
+              state.logoBug = s.extras.logoBug;
+              if (state.logoBug.url) {
+                document.getElementById('logoBugPreviewImg').src = state.logoBug.url;
+                document.getElementById('logoBugPreviewImg').style.display = 'block';
+                document.getElementById('logoBugPreviewText').style.display = 'none';
+              }
+              setLogoBugCorner(state.logoBug.corner, false);
+              document.getElementById('logoBugSize').value = state.logoBug.size;
+              updateLogoBugSize(state.logoBug.size, false);
+            }
+
             document.getElementById('ltTitle').value = s.extras.ltTitle || '';
             document.getElementById('ltDesc').value = s.extras.ltDesc || '';
             document.getElementById('statPossHome').value = s.extras.statPossHome || '50';
@@ -1575,7 +1665,7 @@
         };
         playBeep(ctx.currentTime);
         playBeep(ctx.currentTime + 0.4);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     /* ═══════════════════════════════════════════
@@ -1603,7 +1693,7 @@
         updateClockDisplay();
         publishBase('time', formatTime(state.clock.seconds));
         if (state.clock.seconds % 30 === 0) publishAll();
-        
+
         if (state.clock.targetSeconds !== null && state.clock.seconds >= state.clock.targetSeconds) {
           stopClock();
           playAlertSound();
@@ -1665,7 +1755,7 @@
           state.clock.targetSeconds = (m * 60) + s;
           saveState();
           showToast(`Límite fijado en ${v}`, 'green');
-          
+
           if (state.clock.running && state.clock.seconds >= state.clock.targetSeconds) {
             stopClock();
             playAlertSound();
@@ -1680,7 +1770,7 @@
       if (v !== null) {
         const msg = v.trim() ? `+${v}'` : '';
         publishBase('extratime', msg);
-        
+
         const extraMins = parseInt(v, 10);
         if (!isNaN(extraMins) && extraMins > 0 && state.clock.targetSeconds) {
           if (confirm(`¿Quieres sumar estos ${extraMins} min al reloj para que siga contando (Ej: llegar a ${formatTime(state.clock.targetSeconds + extraMins * 60)})?`)) {
@@ -1689,7 +1779,7 @@
             showToast('Límite de tiempo extendido', 'green');
           }
         }
-        
+
         showToast(msg ? `Extra Time: ${msg}` : 'Extra Time borrado', 'blue');
       }
     }
@@ -1899,40 +1989,40 @@
 
     function toggleLowerThird() {
       state.lowerThird = !state.lowerThird;
-      if(state.lowerThird) {
-         publishBase('lowerthird/title', document.getElementById('ltTitle').value);
-         publishBase('lowerthird/desc', document.getElementById('ltDesc').value);
+      if (state.lowerThird) {
+        publishBase('lowerthird/title', document.getElementById('ltTitle').value);
+        publishBase('lowerthird/desc', document.getElementById('ltDesc').value);
       }
       publish('overlay/lowerthird', state.lowerThird ? 'ON' : 'OFF');
     }
 
     function toggleStats() {
       state.stats = !state.stats;
-      if(state.stats) {
-         publishBase('stats/posshome', document.getElementById('statPossHome').value);
-         publishBase('stats/possaway', document.getElementById('statPossAway').value);
-         publishBase('stats/shotshome', document.getElementById('statShotsHome').value);
-         publishBase('stats/shotsaway', document.getElementById('statShotsAway').value);
-         publishBase('stats/shotstargethome', document.getElementById('statShotsTargetHome').value);
-         publishBase('stats/shotstargetaway', document.getElementById('statShotsTargetAway').value);
-         publishBase('stats/foulshome', document.getElementById('statFoulsHome').value);
-         publishBase('stats/foulsaway', document.getElementById('statFoulsAway').value);
-         publishBase('stats/yellowhome', document.getElementById('statYellowHome').value);
-         publishBase('stats/yellowaway', document.getElementById('statYellowAway').value);
-         publishBase('stats/redhome', document.getElementById('statRedHome').value);
-         publishBase('stats/redaway', document.getElementById('statRedAway').value);
-         publishBase('stats/offsidehome', document.getElementById('statOffsideHome').value);
-         publishBase('stats/offsideaway', document.getElementById('statOffsideAway').value);
-         publishBase('stats/cornershome', document.getElementById('statCornersHome').value);
-         publishBase('stats/cornersaway', document.getElementById('statCornersAway').value);
+      if (state.stats) {
+        publishBase('stats/posshome', document.getElementById('statPossHome').value);
+        publishBase('stats/possaway', document.getElementById('statPossAway').value);
+        publishBase('stats/shotshome', document.getElementById('statShotsHome').value);
+        publishBase('stats/shotsaway', document.getElementById('statShotsAway').value);
+        publishBase('stats/shotstargethome', document.getElementById('statShotsTargetHome').value);
+        publishBase('stats/shotstargetaway', document.getElementById('statShotsTargetAway').value);
+        publishBase('stats/foulshome', document.getElementById('statFoulsHome').value);
+        publishBase('stats/foulsaway', document.getElementById('statFoulsAway').value);
+        publishBase('stats/yellowhome', document.getElementById('statYellowHome').value);
+        publishBase('stats/yellowaway', document.getElementById('statYellowAway').value);
+        publishBase('stats/redhome', document.getElementById('statRedHome').value);
+        publishBase('stats/redaway', document.getElementById('statRedAway').value);
+        publishBase('stats/offsidehome', document.getElementById('statOffsideHome').value);
+        publishBase('stats/offsideaway', document.getElementById('statOffsideAway').value);
+        publishBase('stats/cornershome', document.getElementById('statCornersHome').value);
+        publishBase('stats/cornersaway', document.getElementById('statCornersAway').value);
       }
       publish('overlay/stats', state.stats ? 'ON' : 'OFF');
     }
 
     function updateSponsors() {
-       const list = document.getElementById('sponsorList').value.split('\n').filter(l => l.trim().length > 0);
-       publishBase('sponsors/list', JSON.stringify(list));
-       showToast('Sponsors actualizados', 'green');
+      const list = document.getElementById('sponsorList').value.split('\n').filter(l => l.trim().length > 0);
+      publishBase('sponsors/list', JSON.stringify(list));
+      showToast('Sponsors actualizados', 'green');
     }
     function toggleSponsors() {
       state.sponsors = !state.sponsors;
@@ -1950,34 +2040,109 @@
     }
 
     function openPenaltiesModal() {
-       document.getElementById('penHomeTitle').textContent = state.home.abbr;
-       document.getElementById('penAwayTitle').textContent = state.away.abbr;
-       renderPenaltiesUi();
-       document.getElementById('penaltiesModal').classList.add('visible');
+      document.getElementById('penHomeTitle').textContent = state.home.abbr;
+      document.getElementById('penAwayTitle').textContent = state.away.abbr;
+      renderPenaltiesUi();
+      document.getElementById('penaltiesModal').classList.add('visible');
     }
     function closePenaltiesModal() { document.getElementById('penaltiesModal').classList.remove('visible'); }
-    
+
     function renderPenaltiesUi() {
-       const r = (team) => state.penalties[team].map((st, i) => {
-         const color = st===0 ? '#444' : (st===1 ? '#4caf50' : '#e53935');
-         return `<div style="width:24px;height:24px;border-radius:50%;background:${color};cursor:pointer;border:2px solid #222;"
+      const r = (team) => state.penalties[team].map((st, i) => {
+        const color = st === 0 ? '#444' : (st === 1 ? '#4caf50' : '#e53935');
+        return `<div style="width:24px;height:24px;border-radius:50%;background:${color};cursor:pointer;border:2px solid #222;"
                    onclick="setPenalty('${team}',${i},1)"
                    oncontextmenu="setPenalty('${team}',${i},2); return false;"
                    onauxclick="setPenalty('${team}',${i},0); return false;"></div>`;
-       }).join('');
-       document.getElementById('penHomeDotsUi').innerHTML = r('home');
-       document.getElementById('penAwayDotsUi').innerHTML = r('away');
+      }).join('');
+      document.getElementById('penHomeDotsUi').innerHTML = r('home');
+      document.getElementById('penAwayDotsUi').innerHTML = r('away');
     }
     function setPenalty(team, index, st) {
-       state.penalties[team][index] = st;
-       renderPenaltiesUi();
-       publishBase(`penalties/${team}`, JSON.stringify(state.penalties[team]));
-       saveState();
+      state.penalties[team][index] = st;
+      renderPenaltiesUi();
+      publishBase(`penalties/${team}`, JSON.stringify(state.penalties[team]));
+      saveState();
     }
     function togglePenaltiesOverlay() {
-       state.penalties.show = !state.penalties.show;
-       publish('overlay/penalties', state.penalties.show ? 'ON' : 'OFF');
+      state.penalties.show = !state.penalties.show;
+      publish('overlay/penalties', state.penalties.show ? 'ON' : 'OFF');
     }
+
+    /* ═══════════════════════════════════════════
+       LOGO BUG
+    ═══════════════════════════════════════════ */
+    function uploadLogoBug() {
+      const url = prompt("Ingrese la URL de la imagen del logo/bug:", state.logoBug.url);
+      if (url !== null) {
+        state.logoBug.url = url.trim();
+        if (state.logoBug.url) {
+          document.getElementById('logoBugPreviewImg').src = state.logoBug.url;
+          document.getElementById('logoBugPreviewImg').style.display = 'block';
+          document.getElementById('logoBugPreviewText').style.display = 'none';
+        } else {
+          document.getElementById('logoBugPreviewImg').style.display = 'none';
+          document.getElementById('logoBugPreviewText').style.display = 'block';
+        }
+        if (state.logoBug.visible) publishBase('logobug/url', state.logoBug.url);
+        saveState();
+      }
+    }
+
+    function setLogoBugCorner(corner, publish = true) {
+      state.logoBug.corner = corner;
+      document.querySelectorAll('.logo-corner-btn').forEach(btn => {
+        if (btn.getAttribute('data-corner') === corner) {
+          btn.style.background = 'var(--accent-color, #dfff00)';
+          btn.style.color = '#000';
+          btn.style.borderColor = 'var(--accent-color, #dfff00)';
+        } else {
+          btn.style.background = '';
+          btn.style.color = '';
+          btn.style.borderColor = '';
+        }
+      });
+      if (publish && state.logoBug.visible) publishBase('logobug/corner', corner);
+      if (publish) saveState();
+    }
+
+    function updateLogoBugSize(size, publish = true) {
+      state.logoBug.size = size;
+      document.getElementById('logoBugSizeVal').textContent = size + 'px';
+      if (publish && state.logoBug.visible) publishBase('logobug/size', size);
+      if (publish) saveState();
+    }
+
+    function toggleLogoBug(show) {
+      state.logoBug.visible = (typeof show === 'undefined') ? !state.logoBug.visible : show;
+      publish('overlay/logobug', state.logoBug.visible ? 'ON' : 'OFF');
+      if (state.logoBug.visible) {
+        publishBase('logobug/url', state.logoBug.url);
+        publishBase('logobug/corner', state.logoBug.corner);
+        publishBase('logobug/size', state.logoBug.size);
+        publishBase('logobug/style', state.logoBug.style);
+      }
+      saveState();
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (!document.activeElement) return;
+      const tag = document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'Enter') {
+        toggleLogoBug(true);
+      } else if (e.key === 'Escape') {
+        toggleLogoBug(false);
+      } else if (e.key >= '1' && e.key <= '8') {
+        state.logoBug.style = parseInt(e.key);
+        if (state.logoBug.visible) {
+          publishBase('logobug/style', state.logoBug.style);
+        }
+        showToast('Estilo de logo cambiado a ' + e.key, 'blue');
+        saveState();
+      }
+    });
 
     /* ═══════════════════════════════════════════
        MQTT
@@ -2107,7 +2272,7 @@
       publishBase('lowerthird/title', document.getElementById('ltTitle').value);
       publishBase('lowerthird/desc', document.getElementById('ltDesc').value);
       publish('overlay/lowerthird', state.lowerThird ? 'ON' : 'OFF');
-      
+
       publishBase('stats/posshome', document.getElementById('statPossHome').value);
       publishBase('stats/possaway', document.getElementById('statPossAway').value);
       publishBase('stats/shotshome', document.getElementById('statShotsHome').value);
@@ -2130,6 +2295,14 @@
       publishBase('sponsors/list', JSON.stringify(sponsorListArray));
       publish('overlay/sponsors', state.sponsors ? 'ON' : 'OFF');
       publish('overlay/penalties', state.penalties.show ? 'ON' : 'OFF');
+
+      publish('overlay/logobug', state.logoBug.visible ? 'ON' : 'OFF');
+      if (state.logoBug.visible) {
+        publishBase('logobug/url', state.logoBug.url);
+        publishBase('logobug/corner', state.logoBug.corner);
+        publishBase('logobug/size', state.logoBug.size);
+        publishBase('logobug/style', state.logoBug.style);
+      }
 
       // Sync Planteles
       publishBase('home/titulares', document.getElementById('homeTitulares').value);
@@ -2194,12 +2367,28 @@
       state.home.redcards = 0; state.away.redcards = 0;
       state.home.yellowcards = 0; state.away.yellowcards = 0;
       state.clock.seconds = 0; stopClock();
-      state.penalties = { show: false, home: [0,0,0,0,0], away: [0,0,0,0,0] };
+      state.penalties = { show: false, home: [0, 0, 0, 0, 0], away: [0, 0, 0, 0, 0] };
       document.getElementById('homeScore').textContent = '0';
       document.getElementById('awayScore').textContent = '0';
       publishAll();
       saveState();
       showToast('Estado reseteado completamente', 'blue');
+    }
+
+    function clearCache() {
+      if (!confirm('¿Estás seguro de borrar toda la caché y recargar la página? Perderás todas las configuraciones guardadas de forma irreversible.')) return;
+      localStorage.clear();
+      sessionStorage.clear();
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          for (let name of names) caches.delete(name);
+        });
+      }
+      setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('nocache', Date.now());
+        window.location.replace(url.toString());
+      }, 100);
     }
 
     function openFullscreen() {
@@ -2423,6 +2612,18 @@
     .pen-dot.goal { background: #4caf50; border-color: #1b5e20; box-shadow: 0 0 16px rgba(76,175,80,0.6); }
     .pen-dot.miss { background: #e53935; border-color: #b71c1c; box-shadow: 0 0 16px rgba(229,57,53,0.6); }
     .pen-score { font-family: 'Share Tech Mono', monospace; font-size: 80px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 4px 16px rgba(0,0,0,0.8); }
+
+    /* LOGO BUG */
+    #obs-logobug {
+      position: fixed; z-index: 110;
+      opacity: 0; pointer-events: none; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #obs-logobug.visible { opacity: 1; pointer-events: auto; }
+    .logobug-img {
+      width: auto; height: auto; object-fit: contain;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+      transition: max-width 0.3s, max-height 0.3s;
+    }
 
     /* PREVIA OVERLAY */
     #obs-previa {
@@ -2817,6 +3018,11 @@
             <div class="pen-dots" id="ov-pen-away-dots"></div>
           </div>
         </div>
+
+        <!-- LOGO BUG -->
+        <div id="obs-logobug">
+          <img class="logobug-img" id="ov-logobug-img" src="" style="display:none;">
+        </div>
       `;
       document.body.appendChild(extrasDiv);
 
@@ -2913,6 +3119,7 @@
         client.subscribe('overlay/penalties', { qos: 0 });
         client.subscribe('overlay/sub', { qos: 0 });
         client.subscribe('overlay/sponsors', { qos: 0 });
+        client.subscribe('overlay/logobug', { qos: 0 });
 
         // Request initial state from panel
         client.publish(topic + '/sync', 'REQUEST');
@@ -2928,21 +3135,21 @@
       let sponsorTimer = null;
 
       function renderSponsor() {
-         if (!sponsorList.length) return;
-         const img = document.getElementById('ov-sponsor-img');
-         img.style.display = 'none'; // reset animation
-         void img.offsetWidth; // trigger reflow
-         img.src = sponsorList[sponsorIndex];
-         img.style.display = 'block';
-         sponsorIndex = (sponsorIndex + 1) % sponsorList.length;
+        if (!sponsorList.length) return;
+        const img = document.getElementById('ov-sponsor-img');
+        img.style.display = 'none'; // reset animation
+        void img.offsetWidth; // trigger reflow
+        img.src = sponsorList[sponsorIndex];
+        img.style.display = 'block';
+        sponsorIndex = (sponsorIndex + 1) % sponsorList.length;
       }
       function startSponsors() {
-         if (sponsorTimer) clearInterval(sponsorTimer);
-         renderSponsor();
-         sponsorTimer = setInterval(renderSponsor, 8000); // Rotate every 8s
+        if (sponsorTimer) clearInterval(sponsorTimer);
+        renderSponsor();
+        sponsorTimer = setInterval(renderSponsor, 8000); // Rotate every 8s
       }
       function stopSponsors() {
-         if (sponsorTimer) clearInterval(sponsorTimer);
+        if (sponsorTimer) clearInterval(sponsorTimer);
       }
 
       function renderPlantel(team) {
@@ -2986,14 +3193,36 @@
           document.getElementById('obs-overlay').style.opacity = (v === 'ON') ? '0' : '';
         }
         if (t === 'overlay/sub' && v === 'TRIGGER') {
-           const subEl = document.getElementById('obs-sub');
-           subEl.classList.add('visible');
-           setTimeout(() => subEl.classList.remove('visible'), 8000);
+          const subEl = document.getElementById('obs-sub');
+          subEl.classList.add('visible');
+          setTimeout(() => subEl.classList.remove('visible'), 8000);
         }
         if (t === 'overlay/sponsors') {
-           const spEl = document.getElementById('obs-sponsors');
-           if (v === 'ON') { spEl.classList.add('visible'); startSponsors(); } 
-           else { spEl.classList.remove('visible'); stopSponsors(); }
+          const spEl = document.getElementById('obs-sponsors');
+          if (v === 'ON') { spEl.classList.add('visible'); startSponsors(); }
+          else { spEl.classList.remove('visible'); stopSponsors(); }
+        }
+
+        if (t === 'overlay/logobug') {
+          const bugEl = document.getElementById('obs-logobug');
+          if (v === 'ON') bugEl.classList.add('visible');
+          else bugEl.classList.remove('visible');
+        }
+        if (t === base + 'logobug/url') {
+          const imgEl = document.getElementById('ov-logobug-img');
+          if (v) { imgEl.src = v; imgEl.style.display = 'block'; }
+          else { imgEl.style.display = 'none'; }
+        }
+        if (t === base + 'logobug/corner') {
+          const bugEl = document.getElementById('obs-logobug');
+          bugEl.style.top = (v === 'TL' || v === 'TR') ? '40px' : 'auto';
+          bugEl.style.bottom = (v === 'BL' || v === 'BR') ? '40px' : 'auto';
+          bugEl.style.left = (v === 'TL' || v === 'BL') ? '40px' : 'auto';
+          bugEl.style.right = (v === 'TR' || v === 'BR') ? '40px' : 'auto';
+        }
+        if (t === base + 'logobug/size') {
+          document.getElementById('ov-logobug-img').style.maxHeight = v + 'px';
+          document.getElementById('ov-logobug-img').style.maxWidth = v + 'px';
         }
 
         if (t === 'overlay/visibility') {
@@ -3079,9 +3308,9 @@
         if (t === base + 'lowerthird/title') document.getElementById('ov-lt-title').textContent = v;
         if (t === base + 'lowerthird/desc') document.getElementById('ov-lt-desc').textContent = v;
         if (t === base + 'sponsors/list') {
-           sponsorList = JSON.parse(v);
-           sponsorIndex = 0;
-           renderSponsor();
+          sponsorList = JSON.parse(v);
+          sponsorIndex = 0;
+          renderSponsor();
         }
         if (t === base + 'stats/posshome') document.getElementById('ov-stat-poss-h').textContent = v + '%';
         if (t === base + 'stats/possaway') document.getElementById('ov-stat-poss-a').textContent = v + '%';
@@ -3099,35 +3328,35 @@
         if (t === base + 'stats/offsideaway') document.getElementById('ov-stat-offside-a').textContent = v;
         if (t === base + 'stats/cornershome') document.getElementById('ov-stat-corners-h').textContent = v;
         if (t === base + 'stats/cornersaway') document.getElementById('ov-stat-corners-a').textContent = v;
-        
+
         if (t === base + 'sub/out') document.getElementById('ov-sub-out').textContent = v;
         if (t === base + 'sub/in') document.getElementById('ov-sub-in').textContent = v;
         if (t === base + 'sub/team') {
-           const outEl = document.querySelector('.sub-out');
-           const inEl = document.querySelector('.sub-in');
-           outEl.style.background = plantelesCache[v].color || (v === 'home' ? '#1565c0' : '#c62828');
+          const outEl = document.querySelector('.sub-out');
+          const inEl = document.querySelector('.sub-in');
+          outEl.style.background = plantelesCache[v].color || (v === 'home' ? '#1565c0' : '#c62828');
         }
 
         if (t === base + 'home/yellowcards') document.getElementById('ov-home-yellowcards').innerHTML = '<div class="yellow-card"></div>'.repeat(parseInt(v) || 0);
         if (t === base + 'away/yellowcards') document.getElementById('ov-away-yellowcards').innerHTML = '<div class="yellow-card"></div>'.repeat(parseInt(v) || 0);
 
         if (t === base + 'penalties/home' || t === base + 'penalties/away') {
-           const isHome = t.includes('home');
-           const dotsId = isHome ? 'ov-pen-home-dots' : 'ov-pen-away-dots';
-           const scoreId = isHome ? 'ov-pen-home-score' : 'ov-pen-away-score';
-           try {
-             const arr = JSON.parse(v);
-             let html = '';
-             let goals = 0;
-             arr.forEach(st => {
-                let cls = 'pen-dot';
-                if (st === 1) { cls += ' goal'; goals++; }
-                if (st === 2) { cls += ' miss'; }
-                html += `<div class="${cls}"></div>`;
-             });
-             document.getElementById(dotsId).innerHTML = html;
-             document.getElementById(scoreId).textContent = goals;
-           } catch(e){}
+          const isHome = t.includes('home');
+          const dotsId = isHome ? 'ov-pen-home-dots' : 'ov-pen-away-dots';
+          const scoreId = isHome ? 'ov-pen-home-score' : 'ov-pen-away-score';
+          try {
+            const arr = JSON.parse(v);
+            let html = '';
+            let goals = 0;
+            arr.forEach(st => {
+              let cls = 'pen-dot';
+              if (st === 1) { cls += ' goal'; goals++; }
+              if (st === 2) { cls += ' miss'; }
+              html += `<div class="${cls}"></div>`;
+            });
+            document.getElementById(dotsId).innerHTML = html;
+            document.getElementById(scoreId).textContent = goals;
+          } catch (e) { }
         }
         if (t === base + 'home/redcards') {
           document.getElementById('ov-home-redcards').innerHTML = '<div class="red-card"></div>'.repeat(parseInt(v) || 0);
@@ -3158,7 +3387,7 @@
         if (t === base + 'period') { document.getElementById('ov-period').textContent = v; }
         if (t === base + 'status') {
           const s = document.getElementById('ov-status');
-          
+
           if (v === 'STOPPED') {
             s.textContent = 'PAUSADO';
             s.className = 'ov-status';
@@ -3169,7 +3398,7 @@
             s.textContent = 'EN VIVO';
             s.className = 'ov-status live';
           }
-          
+
           document.getElementById('ov-time').classList.toggle('running', v === 'RUNNING');
 
           const previa = document.getElementById('obs-previa');
