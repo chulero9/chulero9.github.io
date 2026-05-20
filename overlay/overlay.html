@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BROADCAST CTRL — Overlay</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.0.5/mqtt.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      background: transparent !important; 
+      overflow: hidden; 
+      transition: opacity 0.4s; 
+      font-family: 'Rajdhani', sans-serif;
+    }
+
+    #obs-overlay {
+      position: fixed; top: 40px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center;
+      font-family: 'Rajdhani', sans-serif;
+      filter: drop-shadow(0 4px 16px rgba(0,0,0,0.8));
+      min-width: 560px;
+    }
+
+    /* HOME */
+    .ov-home {
+      display: flex; align-items: center; gap: 0;
+      background: var(--home-color, #1565c0);
+      padding: 0 20px 0 16px;
+      clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
+      min-width: 190px;
+    }
+    .ov-home-name {
+      font-size: 22px; font-weight: 900; letter-spacing: 1px;
+      color: #fff; text-transform: uppercase;
+      padding: 10px 0;
+      flex: 1;
+    }
+
+    /* SCORES CENTER */
+    .ov-center {
+      background: #111;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 10px;
+      position: relative; z-index: 2;
+    }
+    .ov-period {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 9px; letter-spacing: 3px; color: #888;
+      padding-top: 4px; text-transform: uppercase;
+    }
+    .ov-scores {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 6px;
+    }
+    .ov-score {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 36px; font-weight: 900; color: #fff;
+      min-width: 36px; text-align: center;
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .ov-score.bump { transform: scale(1.4); }
+    .ov-sep { color: #555; font-size: 28px; font-family: 'Share Tech Mono', monospace; }
+    .ov-time {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; color: #66bb6a; letter-spacing: 2px;
+      padding-bottom: 4px;
+    }
+    .ov-time.running { animation: timePulse 1s ease-in-out infinite; }
+    @keyframes timePulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    /* LOGOS */
+    .ov-logo-main {
+      width: 26px; height: 26px; object-fit: contain;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    }
+    .ov-home .ov-logo-main { margin-right: 10px; }
+    .ov-away .ov-logo-main { margin-left: 10px; }
+
+    /* AWAY */
+    .ov-away {
+      display: flex; align-items: center;
+      background: var(--away-color, #c62828);
+      padding: 0 16px 0 20px;
+      clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%);
+      min-width: 190px;
+    }
+    .ov-away-name {
+      font-size: 22px; font-weight: 900; letter-spacing: 1px;
+      color: #fff; text-transform: uppercase;
+      padding: 10px 0;
+      flex: 1; text-align: right;
+    }
+
+    /* STATUS BADGE */
+    .ov-status {
+      position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+      background: #111; border: 1px solid #333;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 9px; letter-spacing: 3px; color: #888;
+      padding: 3px 12px; border-radius: 4px 4px 0 0;
+      text-transform: uppercase; white-space: nowrap;
+    }
+    .ov-status.live { 
+      background: #d32f2f; 
+      color: #fff; 
+      border-color: #b71c1c; 
+      animation: statusPulse 1.5s infinite; 
+    }
+    @keyframes statusPulse {
+      0%, 100% { background: #d32f2f; }
+      50% { background: #8e0000; }
+    }
+
+    /* HIDDEN */
+    #obs-overlay.hidden { opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+    #obs-overlay { transition: opacity 0.4s; }
+
+    /* YELLOW CARDS */
+    .ov-yellowcards { display: flex; gap: 3px; margin: 0 8px; justify-content: center; }
+    .yellow-card { width: 8px; height: 12px; background: #ffeb3b; border-radius: 1px; box-shadow: 0 0 4px rgba(255,235,59,0.6); }
+
+    /* VAR ALERT */
+    #obs-var {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.4s;
+    }
+    #obs-var.visible { opacity: 1; pointer-events: auto; }
+    .var-text {
+      font-size: 140px; font-weight: 900; color: #ff00ff; letter-spacing: 16px;
+      text-transform: uppercase; text-shadow: 0 0 50px #ff00ff;
+      animation: varFlash 0.6s infinite alternate; text-align: center; line-height: 1.1;
+    }
+    @keyframes varFlash { 0% { opacity: 0.6; transform: scale(0.97); } 100% { opacity: 1; transform: scale(1.03); } }
+
+    /* LOWER THIRD */
+    #obs-lowerthird {
+      position: fixed; bottom: 80px; left: 80px; z-index: 90;
+      display: flex; flex-direction: column;
+      transform: translateX(calc(-100% - 100px)); opacity: 0; pointer-events: none;
+      transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #obs-lowerthird.visible { transform: translateX(0); opacity: 1; pointer-events: auto; }
+    .lt-title {
+      background: var(--home-color, #1565c0); color: white;
+      font-size: 36px; font-weight: 900; padding: 12px 40px;
+      text-transform: uppercase; letter-spacing: 2px;
+      clip-path: polygon(0 0, 100% 0, calc(100% - 20px) 100%, 0 100%);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      border-bottom: 4px solid rgba(255,255,255,0.2);
+    }
+    .lt-desc {
+      background: #111; color: #ccc;
+      font-size: 24px; font-weight: 600; padding: 8px 40px;
+      clip-path: polygon(0 0, calc(100% - 20px) 0, calc(100% - 30px) 100%, 0 100%);
+      align-self: flex-start; margin-top: -2px;
+    }
+
+    /* STATS */
+    #obs-stats {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(15,15,15,0.95); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px;
+      padding: 40px 60px; width: 800px; z-index: 95;
+      opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 40px 100px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+    #obs-stats.visible { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+    .stats-title { font-size: 32px; color: #fff; text-align: center; margin-bottom: 30px; letter-spacing: 6px; font-weight: 900; text-transform: uppercase; }
+    .stat-row { display: flex; align-items: center; margin-bottom: 16px; }
+    .stat-row:last-child { margin-bottom: 0; }
+    .stat-val { font-size: 40px; font-family: 'Share Tech Mono', monospace; font-weight: 900; width: 120px; text-align: center; }
+    .stat-val.local { color: #90caf9; }
+    .stat-val.visitor { color: #ef9a9a; }
+    .stat-label { flex: 1; text-align: center; color: #aaa; font-size: 20px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
+
+    /* SPONSORS */
+    #obs-sponsors {
+      position: fixed; bottom: 80px; right: 80px; z-index: 80;
+      width: 240px; height: 120px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.5s;
+    }
+    #obs-sponsors.visible { opacity: 1; }
+    .sponsor-img {
+      max-width: 100%; max-height: 100%; object-fit: contain;
+      animation: fadeSponsor 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+    }
+    @keyframes fadeSponsor { 0% { opacity: 0; transform: scale(0.85) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+
+    /* SUBSTITUTIONS */
+    #obs-sub {
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(300px);
+      background: #111; border-radius: 16px; display: flex; align-items: center;
+      padding: 0; overflow: hidden; z-index: 92;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05);
+      transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #obs-sub.visible { transform: translateX(-50%) translateY(0); }
+    .sub-side { padding: 20px 40px; display: flex; align-items: center; gap: 20px; min-width: 300px; }
+    .sub-out { background: #c62828; color: #fff; }
+    .sub-in { background: #2e7d32; color: #fff; }
+    .sub-icon { font-size: 36px; font-weight: 900; }
+    .sub-name { font-size: 32px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* PENALTIES */
+    #obs-penalties {
+      position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%) translateY(250px);
+      background: rgba(10,12,16,0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px;
+      padding: 24px 50px; z-index: 85; display: flex; align-items: center; gap: 60px;
+      transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 30px 80px rgba(0,0,0,0.9); backdrop-filter: blur(20px);
+    }
+    #obs-penalties.visible { transform: translateX(-50%) translateY(0); }
+    .pen-team { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .pen-team-name { font-size: 32px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 2px; }
+    .pen-dots { display: flex; gap: 12px; }
+    .pen-dot { width: 26px; height: 26px; border-radius: 50%; background: #333; border: 3px solid #111; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); }
+    .pen-dot.goal { background: #4caf50; border-color: #1b5e20; box-shadow: 0 0 16px rgba(76,175,80,0.6); }
+    .pen-dot.miss { background: #e53935; border-color: #b71c1c; box-shadow: 0 0 16px rgba(229,57,53,0.6); }
+    .pen-score { font-family: 'Share Tech Mono', monospace; font-size: 80px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 4px 16px rgba(0,0,0,0.8); }
+
+    /* LOGO BUG */
+    #obs-logobug {
+      position: fixed; z-index: 110;
+      opacity: 0; pointer-events: none; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #obs-logobug.visible { opacity: 1; pointer-events: auto; }
+    .logobug-img {
+      width: auto; height: auto; object-fit: contain;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+      transition: max-width 0.3s, max-height 0.3s;
+    }
+
+    /* PREVIA OVERLAY */
+    #obs-previa {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      opacity: 0; pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+      background: transparent;
+      transform: scale(0.98);
+    }
+    #obs-previa.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(0.7);
+    }
+    .previa-card {
+      width: 1000px;
+      background: rgba(15, 15, 15, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 32px;
+      box-shadow: 0 32px 128px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.05);
+      padding: 70px 50px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .previa-card::after {
+      content: "";
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 6px;
+      background: #4caf50;
+      box-shadow: 0 -4px 48px rgba(76, 175, 80, 0.8);
+    }
+    .previa-title {
+      font-size: 32px;
+      font-weight: 900;
+      color: #66bb6a;
+      letter-spacing: 12px;
+      text-transform: uppercase;
+      margin-bottom: 0px;
+      text-shadow: 0 0 24px rgba(102, 187, 106, 0.5);
+    }
+    .previa-teams {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      gap: 0px;
+    }
+    .previa-team {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+    .previa-logo {
+      width: 240px;
+      height: 240px;
+      object-fit: contain;
+      filter: drop-shadow(0 16px 32px rgba(0,0,0,0.6));
+    }
+    .previa-name {
+      font-size: 42px;
+      font-weight: 800;
+      color: #ffffff;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      text-align: center;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.8);
+    }
+    .previa-vs {
+      font-size: 72px;
+      font-style: italic;
+      font-weight: 900;
+      color: rgba(255,255,255,0.15);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 40px;
+    }
+    .previa-divider {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      height: 200%;
+      width: 2px;
+      background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.15), transparent);
+    }
+
+    /* FINAL OVERLAY */
+    #obs-final {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      opacity: 0; pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+      background: transparent;
+      transform: scale(0.98);
+    }
+    #obs-final.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(0.7);
+    }
+    .final-score-center {
+      display: flex; align-items: center; justify-content: center; gap: 30px;
+      padding: 0 40px;
+    }
+    .final-score-num {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 110px; font-weight: 900; color: #ffffff;
+      text-shadow: 0 4px 16px rgba(0,0,0,0.8);
+      min-width: 80px; text-align: center;
+    }
+    .final-score-sep {
+      font-size: 64px; font-weight: 900; color: rgba(255,255,255,0.2);
+    }
+
+    /* PLANTEL OVERLAY */
+    #obs-plantel {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      opacity: 0; pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 110;
+      background: transparent;
+      transform: scale(0.98);
+    }
+    #obs-plantel.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(0.7);
+    }
+    .plantel-card {
+      width: 1300px;
+      background: rgba(10, 12, 16, 0.9);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-top: 8px solid var(--team-color, #1565c0);
+      border-radius: 24px;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.02);
+      padding: 50px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    .plantel-header {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 30px;
+    }
+    .plantel-logo {
+      height: 120px;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+    }
+    .plantel-name {
+      font-size: 80px;
+      font-weight: 900;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      text-shadow: 0 4px 16px rgba(0,0,0,0.8);
+    }
+    .plantel-body {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 80px;
+    }
+    .plantel-section-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .plantel-grid {
+      display: grid;
+      gap: 16px;
+    }
+    .titulares-grid {
+      grid-template-columns: 1fr 1fr;
+      column-gap: 40px;
+    }
+    .suplentes-grid {
+      grid-template-columns: 1fr;
+    }
+    .player-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .player-num {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      background: var(--team-color, #1565c0);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .suplentes-grid .player-num {
+      background: #333;
+      color: #aaa;
+      box-shadow: none;
+    }
+    .player-name {
+      font-size: 32px;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ov-extratime {
+      color: #ffd700;
+      margin-left: 4px;
+      text-shadow: 0 0 5px rgba(255,215,0,0.5);
+    }
+    .ov-redcards {
+      display: flex; gap: 3px; margin: 0 8px;
+    }
+    .red-card {
+      width: 8px; height: 12px; background: #e53935; border-radius: 1px;
+      box-shadow: 0 0 4px rgba(229,57,53,0.6);
+    }
+    .ov-goal-banner {
+      position: absolute; top: 100%; left: 0; width: 100%;
+      height: 36px;
+      background: var(--goal-color, #111);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 20px; font-weight: 900; letter-spacing: 2px;
+      transform: translateY(-100%);
+      opacity: 0;
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: -1; 
+      border-radius: 0 0 8px 8px;
+    }
+    .ov-goal-banner.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  
+    /* FIELD OVERLAY */
+    #obs-field {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Rajdhani', sans-serif;
+      opacity: 0; pointer-events: none;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 105;
+      background: transparent;
+      transform: scale(0.98);
+    }
+    #obs-field.visible {
+      opacity: 1; pointer-events: auto; transform: scale(0.7);
+    }
+    .field-card {
+      display: flex; gap: 40px; align-items: stretch;
+      background: rgba(10, 12, 16, 0.95);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 24px;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.9);
+      padding: 40px;
+    }
+    .field-roster {
+      width: 320px;
+      display: flex; flex-direction: column;
+      background: #111;
+      border-radius: 16px;
+      overflow: hidden;
+      border-top: 12px solid var(--team-color, #1565c0);
+    }
+    .field-roster-header {
+      background: var(--team-color, #1565c0);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 20px 10px;
+      position: relative;
+    }
+    .field-roster-header::after {
+      content: ""; position: absolute; bottom: -20px; left: 0; right: 0; height: 40px;
+      background: inherit; clip-path: polygon(0 0, 100% 0, 50% 100%);
+    }
+    .field-roster-logo {
+      height: 90px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+      z-index: 1;
+    }
+    .field-roster-list {
+      padding: 40px 20px 20px 20px;
+      display: flex; flex-direction: column; gap: 10px;
+      flex: 1;
+    }
+    .field-roster-player {
+      display: flex; align-items: center; gap: 12px;
+      background: #1a1a1a; padding: 6px 12px; border-radius: 8px;
+    }
+    .field-player-num {
+      width: 28px; height: 28px; background: #333; color: #fff; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Share Tech Mono', monospace; font-size: 14px; font-weight: bold;
+    }
+    .field-player-name {
+      color: #fff; font-size: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    
+    /* THE PITCH */
+    .field-pitch {
+      width: 600px; height: 800px;
+      background: #2e7d32;
+      background-image: repeating-linear-gradient(0deg, transparent, transparent 80px, rgba(255,255,255,0.05) 80px, rgba(255,255,255,0.05) 160px);
+      border: 4px solid #fff;
+      position: relative;
+      border-radius: 4px;
+    }
+    .pitch-line-center {
+      position: absolute; top: 50%; left: 0; right: 0; height: 4px; background: #fff; transform: translateY(-50%);
+    }
+    .pitch-circle {
+      position: absolute; top: 50%; left: 50%; width: 140px; height: 140px; border: 4px solid #fff; border-radius: 50%; transform: translate(-50%, -50%);
+    }
+    .pitch-box-top {
+      position: absolute; top: 0; left: 50%; width: 240px; height: 120px; border: 4px solid #fff; border-top: none; transform: translateX(-50%);
+    }
+    .pitch-box-bottom {
+      position: absolute; bottom: 0; left: 50%; width: 240px; height: 120px; border: 4px solid #fff; border-bottom: none; transform: translateX(-50%);
+    }
+    .pitch-goal-top {
+      position: absolute; top: 0; left: 50%; width: 100px; height: 40px; border: 4px solid #fff; border-top: none; transform: translateX(-50%);
+    }
+    .pitch-goal-bottom {
+      position: absolute; bottom: 0; left: 50%; width: 100px; height: 40px; border: 4px solid #fff; border-bottom: none; transform: translateX(-50%);
+    }
+    
+    /* DOTS / FORMATION */
+    .formation-home, .formation-away {
+      position: absolute; left: 0; right: 0; height: 50%; display: flex; flex-direction: column; justify-content: space-evenly; padding: 20px 40px;
+    }
+    .formation-home { top: 0; }
+    .formation-away { bottom: 0; flex-direction: column-reverse; }
+    
+    .formation-line {
+      display: flex; justify-content: center; gap: 40px;
+    }
+    .field-dot {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--team-color, #fff);
+      border: 3px solid #fff;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.6);
+    }
+</style>
+</head>
+<body>
+
+  <!-- OVERLAY BASE -->
+  <div id="obs-overlay" class="hidden">
+    <div class="ov-goal-banner" id="ov-goal-banner">
+      <span id="ov-goal-text">¡GOL!</span>
+    </div>
+    <div class="ov-home" id="ov-home" style="--home-color:#1565c0">
+      <img class="ov-logo-main" id="ov-home-logo-main" src="" style="display:none;">
+      <span class="ov-home-name" id="ov-home-name">LOCAL</span>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <div class="ov-redcards" id="ov-home-redcards"></div>
+        <div class="ov-yellowcards" id="ov-home-yellowcards"></div>
+      </div>
+    </div>
+    <div class="ov-center">
+      <div class="ov-status live" id="ov-status">EN VIVO</div>
+      <div class="ov-period" id="ov-period">1T</div>
+      <div class="ov-scores">
+        <span class="ov-score" id="ov-score-home">0</span>
+        <span class="ov-sep">:</span>
+        <span class="ov-score" id="ov-score-away">0</span>
+      </div>
+      <div style="display:flex; align-items:center;">
+        <div class="ov-time" id="ov-time">00:00</div>
+        <span class="ov-extratime" id="ov-extratime"></span>
+      </div>
+    </div>
+    <div class="ov-away" id="ov-away" style="--away-color:#c62828">
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <div class="ov-redcards" id="ov-away-redcards"></div>
+        <div class="ov-yellowcards" id="ov-away-yellowcards"></div>
+      </div>
+      <span class="ov-away-name" id="ov-away-name">VISITANTE</span>
+      <img class="ov-logo-main" id="ov-away-logo-main" src="" style="display:none;">
+    </div>
+  </div>
+
+  <!-- EXTRAS -->
+  <div id="obs-extras">
+    <!-- VAR -->
+    <div id="obs-var"><div class="var-text">VAR<br><span style="font-size:50px">REVISANDO JUGADA</span></div></div>
+    
+    <!-- LOWER THIRD -->
+    <div id="obs-lowerthird">
+      <div class="lt-title" id="ov-lt-title">NOMBRE</div>
+      <div class="lt-desc" id="ov-lt-desc">DESCRIPCIÓN</div>
+    </div>
+
+    <!-- SPONSORS -->
+    <div id="obs-sponsors">
+      <img class="sponsor-img" id="ov-sponsor-img" src="" style="display:none;">
+    </div>
+
+    <!-- STATS -->
+    <div id="obs-stats">
+      <div class="stats-title">ESTADÍSTICAS</div>
+      <div class="stat-row">
+        <div class="stat-val local" id="ov-stat-poss-h">50%</div>
+        <div class="stat-label">Posesión</div>
+        <div class="stat-val visitor" id="ov-stat-poss-a">50%</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-val local" id="ov-stat-shots-h">0</div>
+        <div class="stat-label">Remates</div>
+        <div class="stat-val visitor" id="ov-stat-shots-a">0</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-val local" id="ov-stat-shotstarget-h">0</div>
+        <div class="stat-label">Remates al arco</div>
+        <div class="stat-val visitor" id="ov-stat-shotstarget-a">0</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-val local" id="ov-stat-fouls-h">0</div>
+        <div class="stat-label">Faltas</div>
+        <div class="stat-val visitor" id="ov-stat-fouls-a">0</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-val local" id="ov-stat-yellow-h">0</div>
+        <div class="stat-label">Tarjetas amarillas</div>
+        <div class="stat-val visitor" id="ov-stat-yellow-a">0</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-val local" id="ov-stat-red-h">0</div>
+        <div class="stat-label">Tarjetas rojas</div>
+        <div class="stat-val visitor" id="ov-stat-red-a">0</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-val local" id="ov-stat-offside-h">0</div>
+        <div class="stat-label">Fuera de juego</div>
+        <div class="stat-val visitor" id="ov-stat-offside-a">0</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-val local" id="ov-stat-corners-h">0</div>
+        <div class="stat-label">Tiros de esquina</div>
+        <div class="stat-val visitor" id="ov-stat-corners-a">0</div>
+      </div>
+    </div>
+
+    <!-- SUBSTITUTION -->
+    <div id="obs-sub">
+      <div class="sub-side sub-out">
+        <div class="sub-icon">▼</div>
+        <div class="sub-name" id="ov-sub-out">SALE</div>
+      </div>
+      <div class="sub-side sub-in">
+        <div class="sub-icon">▲</div>
+        <div class="sub-name" id="ov-sub-in">ENTRA</div>
+      </div>
+    </div>
+
+    <!-- PENALTIES -->
+    <div id="obs-penalties">
+      <div class="pen-team">
+        <div class="pen-team-name" id="ov-pen-home-name">LOCAL</div>
+        <div class="pen-dots" id="ov-pen-home-dots"></div>
+      </div>
+      <div class="pen-score" id="ov-pen-home-score">0</div>
+      <div class="pen-score" style="color:#555">-</div>
+      <div class="pen-score" id="ov-pen-away-score">0</div>
+      <div class="pen-team">
+        <div class="pen-team-name" id="ov-pen-away-name">VISITANTE</div>
+        <div class="pen-dots" id="ov-pen-away-dots"></div>
+      </div>
+    </div>
+
+    <!-- LOGO BUG -->
+    <div id="obs-logobug">
+      <img class="logobug-img" id="ov-logobug-img" src="" style="display:none;">
+    </div>
+  </div>
+
+  <!-- PREVIA OVERLAY -->
+  <div id="obs-previa">
+    <div class="previa-card">
+      <div class="previa-title">PREVIA</div>
+      <div class="previa-teams">
+        <div class="previa-team">
+          <img class="previa-logo" id="ov-previa-home-logo" src="" alt="" style="display:none;">
+          <div class="previa-name" id="ov-previa-home-name">LOCAL</div>
+        </div>
+        <div class="previa-vs">VS<div class="previa-divider"></div></div>
+        <div class="previa-team">
+          <img class="previa-logo" id="ov-previa-away-logo" src="" alt="" style="display:none;">
+          <div class="previa-name" id="ov-previa-away-name">VISITANTE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FINAL OVERLAY -->
+  <div id="obs-final">
+    <div class="previa-card">
+      <div class="previa-title" id="ov-final-title">RESULTADO PRIMER TIEMPO</div>
+      <div class="previa-teams">
+        <div class="previa-team">
+          <img class="previa-logo" id="ov-final-home-logo" src="" alt="" style="display:none;">
+          <div class="previa-name" id="ov-final-home-name">LOCAL</div>
+        </div>
+        <div class="final-score-center">
+          <span class="final-score-num" id="ov-final-home-score">0</span>
+          <span class="final-score-sep">-</span>
+          <span class="final-score-num" id="ov-final-away-score">0</span>
+        </div>
+        <div class="previa-team">
+          <img class="previa-logo" id="ov-final-away-logo" src="" alt="" style="display:none;">
+          <div class="previa-name" id="ov-final-away-name">VISITANTE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLANTEL OVERLAY -->
+  <div id="obs-plantel">
+    <div class="plantel-card" id="plantel-card" style="--team-color: #1565c0;">
+      <div class="plantel-header">
+        <img class="plantel-logo" id="ov-plantel-logo" src="" alt="" style="display:none;">
+        <div class="plantel-name" id="ov-plantel-name">EQUIPO</div>
+      </div>
+      <div class="plantel-body">
+        <div class="plantel-section titulares-section">
+          <div class="plantel-section-title" id="ov-plantel-titulares-title" style="color: var(--team-color);">TITULARES</div>
+          <div class="plantel-grid titulares-grid" id="ov-plantel-titulares"></div>
+        </div>
+        <div class="plantel-section suplentes-section">
+          <div class="plantel-section-title" style="color: #888;">SUPLENTES</div>
+          <div class="plantel-grid suplentes-grid" id="ov-plantel-suplentes"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- FIELD OVERLAY -->
+  <div id="obs-field">
+    <div class="field-card">
+      <div class="field-roster" id="field-roster-home" style="--team-color: #c62828;">
+        <div class="field-roster-header">
+          <img class="field-roster-logo" id="field-logo-home" src="" style="display:none;">
+        </div>
+        <div class="field-roster-list" id="field-list-home"></div>
+      </div>
+      
+      <div class="field-pitch">
+        <div class="pitch-line-center"></div>
+        <div class="pitch-circle"></div>
+        <div class="pitch-box-top"></div>
+        <div class="pitch-goal-top"></div>
+        <div class="pitch-box-bottom"></div>
+        <div class="pitch-goal-bottom"></div>
+        
+        <div class="formation-home" style="--team-color: #c62828;" id="field-dots-home">
+          <!-- 4-4-2 fixed layout -->
+          <div class="formation-line"><div class="field-dot"></div></div> <!-- GK -->
+          <div class="formation-line"><div class="field-dot"></div><div class="field-dot"></div><div class="field-dot"></div><div class="field-dot"></div></div> <!-- DEF -->
+          <div class="formation-line"><div class="field-dot"></div><div class="field-dot"></div><div class="field-dot"></div><div class="field-dot"></div></div> <!-- MID -->
+          <div class="formation-line"><div class="field-dot"></div><div class="field-dot"></div></div> <!-- FWD -->
+        </div>
+        
+        <div class="formation-away" style="--team-color: #ffb300;" id="field-dots-away">
+          <div class="formation-line"><div class="field-dot"></div></div> <!-- GK -->
+          <div class="formation-line"><div class="field-dot"></div><div class="field-dot"></div><div class="field-dot"></div><div class="field-dot"></div></div> <!-- DEF -->
+          <div class="formation-line"><div class="field-dot"></div><div class="field-dot"></div><div class="field-dot"></div><div class="field-dot"></div></div> <!-- MID -->
+          <div class="formation-line"><div class="field-dot"></div><div class="field-dot"></div></div> <!-- FWD -->
+        </div>
+      </div>
+      
+      <div class="field-roster" id="field-roster-away" style="--team-color: #ffb300;">
+        <div class="field-roster-header">
+          <img class="field-roster-logo" id="field-logo-away" src="" style="display:none;">
+        </div>
+        <div class="field-roster-list" id="field-list-away"></div>
+      </div>
+    </div>
+  </div>
+<script>
+    function bumpOv(id, val) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = val;
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 300);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const defaultBroker = window.location.protocol === 'https:' ? 'wss://broker.hivemq.com:8884/mqtt' : 'ws://broker.hivemq.com:8000/mqtt';
+      const broker = params.get('broker') || defaultBroker;
+      const topic = params.get('topic') || 'overlay/match';
+      const user = params.get('user') || '';
+
+      if (!broker) return;
+
+      const opts = { clientId: 'obs_overlay_' + Math.random().toString(16).substr(2, 6) };
+      if (user) opts.username = user;
+      opts.reconnectPeriod = 4000;
+
+      let client;
+      try {
+        const wsUrl = broker.startsWith('ws') ? broker : `ws://${broker}:8000/mqtt`;
+        client = mqtt.connect(wsUrl, opts);
+      } catch (e) { return; }
+
+      client.on('connect', () => {
+        client.subscribe(topic + '/#', { qos: 0 });
+        client.subscribe('overlay/visibility', { qos: 0 });
+        client.subscribe('overlay/placa', { qos: 0 });
+        client.subscribe('overlay/master', { qos: 0 });
+        client.subscribe('overlay/var', { qos: 0 });
+        client.subscribe('overlay/lowerthird', { qos: 0 });
+        client.subscribe('overlay/stats', { qos: 0 });
+        client.subscribe('overlay/penalties', { qos: 0 });
+        client.subscribe('overlay/sub', { qos: 0 });
+        client.subscribe('overlay/sponsors', { qos: 0 });
+        client.subscribe('overlay/logobug', { qos: 0 });
+
+        // Request initial state from panel
+        client.publish(topic + '/sync', 'REQUEST');
+      });
+
+      let plantelesCache = {
+        home: { titulares: '', suplentes: '', name: '', logo: '', color: '' },
+        away: { titulares: '', suplentes: '', name: '', logo: '', color: '' }
+      };
+
+      let sponsorList = [];
+      let sponsorIndex = 0;
+      let sponsorTimer = null;
+
+      function renderSponsor() {
+        if (!sponsorList.length) return;
+        const img = document.getElementById('ov-sponsor-img');
+        img.style.display = 'none'; // reset animation
+        void img.offsetWidth; // trigger reflow
+        img.src = sponsorList[sponsorIndex];
+        img.style.display = 'block';
+        sponsorIndex = (sponsorIndex + 1) % sponsorList.length;
+      }
+      function startSponsors() {
+        if (sponsorTimer) clearInterval(sponsorTimer);
+        renderSponsor();
+        sponsorTimer = setInterval(renderSponsor, 8000); // Rotate every 8s
+      }
+      function stopSponsors() {
+        if (sponsorTimer) clearInterval(sponsorTimer);
+      }
+
+      function renderPlantel(team) {
+        const data = plantelesCache[team];
+        const card = document.getElementById('plantel-card');
+        card.style.setProperty('--team-color', data.color || '#1565c0');
+
+        const logoEl = document.getElementById('ov-plantel-logo');
+        if (data.logo) { logoEl.src = data.logo; logoEl.style.display = 'block'; }
+        else { logoEl.style.display = 'none'; }
+
+        document.getElementById('ov-plantel-name').textContent = data.name || 'EQUIPO';
+        document.getElementById('ov-plantel-titulares-title').style.color = data.color || '#1565c0';
+
+        const parsePlayers = (text) => {
+          if (!text) return '';
+          return text.split('\n').map(line => {
+            const match = line.match(/^(\d+)[-\s]+(.+)$/);
+            if (match) {
+              return `<div class="player-row"><div class="player-num">${match[1]}</div><div class="player-name">${match[2].trim()}</div></div>`;
+            } else if (line.trim()) {
+              return `<div class="player-row"><div class="player-num">-</div><div class="player-name">${line.trim()}</div></div>`;
+            }
+            return '';
+          }).join('');
+        };
+
+        document.getElementById('ov-plantel-titulares').innerHTML = parsePlayers(data.titulares);
+        document.getElementById('ov-plantel-suplentes').innerHTML = parsePlayers(data.suplentes);
+      }
+
+      
+      function renderField() {
+        const home = plantelesCache.home;
+        const away = plantelesCache.away;
+        
+        document.getElementById('field-roster-home').style.setProperty('--team-color', home.color || '#1565c0');
+        document.getElementById('field-dots-home').style.setProperty('--team-color', home.color || '#1565c0');
+        const homeLogo = document.getElementById('field-logo-home');
+        if (home.logo) { homeLogo.src = home.logo; homeLogo.style.display = 'block'; } else homeLogo.style.display = 'none';
+        
+        document.getElementById('field-roster-away').style.setProperty('--team-color', away.color || '#c62828');
+        document.getElementById('field-dots-away').style.setProperty('--team-color', away.color || '#c62828');
+        const awayLogo = document.getElementById('field-logo-away');
+        if (away.logo) { awayLogo.src = away.logo; awayLogo.style.display = 'block'; } else awayLogo.style.display = 'none';
+
+        const parseList = (text) => {
+          if (!text) return '';
+          const lines = text.split('\n').filter(l => l.trim()).slice(0, 11); // Take first 11
+          return lines.map(line => {
+            const match = line.match(/^(\d+)[-\s]+(.+)$/);
+            if (match) {
+              return `<div class="field-roster-player"><div class="field-player-num">${match[1]}</div><div class="field-player-name">${match[2].trim()}</div></div>`;
+            }
+            return `<div class="field-roster-player"><div class="field-player-num">-</div><div class="field-player-name">${line.trim()}</div></div>`;
+          }).join('');
+        };
+        
+        document.getElementById('field-list-home').innerHTML = parseList(home.titulares);
+        document.getElementById('field-list-away').innerHTML = parseList(away.titulares);
+      }
+      client.on('message', (t, msg) => {
+        const v = msg.toString();
+        const base = topic + '/';
+        const div = document.getElementById('obs-overlay');
+
+        if (t === 'overlay/var') { document.getElementById('obs-var').classList.toggle('visible', v === 'ON'); }
+        if (t === 'overlay/lowerthird') { document.getElementById('obs-lowerthird').classList.toggle('visible', v === 'ON'); }
+        if (t === 'overlay/stats') { document.getElementById('obs-stats').classList.toggle('visible', v === 'ON'); }
+        if (t === 'overlay/penalties') {
+          document.getElementById('obs-penalties').classList.toggle('visible', v === 'ON');
+          div.style.opacity = (v === 'ON') ? '0' : '';
+        }
+        if (t === 'overlay/sub' && v === 'TRIGGER') {
+          const subEl = document.getElementById('obs-sub');
+          subEl.classList.add('visible');
+          setTimeout(() => subEl.classList.remove('visible'), 8000);
+        }
+
+        if (t === 'overlay/sponsors') {
+          const spEl = document.getElementById('obs-sponsors');
+          if (v === 'ON') { spEl.classList.add('visible'); startSponsors(); }
+          else { spEl.classList.remove('visible'); stopSponsors(); }
+        }
+
+        if (t === 'overlay/logobug') {
+          const bugEl = document.getElementById('obs-logobug');
+          if (v === 'ON') bugEl.classList.add('visible');
+          else bugEl.classList.remove('visible');
+        }
+        if (t === base + 'logobug/url') {
+          const imgEl = document.getElementById('ov-logobug-img');
+          if (v) { imgEl.src = v; imgEl.style.display = 'block'; }
+          else { imgEl.style.display = 'none'; }
+        }
+        if (t === base + 'logobug/corner') {
+          const bugEl = document.getElementById('obs-logobug');
+          bugEl.style.top = (v === 'TL' || v === 'TR') ? '40px' : 'auto';
+          bugEl.style.bottom = (v === 'BL' || v === 'BR') ? '40px' : 'auto';
+          bugEl.style.left = (v === 'TL' || v === 'BL') ? '40px' : 'auto';
+          bugEl.style.right = (v === 'TR' || v === 'BR') ? '40px' : 'auto';
+        }
+        if (t === base + 'logobug/size') {
+          document.getElementById('ov-logobug-img').style.maxHeight = v + 'px';
+          document.getElementById('ov-logobug-img').style.maxWidth = v + 'px';
+        }
+
+        if (t === 'overlay/visibility') {
+          div.classList.toggle('hidden', v === 'HIDE' || v === 'OFF');
+          return;
+        }
+        if (t === 'overlay/master') {
+          document.body.style.opacity = (v === 'HIDE' || v === 'OFF') ? '0' : '1';
+          return;
+        }
+        if (t === 'overlay/placa') {
+          const plantel = document.getElementById('obs-plantel');
+          const field = document.getElementById('obs-field');
+          
+          if (v === 'home' || v === 'away') {
+            renderPlantel(v);
+            plantel.classList.add('visible');
+            field.classList.remove('visible');
+            document.getElementById('obs-previa').classList.remove('visible');
+            document.getElementById('obs-final').classList.remove('visible');
+            div.style.opacity = '0'; // Ocultar marcador base
+          } else if (v === 'field') {
+            renderField();
+            field.classList.add('visible');
+            plantel.classList.remove('visible');
+            document.getElementById('obs-previa').classList.remove('visible');
+            document.getElementById('obs-final').classList.remove('visible');
+            // NO ocultar marcador base para que se vea el 0-0 arriba
+            div.style.opacity = '1';
+          } else {
+            plantel.classList.remove('visible');
+            field.classList.remove('visible');
+            div.style.opacity = ''; // Restaurar marcador base
+          }
+        }
+
+        if (t === base + 'home/titulares') plantelesCache.home.titulares = v;
+        if (t === base + 'home/suplentes') plantelesCache.home.suplentes = v;
+        if (t === base + 'away/titulares') plantelesCache.away.titulares = v;
+        if (t === base + 'away/suplentes') plantelesCache.away.suplentes = v;
+
+        if (t === base + 'home/name') {
+          plantelesCache.home.name = v;
+          document.getElementById('ov-home-name').textContent = v;
+          document.getElementById('ov-previa-home-name').textContent = v;
+          document.getElementById('ov-final-home-name').textContent = v;
+        }
+        if (t === base + 'away/name') {
+          plantelesCache.away.name = v;
+          document.getElementById('ov-away-name').textContent = v;
+          document.getElementById('ov-previa-away-name').textContent = v;
+          document.getElementById('ov-final-away-name').textContent = v;
+        }
+        if (t === base + 'home/color') {
+          plantelesCache.home.color = v;
+          document.getElementById('ov-home').style.setProperty('--home-color', v);
+        }
+        if (t === base + 'away/color') {
+          plantelesCache.away.color = v;
+          document.getElementById('ov-away').style.setProperty('--away-color', v);
+        }
+        if (t === base + 'home/logo') {
+          plantelesCache.home.logo = v;
+          const elP = document.getElementById('ov-previa-home-logo');
+          const elF = document.getElementById('ov-final-home-logo');
+          const elM = document.getElementById('ov-home-logo-main');
+          if (v) {
+            elP.src = v; elP.style.display = 'block';
+            elF.src = v; elF.style.display = 'block';
+            elM.src = v; elM.style.display = 'block';
+          } else {
+            elP.style.display = 'none';
+            elF.style.display = 'none';
+            elM.style.display = 'none';
+          }
+        }
+        if (t === base + 'away/logo') {
+          plantelesCache.away.logo = v;
+          const elP = document.getElementById('ov-previa-away-logo');
+          const elF = document.getElementById('ov-final-away-logo');
+          const elM = document.getElementById('ov-away-logo-main');
+          if (v) {
+            elP.src = v; elP.style.display = 'block';
+            elF.src = v; elF.style.display = 'block';
+            elM.src = v; elM.style.display = 'block';
+          } else {
+            elP.style.display = 'none';
+            elF.style.display = 'none';
+            elM.style.display = 'none';
+          }
+        }
+        if (t === base + 'extratime') {
+          document.getElementById('ov-extratime').textContent = v;
+        }
+        if (t === base + 'lowerthird/title') document.getElementById('ov-lt-title').textContent = v;
+        if (t === base + 'lowerthird/desc') document.getElementById('ov-lt-desc').textContent = v;
+        if (t === base + 'sponsors/list') {
+          sponsorList = JSON.parse(v);
+          sponsorIndex = 0;
+          renderSponsor();
+        }
+        if (t === base + 'stats/posshome') document.getElementById('ov-stat-poss-h').textContent = v + '%';
+        if (t === base + 'stats/possaway') document.getElementById('ov-stat-poss-a').textContent = v + '%';
+        if (t === base + 'stats/shotshome') document.getElementById('ov-stat-shots-h').textContent = v;
+        if (t === base + 'stats/shotsaway') document.getElementById('ov-stat-shots-a').textContent = v;
+        if (t === base + 'stats/shotstargethome') document.getElementById('ov-stat-shotstarget-h').textContent = v;
+        if (t === base + 'stats/shotstargetaway') document.getElementById('ov-stat-shotstarget-a').textContent = v;
+        if (t === base + 'stats/foulshome') document.getElementById('ov-stat-fouls-h').textContent = v;
+        if (t === base + 'stats/foulsaway') document.getElementById('ov-stat-fouls-a').textContent = v;
+        if (t === base + 'stats/yellowhome') document.getElementById('ov-stat-yellow-h').textContent = v;
+        if (t === base + 'stats/yellowaway') document.getElementById('ov-stat-yellow-a').textContent = v;
+        if (t === base + 'stats/redhome') document.getElementById('ov-stat-red-h').textContent = v;
+        if (t === base + 'stats/redaway') document.getElementById('ov-stat-red-a').textContent = v;
+        if (t === base + 'stats/offsidehome') document.getElementById('ov-stat-offside-h').textContent = v;
+        if (t === base + 'stats/offsideaway') document.getElementById('ov-stat-offside-a').textContent = v;
+        if (t === base + 'stats/cornershome') document.getElementById('ov-stat-corners-h').textContent = v;
+        if (t === base + 'stats/cornersaway') document.getElementById('ov-stat-corners-a').textContent = v;
+
+        if (t === base + 'sub/out') document.getElementById('ov-sub-out').textContent = v;
+        if (t === base + 'sub/in') document.getElementById('ov-sub-in').textContent = v;
+        if (t === base + 'sub/team') {
+          const outEl = document.querySelector('.sub-out');
+          const inEl = document.querySelector('.sub-in');
+          outEl.style.background = plantelesCache[v]?.color || (v === 'home' ? '#1565c0' : '#c62828');
+        }
+
+        if (t === base + 'home/yellowcards') document.getElementById('ov-home-yellowcards').innerHTML = '<div class="yellow-card"></div>'.repeat(parseInt(v) || 0);
+        if (t === base + 'away/yellowcards') document.getElementById('ov-away-yellowcards').innerHTML = '<div class="yellow-card"></div>'.repeat(parseInt(v) || 0);
+
+        if (t === base + 'penalties/home' || t === base + 'penalties/away') {
+          const isHome = t.includes('home');
+          const dotsId = isHome ? 'ov-pen-home-dots' : 'ov-pen-away-dots';
+          const scoreId = isHome ? 'ov-pen-home-score' : 'ov-pen-away-score';
+          try {
+            const arr = JSON.parse(v);
+            let html = '';
+            let goals = 0;
+            arr.forEach(st => {
+              let cls = 'pen-dot';
+              if (st === 1) { cls += ' goal'; goals++; }
+              if (st === 2) { cls += ' miss'; }
+              html += `<div class="${cls}"></div>`;
+            });
+            document.getElementById(dotsId).innerHTML = html;
+            document.getElementById(scoreId).textContent = goals;
+          } catch (e) { }
+        }
+        if (t === base + 'home/redcards') {
+          document.getElementById('ov-home-redcards').innerHTML = '<div class="red-card"></div>'.repeat(parseInt(v) || 0);
+        }
+        if (t === base + 'away/redcards') {
+          document.getElementById('ov-away-redcards').innerHTML = '<div class="red-card"></div>'.repeat(parseInt(v) || 0);
+        }
+        if (t === base + 'goal_event') {
+          const banner = document.getElementById('ov-goal-banner');
+          const textEl = document.getElementById('ov-goal-text');
+          const data = plantelesCache[v];
+          if (data) {
+            banner.style.setProperty('--goal-color', data.color || (v === 'home' ? '#1565c0' : '#c62828'));
+            textEl.textContent = `¡GOL DE ${data.name || (v === 'home' ? 'LOCAL' : 'VISITANTE')}!`;
+            banner.classList.add('show');
+            setTimeout(() => banner.classList.remove('show'), 6000);
+          }
+        }
+        if (t === base + 'home/score') {
+          bumpOv('ov-score-home', v);
+          bumpOv('ov-final-home-score', v);
+        }
+        if (t === base + 'away/score') {
+          bumpOv('ov-score-away', v);
+          bumpOv('ov-final-away-score', v);
+        }
+        if (t === base + 'time') { document.getElementById('ov-time').textContent = v; }
+        if (t === base + 'period') { document.getElementById('ov-period').textContent = v; }
+        if (t === base + 'status') {
+          const s = document.getElementById('ov-status');
+
+          if (v === 'STOPPED') {
+            s.textContent = 'PAUSADO';
+            s.className = 'ov-status';
+          } else if (v === 'FINAL 1T' || v === 'FINAL') {
+            s.textContent = v;
+            s.className = 'ov-status live';
+          } else {
+            s.textContent = 'EN VIVO';
+            s.className = 'ov-status live';
+          }
+
+          document.getElementById('ov-time').classList.toggle('running', v === 'RUNNING');
+
+          const previa = document.getElementById('obs-previa');
+          const finalOv = document.getElementById('obs-final');
+
+          if (v === 'PREVIA') {
+            previa.classList.add('visible');
+            finalOv.classList.remove('visible');
+            document.getElementById('obs-plantel')?.classList.remove('visible');
+            document.getElementById('obs-field')?.classList.remove('visible');
+            div.style.opacity = '0';
+          } else if (v === 'FINAL 1T' || v === 'FINAL') {
+            document.getElementById('ov-final-title').textContent = v === 'FINAL 1T' ? 'RESULTADO PRIMER TIEMPO' : 'RESULTADO FINAL';
+            finalOv.classList.add('visible');
+            previa.classList.remove('visible');
+            document.getElementById('obs-plantel')?.classList.remove('visible');
+            document.getElementById('obs-field')?.classList.remove('visible');
+            div.style.opacity = '0';
+          } else {
+            previa.classList.remove('visible');
+            finalOv.classList.remove('visible');
+            document.getElementById('obs-plantel')?.classList.remove('visible');
+            document.getElementById('obs-field')?.classList.remove('visible');
+            div.style.opacity = '';
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>
