@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
 
@@ -879,6 +881,35 @@
             from { transform: rotate(0deg); }
             to   { transform: rotate(360deg); }
         }
+
+        /* ========== TOAST ========== */
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(12, 20, 36, 0.97);
+            color: #e8f0fe;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            border: 1px solid rgba(139, 92, 246, 0.45);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+            z-index: 9999;
+            opacity: 0;
+            transition: all 0.35s cubic-bezier(.34,1.56,.64,1);
+            pointer-events: none;
+            white-space: pre-line;
+            max-width: 380px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
     </style>
 </head>
 
@@ -937,6 +968,21 @@
         const LS = {
             get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
             set: (k, v) => { try { localStorage.setItem(k, v); } catch { } },
+        };
+
+        /* ——— TOAST HELPER ——— */
+        const showToast = (msg, duration = 3500) => {
+            let el = document.getElementById('__toast__');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = '__toast__';
+                el.className = 'toast';
+                document.body.appendChild(el);
+            }
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(el.__timer);
+            el.__timer = setTimeout(() => el.classList.remove('show'), duration);
         };
 
         /* ═══════════════════════════════════════════
@@ -1055,7 +1101,7 @@
 
             const copyObsUrl = (id) => {
                 const url = `${location.origin}${location.pathname}?mode=obs&room=${room}&slot=${id}&debug=false&slots=${slotCount}`;
-                navigator.clipboard.writeText(url).then(() => alert(`✅ Link OBS Slot ${id} copiado!\n\nPégalo en OBS Studio → Fuente → Navegador`));
+                navigator.clipboard.writeText(url).then(() => showToast(`✅ Link OBS Slot ${id} copiado!\n\nPégalo en OBS Studio → Fuente → Navegador`));
             };
 
             return (
@@ -1195,6 +1241,10 @@
             const obsIntRef = useRef(null);
             const sendersRef = useRef([]);
             const countdownRef = useRef(null);
+            const previewStreamRef = useRef(null);   // Fix Bug#2: cleanup seguro de previewStream
+            const callObsOnceRef  = useRef(null);    // Fix Bug#1: ref estable para callObsOnce
+            const dirCallRef      = useRef(null);    // Fix Bug#3: reemplaza _connections privado
+            const obsCallRef      = useRef(null);    // Fix Bug#3: reemplaza _connections privado
             // Stable refs for use inside stale closures
             const connectDirRef = useRef(null);
             const connectObsRef = useRef(null);
@@ -1208,6 +1258,8 @@
             // Persist FPS and bitrate preferences
             useEffect(() => { LS.set('ppt_fps', String(fps)); }, [fps]);
             useEffect(() => { LS.set('ppt_bitrate', bitrateKey); }, [bitrateKey]);
+            // Fix Bug#2: mantiene previewStreamRef actualizado para el cleanup
+            useEffect(() => { previewStreamRef.current = previewStream; }, [previewStream]);
 
             // Apply bitrate limit to all active senders
             const applyBitrate = useCallback(async (senders, key) => {
@@ -1325,8 +1377,9 @@
                     peer.current?.destroy();
                     clearInterval(dirIntRef.current);
                     clearInterval(obsIntRef.current);
+                    clearInterval(countdownRef.current);
                     localStreamRef.current?.getTracks().forEach(t => t.stop());
-                    previewStream?.getTracks().forEach(t => t.stop());
+                    previewStreamRef.current?.getTracks().forEach(t => t.stop()); // Fix Bug#2: usa ref actualizada
                 };
             }, []);
 
@@ -1344,7 +1397,7 @@
                     attempts++;
                     setDirAttempts(attempts);
 
-                    peer.current.call(`dir_${room}`, stream);
+                    dirCallRef.current = peer.current.call(`dir_${room}`, stream); // Fix Bug#3: guarda la llamada
 
                     const conn = peer.current.connect(`dir_${room}`);
                     conn.on('open', () => {
@@ -1360,7 +1413,7 @@
                     });
                     conn.on('data', d => {
                         if (d.tally !== undefined) setTally(d.tally);
-                        if (d.type === 'call_obs' && localStreamRef.current) callObsOnce(localStreamRef.current);
+                        if (d.type === 'call_obs' && localStreamRef.current) callObsOnceRef.current?.(localStreamRef.current); // Fix Bug#1: usa ref estable
                     });
                     conn.on('close', () => {
                         const wasConnected = dirConnRef.current;
@@ -1378,10 +1431,11 @@
                 dirIntRef.current = setInterval(try_, 3000);
             }, [room, slot, playSuccessSound, startCountdown]);
 
-            /* ——— CALL OBS (single attempt) ——— */
-            const callObsOnce = (stream) => {
+            /* ——— CALL OBS (single attempt) — Fix Bug#1: useCallback + Fix Bug#3: obsCallRef ——— */
+            const callObsOnce = useCallback((stream) => {
                 if (!peer.current) return;
                 const call = peer.current.call(`obs_${room}_${slot}`, stream);
+                obsCallRef.current = call; // Fix Bug#3: guarda la llamada para recolectar senders
                 if (call) {
                     call.on('open', () => {
                         obsConnRef.current = true;
@@ -1393,7 +1447,9 @@
                         setConnStatus(s => ({ ...s, obs: 'waiting' }));
                     });
                 }
-            };
+            }, [room, slot]);
+            // Fix Bug#1: mantiene callObsOnceRef apuntando siempre a la versión más reciente
+            useEffect(() => { callObsOnceRef.current = callObsOnce; }, [callObsOnce]);
 
             /* ——— CONNECT TO OBS ——— */
             const connectToObs = useCallback((stream) => {
@@ -1402,16 +1458,16 @@
                 let attempts = 0;
 
                 const try_ = () => {
-                    if (!peer.current || attempts >= 50 || obsConnRef.current) {
+                    if (!peer.current || attempts >= 200 || obsConnRef.current) { // Fix: 200 intentos (~16 min)
                         clearInterval(obsIntRef.current); return;
                     }
                     attempts++;
-                    callObsOnce(stream);
+                    callObsOnceRef.current?.(stream); // Fix Bug#1: usa ref estable, no closure estancada
                 };
 
                 setTimeout(try_, 1200);
                 obsIntRef.current = setInterval(try_, 5000);
-                setTimeout(() => clearInterval(obsIntRef.current), 240000);
+                setTimeout(() => clearInterval(obsIntRef.current), 600000); // Fix: 10 min timeout
             }, [room, slot]);
 
             // Keep stable refs updated
@@ -1430,6 +1486,47 @@
                 }
             }, [setupPeer]);
             useEffect(() => { forceReconnectRef.current = forceReconnect; }, [forceReconnect]);
+
+            /* ——— WAKE-FROM-SLEEP & NETWORK RESTORE ——— */
+            useEffect(() => {
+                // visibilitychange: se dispara cuando la laptop despierta / el usuario vuelve a la pestaña
+                const handleVisibility = () => {
+                    if (document.visibilityState !== 'visible') return;
+                    if (!localStreamRef.current) return;
+                    const peerBroken = !peer.current || peer.current.disconnected || peer.current.destroyed;
+                    if (peerBroken || !dirConnRef.current) {
+                        console.log('👁 Visible tras suspensión — reconectando...');
+                        startCountdown(3, 'Reconectando tras suspensión');
+                        setTimeout(() => forceReconnectRef.current?.(), 700);
+                    }
+                };
+
+                // online: se dispara cuando la red vuelve después de desconectarse
+                const handleOnline = () => {
+                    if (!localStreamRef.current) return;
+                    console.log('🌐 Red restaurada — forzando reconexión...');
+                    startCountdown(3, 'Red restaurada');
+                    setTimeout(() => forceReconnectRef.current?.(), 400);
+                };
+
+                // Heartbeat: detecta peers zombie que no dispararon eventos de desconexión
+                const heartbeat = setInterval(() => {
+                    if (!localStreamRef.current) return; // No transmitiendo, nada que verificar
+                    const peerBroken = !peer.current || peer.current.disconnected || peer.current.destroyed;
+                    if (peerBroken || !dirConnRef.current) {
+                        console.log('💓 Heartbeat: conexión caída — reconectando...');
+                        forceReconnectRef.current?.();
+                    }
+                }, 20000); // Chequeo cada 20 segundos
+
+                document.addEventListener('visibilitychange', handleVisibility);
+                window.addEventListener('online', handleOnline);
+                return () => {
+                    document.removeEventListener('visibilitychange', handleVisibility);
+                    window.removeEventListener('online', handleOnline);
+                    clearInterval(heartbeat);
+                };
+            }, [startCountdown]);
 
             const dirIcon = connStatus.director === 'connected' ? '🟢' : dirAttempts > 0 ? `🟡 ${dirAttempts}` : '⚪';
             const obsIcon = connStatus.obs === 'connected' ? '🟢' : '🟡';
@@ -1490,16 +1587,13 @@
                     localStreamRef.current = stream;
                     setLocalStream(stream);
                     setStep('live');
-                    // Collect RTCRtpSenders after connections are made
+                    // Fix Bug#3: recolecta senders desde calls trackeadas (evita _connections privado)
                     setTimeout(async () => {
                         const senders = [];
-                        if (peer.current) {
-                            const conns = peer.current._connections || {};
-                            Object.values(conns).flat().forEach(conn => {
-                                const pc = conn?.peerConnection;
-                                if (pc) pc.getSenders().forEach(s => senders.push(s));
-                            });
-                        }
+                        [dirCallRef.current, obsCallRef.current].forEach(call => {
+                            const pc = call?.peerConnection;
+                            if (pc) pc.getSenders().forEach(s => senders.push(s));
+                        });
                         sendersRef.current = senders;
                         if (bitrateKey !== 'auto') applyBitrate(senders, bitrateKey);
                     }, 2000);
@@ -1515,7 +1609,7 @@
             const handleExit = () => {
                 if (tally === 'live' && !window.confirm('⚠️ Estás EN VIVO. ¿Seguro que quieres salir?')) return;
                 localStreamRef.current?.getTracks().forEach(t => t.stop());
-                window.location.href = './';
+                window.location.search = ''; // Fix: evita navegar fuera de la app en file:///
             };
 
             const handleChange = () => {
@@ -1838,7 +1932,7 @@
 
             const upRoom = (v) => { const u = v.toUpperCase(); setRoom(u); LS.set('ppt_room', u); };
             const upSlots = (n) => { setSlotCount(n); LS.set('ppt_slots', String(n)); };
-            const saveTurn = () => { LS.set('ppt_turn_url', turnUrl); LS.set('ppt_turn_user', turnUser); LS.set('ppt_turn_pass', turnPass); alert('✅ Configuración TURN guardada'); };
+            const saveTurn = () => { LS.set('ppt_turn_url', turnUrl); LS.set('ppt_turn_user', turnUser); LS.set('ppt_turn_pass', turnPass); showToast('✅ Configuración TURN guardada'); };
 
             if (urlState) {
                 const { mode, room: r, slot, debug, slotCount: sc } = urlState;
