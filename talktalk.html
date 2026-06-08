@@ -14,400 +14,23 @@
     <!-- PEER JS (WebRTC P2P) -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-
-        body {
-            background-color: #10111A;
-            color: #A9B0D8;
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            overflow: hidden;
-            user-select: none;
-            -webkit-user-select: none;
-            -webkit-touch-callout: none;
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
         }
-
-        /* --- LOBBY & SETUP --- */
-        .auth-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .glass-box {
-            background: #141522;
-            padding: 30px;
-            border-radius: 12px;
-            border: 2px solid #3E437C;
-            box-shadow: 0 0 35px rgba(62, 67, 124, 0.4);
-            max-width: 400px;
-            width: 100%;
-        }
-
-        input {
-            box-sizing: border-box;
-            width: 100%;
-            background: #10111A;
-            border: 2px solid #3E437C;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 1.2rem;
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 15px;
-            outline: none;
-            text-transform: uppercase;
-        }
-
-        input:focus {
-            border-color: #4945A4;
-        }
-
-        select {
-            box-sizing: border-box;
-            width: 100%;
-            background: #10111A;
-            border: 2px solid #3E437C;
-            color: #A9B0D8;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            outline: none;
-            margin-bottom: 20px;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 15px;
-            font-weight: bold;
-            font-size: 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            border: none;
-            transition: 0.2s;
-            margin-bottom: 10px;
-        }
-
-        .btn-blue {
-            background: #4945A4;
-            color: white;
-        }
-
-        .btn-blue:hover {
-            background: #5A56C4;
-        }
-
-        .btn-green {
-            background: #4945A4;
-            color: white;
-        }
-
-        .btn-green:hover {
-            background: #5A56C4;
-        }
-
-        .btn-gray {
-            background: #23253A;
-            color: white;
-        }
-
-        .btn-dark {
-            background: rgba(0, 0, 0, 0.3);
-            border: 2px solid #3E437C;
-            color: #888;
-        }
-
-        .btn-dark:hover {
-            border-color: #4945A4;
-            color: white;
-        }
-
-        /* --- DIRECTOR VIEW (DARK MATTE VIBE) --- */
-        .director-layout {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            background: #10111A;
-        }
-
-        .top-bar {
-            padding: 15px 25px;
-            background: #141522;
-            border-bottom: 2px solid #3E437C;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-        }
-
-        /* MATRIZ DE RUTEO (Botones Destino) */
-        .matrix-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            padding: 20px;
-            background: #141522;
-            border: 2px solid #3E437C;
-            border-radius: 12px;
-            margin: 15px 15px 0 15px;
-            box-shadow: 0 0 20px rgba(62, 67, 124, 0.2);
-        }
-
-        .matrix-btn {
-            padding: 12px 5px;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            text-align: center;
-            background: transparent;
-            border: 2px solid #3E437C;
-            color: #A9B0D8;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .matrix-btn:hover {
-            border-color: #4945A4;
-            background: rgba(73, 69, 164, 0.1);
-        }
-
-        .matrix-btn.active {
-            background: #4945A4;
-            border-color: #4945A4;
-            color: white;
-        }
-
-        .matrix-btn.all-active {
-            background: #f59e0b;
-            border-color: #f59e0b;
-            color: black;
-        }
-
-        /* BOTÓN PTT (Push To Talk / Toggle) */
-        .mic-btn-huge {
-            flex: 1;
-            margin: 15px;
-            border-radius: 30px;
-            font-size: 1.8rem;
-            font-weight: bold;
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-        }
-
-        .mic-btn-huge.on {
-            background: #152414;
-            border-color: #17291B;
-            color: #406D37;
-        }
-
-        .mic-btn-huge.off {
-            background: #12131C;
-            border-color: #3E437C;
-            color: #434483;
-        }
-
-        .mic-btn-huge:active {
-            transform: scale(0.98);
-        }
-
-
-
-        .crew-list {
-            padding: 15px;
-            background: #141522;
-            border-top: 2px solid #3E437C;
-            height: 250px;
-            overflow-y: auto;
-            margin: 0 15px 15px 15px;
-            border-radius: 12px;
-            border: 2px solid #3E437C;
-        }
-
-        .crew-item {
-            background: transparent;
-            border-bottom: 1px solid #23253A;
-            padding: 12px 5px;
-            margin-bottom: 5px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            font-size: 0.85rem;
-            color: #A9B0D8;
-            transition: 0.2s;
-        }
-
-        .crew-item:hover {
-            color: white;
-        }
-
-        .crew-item.receiving {
-            border-left: 2px solid #ef4444;
-            padding-left: 10px;
-        }
-
-        /* SLIDERS DE VOLUMEN (Matte) */
-        input[type=range] {
-            -webkit-appearance: none;
-            background: #10111A;
-            border: 1px solid #3E437C;
-            border-radius: 10px;
-            height: 6px;
-            outline: none;
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #a855f7;
-            cursor: pointer;
-            box-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
-            transition: 0.2s;
-        }
-
-        input[type=range]::-webkit-slider-thumb:hover {
-            transform: scale(1.3);
-        }
-
-        /* --- CREW VIEW (RECEPTOR BIDIRECCIONAL) --- */
-        .crew-layout {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            height: 100vh;
-            padding: 20px;
-            text-align: center;
-            background: #10111A;
-            position: relative;
-        }
-
-        .status-ring {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: 6px solid #23253A;
-            background: #141522;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3rem;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            transition: all 0.3s;
-            position: relative;
-        }
-
-        .status-ring.idle {
-            border-color: #4945A4;
-            color: #4945A4;
-            box-shadow: 0 0 30px rgba(73, 69, 164, 0.4);
-        }
-
-        .status-ring.active {
-            border-color: #ef4444;
-            box-shadow: 0 0 50px rgba(239, 68, 68, 0.5);
-            color: #ef4444;
-        }
-
-        .vu-ring {
-            position: absolute;
-            top: -6px;
-            left: -6px;
-            right: -6px;
-            bottom: -6px;
-            border-radius: 50%;
-            border: 6px solid #ef4444;
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        /* BOTÓN PTT DEL CREW (Walkie Talkie) */
-        .walkie-btn {
-            width: 100%;
-            max-width: 300px;
-            flex: 1;
-            margin-top: 10px;
-            margin-bottom: 10px;
-            background: #152414;
-            color: #406D37;
-            border-radius: 20px;
-            border: 4px solid #17291B;
-            font-size: 1.5rem;
-            font-weight: 900;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            transition: 0.1s;
-            cursor: pointer;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-
-        .walkie-btn.talking {
-            background: #2E502B;
-            border-color: #406D37;
-            box-shadow: 0 0 40px rgba(64, 109, 55, 0.8);
-            color: white;
-            transform: scale(0.95);
-        }
-
-        .walkie-btn span {
-            font-size: 0.9rem;
-            opacity: 0.8;
-            margin-top: 5px;
-        }
-
-        /* --- POCKET MODE (FAKE LOCK SCREEN) --- */
-        .pocket-mode-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #000;
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #333;
-            /* Texto muy oscuro para no gastar batería */
-        }
-
-        .pocket-icon {
-            font-size: 4rem;
-            opacity: 0.2;
-            margin-bottom: 20px;
-        }
-
-        .pocket-text {
-            font-size: 1rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            opacity: 0.3;
-        }
-    </style>
+    </script>
 </head>
 
-<body>
+<body class="bg-[#10111A] text-[#A9B0D8] font-sans h-screen overflow-hidden select-none">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -463,6 +86,14 @@
             const directorAudioCtx = useRef(null);
             const dirMicSource = useRef(null);
             const crewAudioSources = useRef({});
+            const crewAnalysers = useRef({});
+
+            const [messages, setMessages] = useState([]);
+            const [isChatOpen, setIsChatOpen] = useState(false);
+            const [chatTarget, setChatTarget] = useState('TODOS');
+            const [chatInput, setChatInput] = useState('');
+            const [unreadCount, setUnreadCount] = useState(0);
+            const [tallyStates, setTallyStates] = useState({});
 
             useEffect(() => {
                 navigator.mediaDevices.getUserMedia({ audio: true }).then((tempStream) => {
@@ -490,7 +121,7 @@
                     if (!dest) return;
 
                     if (dirMicSource.current) {
-                        try { dirMicSource.current.disconnect(dest); } catch(e){}
+                        try { dirMicSource.current.disconnect(dest); } catch (e) { }
                         const isTargeted = currentTargets.includes('TODOS') || currentTargets.includes(peerInfo.role);
                         if (!isMasterMuted && isTargeted) {
                             dirMicSource.current.connect(dest);
@@ -500,7 +131,7 @@
                     Object.keys(crewAudioSources.current).forEach(sourcePeerId => {
                         const srcNode = crewAudioSources.current[sourcePeerId];
                         if (!srcNode) return;
-                        try { srcNode.disconnect(dest); } catch(e){}
+                        try { srcNode.disconnect(dest); } catch (e) { }
                         if (partyline && talkingStates[sourcePeerId] && sourcePeerId !== peerInfo.id) {
                             srcNode.connect(dest);
                         }
@@ -556,7 +187,7 @@
 
                     peer.current.on('connection', (conn) => {
                         const role = conn.metadata?.role?.toUpperCase() || 'INVITADO';
-                        
+
                         if (role !== 'INVITADO') {
                             const existingPeerId = Object.keys(activePeers.current).find(id => activePeers.current[id].role === role);
                             if (existingPeerId) {
@@ -579,14 +210,19 @@
                                 }
                             }
                             if (data.type === 'STATS') {
-                                setCrewData(prev => ({ 
-                                    ...prev, 
-                                    [conn.peer]: { 
-                                        ...prev[conn.peer], 
+                                setCrewData(prev => ({
+                                    ...prev,
+                                    [conn.peer]: {
+                                        ...prev[conn.peer],
                                         ...(data.ping !== undefined && { ping: data.ping }),
                                         ...(data.qos !== undefined && { qos: data.qos })
-                                    } 
+                                    }
                                 }));
+                            }
+                            if (data.type === 'CHAT') {
+                                setMessages(prev => [...prev, { id: Math.random(), sender: role, text: data.text, timestamp: Date.now() }]);
+                                playNotificationSound();
+                                if (!isChatOpen) setUnreadCount(c => c + 1);
                             }
                         });
 
@@ -601,12 +237,22 @@
                             activePeers.current[conn.peer] = { id: conn.peer, conn, call, track: customStream.getAudioTracks()[0], role, dest: peerDest };
                             applyAudioRouting();
 
+                            // Sync Tally state upon connection
+                            const existingTally = tallyStates[role] || 'OFF';
+                            conn.send({ type: 'TALLY_STATE', state: existingTally });
+
                             call.on('stream', (crewStream) => {
                                 audioStreamsRef.current[conn.peer] = crewStream;
                                 setTalkingStates(prev => ({ ...prev, [conn.peer]: false }));
 
-                                if (directorAudioCtx.current && !crewAudioSources.current[conn.peer]) {
-                                    crewAudioSources.current[conn.peer] = directorAudioCtx.current.createMediaStreamSource(crewStream);
+                                if (directorAudioCtx.current) {
+                                    const source = directorAudioCtx.current.createMediaStreamSource(crewStream);
+                                    crewAudioSources.current[conn.peer] = source;
+
+                                    const analyser = directorAudioCtx.current.createAnalyser();
+                                    analyser.fftSize = 32;
+                                    source.connect(analyser);
+                                    crewAnalysers.current[conn.peer] = analyser;
                                 }
                             });
 
@@ -631,6 +277,10 @@
                 if (crewAudioSources.current[id]) {
                     try { crewAudioSources.current[id].disconnect(); } catch (e) { }
                     delete crewAudioSources.current[id];
+                }
+                if (crewAnalysers.current[id]) {
+                    try { crewAnalysers.current[id].disconnect(); } catch (e) {}
+                    delete crewAnalysers.current[id];
                 }
                 if (activePeers.current[id]) {
                     if (activePeers.current[id].track) activePeers.current[id].track.stop();
@@ -662,28 +312,129 @@
                 alert("Link copiado.");
             };
 
+            const toggleTally = (role, type) => {
+                const current = tallyStates[role] || 'OFF';
+                const next = current === type ? 'OFF' : type;
+                
+                setTallyStates(prev => ({ ...prev, [role]: next }));
+                
+                const peerId = Object.keys(activePeers.current).find(id => activePeers.current[id].role === role);
+                if (peerId) {
+                    const peerInfo = activePeers.current[peerId];
+                    if (peerInfo && peerInfo.conn && peerInfo.conn.open) {
+                        peerInfo.conn.send({ type: 'TALLY_STATE', state: next });
+                    }
+                }
+            };
+
+            const sendChatMessage = () => {
+                if (!chatInput.trim()) return;
+                const msgText = chatInput.trim();
+                const newMsg = {
+                    id: Math.random(),
+                    sender: 'Director',
+                    text: msgText,
+                    timestamp: Date.now(),
+                    target: chatTarget
+                };
+                
+                setMessages(prev => [...prev, newMsg]);
+                
+                if (chatTarget === 'TODOS') {
+                    Object.values(activePeers.current).forEach(peerInfo => {
+                        if (peerInfo.conn && peerInfo.conn.open) {
+                            peerInfo.conn.send({ type: 'CHAT', text: msgText, sender: 'Director' });
+                        }
+                    });
+                } else {
+                    const peerId = Object.keys(activePeers.current).find(id => activePeers.current[id].role === chatTarget);
+                    if (peerId) {
+                        const peerInfo = activePeers.current[peerId];
+                        if (peerInfo.conn && peerInfo.conn.open) {
+                            peerInfo.conn.send({ type: 'CHAT', text: msgText, sender: 'Director' });
+                        }
+                    }
+                }
+                setChatInput('');
+            };
+
+            const playNotificationSound = () => {
+                try {
+                    const audioCtx = directorAudioCtx.current || window._globalAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.frequency.value = 880;
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.15);
+                } catch (e) {}
+            };
+
+            useEffect(() => {
+                if (!isSystemActive) return;
+                
+                let active = true;
+                const updateVus = () => {
+                    if (!active) return;
+                    
+                    Object.keys(crewAnalysers.current).forEach(peerId => {
+                        const analyser = crewAnalysers.current[peerId];
+                        if (analyser) {
+                            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                            analyser.getByteFrequencyData(dataArray);
+                            let sum = 0;
+                            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                            const avg = sum / dataArray.length;
+                            
+                            const el = document.getElementById(`vu-bar-${peerId}`);
+                            if (el) {
+                                el.style.width = `${Math.min(avg * 2.5, 100)}%`;
+                                if (avg > 40) {
+                                    el.className = "h-full bg-red-500 rounded transition-all duration-75";
+                                } else if (avg > 15) {
+                                    el.className = "h-full bg-yellow-500 rounded transition-all duration-75";
+                                } else {
+                                    el.className = "h-full bg-green-500 rounded transition-all duration-75";
+                                }
+                            }
+                        }
+                    });
+                    
+                    requestAnimationFrame(updateVus);
+                };
+                
+                requestAnimationFrame(updateVus);
+                
+                return () => {
+                    active = false;
+                };
+            }, [isSystemActive]);
+
             const allMatrixRoles = [...DEFAULT_ROLES, ...dynamicRoles];
 
             if (!isSystemActive) {
                 return (
-                    <div className="auth-container">
-                        <div className="glass-box">
+                    <div className="flex flex-col items-center justify-center h-full p-5 text-center">
+                        <div className="bg-[#141522] p-7 rounded-xl border-2 border-[#3E437C] shadow-[0_0_35px_rgba(62,67,124,0.4)] max-w-[400px] w-full">
                             <h2 className="text-2xl font-black mb-2 text-[#4945A4]">PANEL DE DIRECTOR</h2>
                             <p className="mb-4 text-sm text-[#A9B0D8]">Selecciona tu micrófono antes de abrir la sala.</p>
 
-                            <select value={selectedAudio} onChange={(e) => setSelectedAudio(e.target.value)}>
+                            <select className="box-border w-full bg-[#10111A] border-2 border-[#3E437C] text-[#A9B0D8] p-4 rounded-lg text-sm outline-none mb-5" value={selectedAudio} onChange={(e) => setSelectedAudio(e.target.value)}>
                                 {audioDevices.length === 0 && <option>Buscando audios...</option>}
                                 {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Micrófono'}</option>)}
                             </select>
 
-                            <button className="btn btn-blue" onClick={startDirector}>INICIAR MATRIZ IFB</button>
+                            <button className="w-full p-[15px] font-bold text-base rounded-lg cursor-pointer border-none transition duration-200 mb-2.5 bg-[#4945A4] text-white hover:bg-[#5A56C4]" onClick={startDirector}>INICIAR MATRIZ IFB</button>
                         </div>
                     </div>
                 );
             }
 
             return (
-                <div className={`director-layout relative ${!micMuted ? 'speaking' : ''}`}>
+                <div className="flex flex-col h-screen bg-[#10111A] relative">
                     {isOffline && (
                         <div className="absolute top-0 left-0 w-full h-full bg-red-900/90 z-50 flex flex-col items-center justify-center">
                             <h1 className="text-4xl font-black text-white mb-2">⚠ SIN CONEXIÓN</h1>
@@ -710,7 +461,7 @@
                         ))}
                     </div>
 
-                    <div className="top-bar">
+                    <div className="py-4 px-6 bg-[#141522] border-b-2 border-[#3E437C] flex justify-between items-center shadow-[0_4px_15px_rgba(0,0,0,0.4)]">
                         <div>
                             <div className="font-black text-xl text-blue-400">STREAM<span className="text-white">TALK</span> V9.0</div>
                             <div className="text-xs text-gray-400 font-bold tracking-widest">{status}</div>
@@ -727,25 +478,25 @@
                             {partyline ? '🔥 PARTY MIX ON' : '🎧 PARTY MIX OFF'}
                         </button>
                     </div>
-                    <div className="matrix-grid">
-                        <button className={`matrix-btn ${targets.includes('TODOS') ? 'all-active' : ''}`} onClick={() => toggleTarget('TODOS')}>
+                    <div className="grid grid-cols-4 gap-3 p-5 bg-[#141522] border-2 border-[#3E437C] rounded-xl mt-[15px] mx-[15px] mb-0 shadow-[0_0_20px_rgba(62,67,124,0.2)]">
+                        <button className={`py-3 px-[5px] rounded-md text-[0.8rem] font-bold text-center bg-transparent border-2 border-[#3E437C] cursor-pointer transition-all duration-200 ${targets.includes('TODOS') ? 'bg-[#f59e0b] border-[#f59e0b] text-black' : 'text-[#A9B0D8] hover:border-[#4945A4] hover:bg-[#4945A4]/10'}`} onClick={() => toggleTarget('TODOS')}>
                             📢 TODOS
                         </button>
                         {allMatrixRoles.map(role => (
-                            <button key={role} className={`matrix-btn ${targets.includes(role) ? 'active' : ''}`} onClick={() => toggleTarget(role)}>
+                            <button key={role} className={`py-3 px-[5px] rounded-md text-[0.8rem] font-bold text-center bg-transparent border-2 border-[#3E437C] cursor-pointer transition-all duration-200 ${targets.includes(role) ? 'bg-[#4945A4] border-[#4945A4] text-white' : 'text-[#A9B0D8] hover:border-[#4945A4] hover:bg-[#4945A4]/10'}`} onClick={() => toggleTarget(role)}>
                                 {role}
                             </button>
                         ))}
                     </div>
 
-                    <button className={`mic-btn-huge ${micMuted ? 'off' : 'on'}`} onClick={() => setMicMuted(!micMuted)}>
+                    <button className={`flex-1 m-[15px] rounded-[30px] text-[1.8rem] font-bold border border-transparent cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-3 active:scale-[0.98] ${micMuted ? 'bg-[#12131C] border-[#3E437C] text-[#434483]' : 'bg-[#152414] border-[#17291B] text-[#406D37]'}`} onClick={() => setMicMuted(!micMuted)}>
                         <span>{micMuted ? '🎙️ SILENCIO' : '🔴 HABLANDO'}</span>
                         <span className="text-sm font-normal opacity-70">
                             {micMuted ? 'Toca para hablar al destino' : `Enviando audio a: ${targets.join(', ')}`}
                         </span>
                     </button>
 
-                    <div className="crew-list">
+                    <div className="p-[15px] bg-[#141522] h-[250px] overflow-y-auto m-[0_15px_15px_15px] rounded-xl border-2 border-[#3E437C]">
                         <div className="text-[10px] font-bold text-gray-500 mb-2 uppercase flex justify-between">
                             <span>Conectados en sala ({crewList.length})</span>
                             <span className="text-green-400">🎧 Recibiendo retorno del Crew</span>
@@ -753,7 +504,7 @@
                         {crewList.length === 0 && <div className="text-sm text-gray-600 italic">Esperando que el equipo se una...</div>}
 
                         {crewList.map(crew => (
-                            <div key={crew.id} className={`crew-item flex-col items-start ${crew.receiving ? 'receiving' : ''}`}>
+                            <div key={crew.id} className={`bg-transparent border-b border-[#23253A] py-3 px-[5px] mb-1 flex flex-col justify-between text-[0.85rem] text-[#A9B0D8] transition duration-200 hover:text-white items-start ${crew.receiving ? 'border-l-2 border-[#ef4444] pl-2.5' : ''}`}>
                                 <div className="flex justify-between items-center w-full">
                                     <div className="flex items-center gap-2">
                                         <span>📱 {crew.name}</span>
@@ -764,9 +515,29 @@
                                         {talkingStates[crew.id] && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">HABLANDO</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button className="bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded transition-colors"
+                                        <button 
+                                            onClick={() => toggleTally(crew.name, 'PGM')}
+                                            className={`text-[9px] font-black px-2 py-1 rounded transition-colors cursor-pointer ${
+                                                tallyStates[crew.name] === 'PGM' 
+                                                    ? 'bg-red-600 text-white shadow-[0_0_10px_rgba(239,68,68,0.7)] animate-pulse' 
+                                                    : 'bg-gray-800 text-gray-400 hover:bg-red-600/30'
+                                            }`}
+                                        >
+                                            PGM
+                                        </button>
+                                        <button 
+                                            onClick={() => toggleTally(crew.name, 'PVW')}
+                                            className={`text-[9px] font-black px-2 py-1 rounded transition-colors cursor-pointer ${
+                                                tallyStates[crew.name] === 'PVW' 
+                                                    ? 'bg-green-600 text-black shadow-[0_0_10px_rgba(34,197,94,0.7)]' 
+                                                    : 'bg-gray-800 text-gray-400 hover:bg-green-600/30'
+                                            }`}
+                                        >
+                                            PVW
+                                        </button>
+                                        <button className="bg-red-600/20 border border-red-500 hover:bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded transition-colors"
                                             onClick={() => activePeers.current[crew.id]?.conn.send({ type: 'TALLY' })}>
-                                            [ ALERTA ]
+                                            ⚠️
                                         </button>
                                         <span className={crew.receiving ? "text-red-400 text-xs animate-pulse" : "text-gray-500 text-xs"}>
                                             {crew.receiving ? 'Director Hablando' : 'En espera'}
@@ -780,9 +551,102 @@
                                         value={volumes[crew.id] !== undefined ? volumes[crew.id] : 1}
                                         onChange={e => setVolumes(prev => ({ ...prev, [crew.id]: parseFloat(e.target.value) }))} />
                                 </div>
+                                <div className="w-full flex items-center gap-2 mt-1">
+                                    <span className="text-[9px] text-gray-500 font-bold">MIC</span>
+                                    <div className="flex-1 bg-gray-900 h-1.5 rounded overflow-hidden">
+                                        <div id={`vu-bar-${crew.id}`} className="h-full bg-green-500 w-0 transition-all duration-75"></div>
+                                    </div>
+                                </div>
                             </div>
                         ))}
                     </div>
+
+                    {/* Botón flotante de chat */}
+                    <button 
+                        onClick={() => { setIsChatOpen(true); setUnreadCount(0); }}
+                        className="fixed bottom-4 right-4 bg-purple-600 hover:bg-purple-500 text-white rounded-full p-4 shadow-[0_0_15px_rgba(147,51,234,0.6)] cursor-pointer z-50 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+                    >
+                        💬
+                        {unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                                {unreadCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Panel lateral de chat (Drawer) */}
+                    {isChatOpen && (
+                        <div className="fixed inset-0 bg-black/60 z-50 flex justify-end transition-opacity duration-300">
+                            <div className="absolute inset-0" onClick={() => setIsChatOpen(false)}></div>
+                            <div className="relative w-full max-w-md bg-[#141522] border-l-2 border-[#3E437C] h-full flex flex-col shadow-[0_0_35px_rgba(62,67,124,0.5)] z-10">
+                                <div className="p-4 border-b border-[#3E437C] bg-[#10111A] flex justify-between items-center">
+                                    <h3 className="font-black text-lg text-purple-400">CHAT DE PRODUCCIÓN</h3>
+                                    <button onClick={() => setIsChatOpen(false)} className="text-gray-400 hover:text-white font-bold text-lg p-2">✕</button>
+                                </div>
+                                <div className="p-3 bg-[#10111A]/50 border-b border-[#3E437C]/60 flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase">ENVIAR A:</span>
+                                    <select 
+                                        value={chatTarget} 
+                                        onChange={(e) => setChatTarget(e.target.value)}
+                                        className="bg-[#10111A] border border-[#3E437C] text-xs text-[#A9B0D8] rounded px-2 py-1 outline-none flex-1"
+                                    >
+                                        <option value="TODOS">📢 TODOS</option>
+                                        {[...DEFAULT_ROLES, ...dynamicRoles].map(role => (
+                                            <option key={role} value={role}>{role}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex-1 p-4 overflow-y-auto space-y-3 flex flex-col">
+                                    {messages.length === 0 && (
+                                        <div className="text-center text-gray-500 italic text-sm my-auto">
+                                            No hay mensajes. Escribe algo para iniciar.
+                                        </div>
+                                    )}
+                                    {messages.map(msg => {
+                                        const isSelf = msg.sender === 'Yo' || msg.sender === 'Director';
+                                        return (
+                                            <div 
+                                                key={msg.id} 
+                                                className={`flex flex-col max-w-[85%] rounded-lg p-2.5 text-sm ${
+                                                    isSelf 
+                                                        ? 'self-end bg-[#4945A4] text-white rounded-tr-none' 
+                                                        : 'self-start bg-[#23253A] text-[#A9B0D8] rounded-tl-none'
+                                                }`}
+                                            >
+                                                <span className="text-[10px] font-bold text-purple-300 mb-1 uppercase">
+                                                    {isSelf ? 'Yo' : msg.sender} {msg.target && msg.target !== 'TODOS' && <span className="text-yellow-400 text-[8px]">[A {msg.target}]</span>}
+                                                </span>
+                                                <p className="break-all font-semibold leading-snug">{msg.text}</p>
+                                                <span className="text-[8px] text-gray-400 self-end mt-1">
+                                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="p-4 border-t border-[#3E437C] bg-[#10111A]">
+                                    <form 
+                                        onSubmit={(e) => { e.preventDefault(); sendChatMessage(); }}
+                                        className="flex gap-2"
+                                    >
+                                        <input 
+                                            type="text" 
+                                            value={chatInput} 
+                                            onChange={(e) => setChatInput(e.target.value)}
+                                            placeholder="Escribe un mensaje..."
+                                            className="flex-1 bg-[#10111A] border border-[#3E437C] text-sm text-white rounded-lg px-3 py-2 outline-none focus:border-purple-500 mb-0 font-normal text-left"
+                                        />
+                                        <button 
+                                            type="submit"
+                                            className="bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                                        >
+                                            Enviar
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -796,6 +660,12 @@
             const [isTalking, setIsTalking] = useState(false);
             const [pocketMode, setPocketMode] = useState(false);
             const [tally, setTally] = useState(false);
+            const [tallyState, setTallyState] = useState('OFF');
+
+            const [messages, setMessages] = useState([]);
+            const [isChatOpen, setIsChatOpen] = useState(false);
+            const [chatInput, setChatInput] = useState('');
+            const [unreadCount, setUnreadCount] = useState(0);
 
             const [audioDevices, setAudioDevices] = useState([]);
             const [selectedAudio, setSelectedAudio] = useState('');
@@ -804,6 +674,8 @@
             const localStreamRef = useRef(null);
             const dataConnRef = useRef(null);
             const pingTimerRef = useRef(null);
+            const isIntentionalDisconnect = useRef(false);
+            const qosTimerRef = useRef(null);
 
             const incomingAudioRef = useRef(null);
             const animRef = useRef(null);
@@ -894,7 +766,9 @@
                     }
 
                     setStatus('Buscando Director...');
+                    isIntentionalDisconnect.current = true;
                     if (peer.current) peer.current.destroy();
+                    isIntentionalDisconnect.current = false;
                     peer.current = new Peer(undefined, PEER_CONFIG);
 
                     peer.current.on('open', (id) => {
@@ -941,6 +815,19 @@
                                 try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]); } catch (e) { }
                                 setTimeout(() => setTally(false), 2500);
                             }
+                            if (data && data.type === 'TALLY_STATE') {
+                                setTallyState(data.state);
+                                if (data.state === 'PGM') {
+                                    try { if (navigator.vibrate) navigator.vibrate([300, 100, 300]); } catch (e) {}
+                                } else if (data.state === 'PVW') {
+                                    try { if (navigator.vibrate) navigator.vibrate(150); } catch (e) {}
+                                }
+                            }
+                            if (data && data.type === 'CHAT') {
+                                setMessages(prev => [...prev, { id: Math.random(), sender: 'Director', text: data.text, timestamp: Date.now() }]);
+                                playNotificationSound();
+                                if (!isChatOpen) setUnreadCount(c => c + 1);
+                            }
                         });
 
                         conn.on('error', () => scheduleReconnect('Error de datos.'));
@@ -962,7 +849,8 @@
 
                             backoffRef.current = 1000;
                             if (call.peerConnection) {
-                                call.qosTimer = setInterval(async () => {
+                                if (qosTimerRef.current) clearInterval(qosTimerRef.current);
+                                qosTimerRef.current = setInterval(async () => {
                                     if (!call.peerConnection) return;
                                     try {
                                         const stats = await call.peerConnection.getStats();
@@ -1004,8 +892,19 @@
                         call.on('close', () => {
                             setReceiving(false);
                             if (animRef.current) cancelAnimationFrame(animRef.current);
-                            if (call.qosTimer) clearInterval(call.qosTimer);
+                            if (qosTimerRef.current) {
+                                clearInterval(qosTimerRef.current);
+                                qosTimerRef.current = null;
+                            }
                             scheduleReconnect('Llamada finalizada.');
+                        });
+
+                        call.on('error', (err) => {
+                            if (qosTimerRef.current) {
+                                clearInterval(qosTimerRef.current);
+                                qosTimerRef.current = null;
+                            }
+                            scheduleReconnect('Error en la llamada.');
                         });
                     });
 
@@ -1013,6 +912,7 @@
                 };
 
                 const scheduleReconnect = (msg) => {
+                    if (isIntentionalDisconnect.current) return;
                     setStatus(msg); setReceiving(false);
                     if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
 
@@ -1035,11 +935,16 @@
                 connectToDirector();
 
                 return () => {
+                    isIntentionalDisconnect.current = true;
                     if (peer.current) peer.current.destroy();
                     if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
                     if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
                     if (animRef.current) cancelAnimationFrame(animRef.current);
                     if (pingTimerRef.current) clearInterval(pingTimerRef.current);
+                    if (qosTimerRef.current) {
+                        clearInterval(qosTimerRef.current);
+                        qosTimerRef.current = null;
+                    }
                     window.removeEventListener('online', handleOnline);
                     window.removeEventListener('offline', handleOffline);
                 };
@@ -1060,6 +965,39 @@
                 if (dataConnRef.current && dataConnRef.current.open) {
                     dataConnRef.current.send({ type: 'PTT', state: false });
                 }
+            };
+
+            const sendChatMessage = () => {
+                if (!chatInput.trim()) return;
+                const msgText = chatInput.trim();
+                const newMsg = {
+                    id: Math.random(),
+                    sender: 'Yo',
+                    text: msgText,
+                    timestamp: Date.now()
+                };
+                
+                setMessages(prev => [...prev, newMsg]);
+                
+                if (dataConnRef.current && dataConnRef.current.open) {
+                    dataConnRef.current.send({ type: 'CHAT', text: msgText });
+                }
+                setChatInput('');
+            };
+
+            const playNotificationSound = () => {
+                try {
+                    const audioCtx = window._globalAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.frequency.value = 880;
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.15);
+                } catch (e) {}
             };
 
             useEffect(() => {
@@ -1109,16 +1047,16 @@
 
                     {/* --- POCKET MODE OVERLAY --- */}
                     {pocketMode && (
-                        <div className="pocket-mode-overlay" onDoubleClick={() => setPocketMode(false)}>
-                            <div className="pocket-icon">🔒</div>
-                            <div className="pocket-text">Modo Bolsillo Activo</div>
+                        <div className="absolute top-0 left-0 w-full h-full bg-black z-[9999] flex flex-col items-center justify-center text-[#333]" onDoubleClick={() => setPocketMode(false)}>
+                            <div className="text-[4rem] opacity-20 mb-5">🔒</div>
+                            <div className="text-base font-bold uppercase opacity-30">Modo Bolsillo Activo</div>
                             <div className="text-[10px] text-gray-600 mt-4 uppercase">Doble toque en la pantalla para salir</div>
                         </div>
                     )}
 
                     {!joined ? (
-                        <div className="auth-container">
-                            <div className="glass-box animate__animated animate__fadeIn">
+                        <div className="flex flex-col items-center justify-center h-full p-5 text-center">
+                            <div className="bg-[#141522] p-7 rounded-xl border-2 border-[#3E437C] shadow-[0_0_35px_rgba(62,67,124,0.4)] max-w-[400px] w-full">
                                 <h2 className="text-2xl font-black mb-2 text-[#4945A4]">STREAM<span className="text-[#A9B0D8]">TALK</span></h2>
                                 <p className="mb-4 text-sm text-[#A9B0D8]">Receptor Pocket Mode V9</p>
 
@@ -1128,18 +1066,34 @@
                                 </div>
 
                                 <label className="block text-left text-[10px] font-bold text-[#A9B0D8] mb-1">SELECCIONA TU MICRÓFONO</label>
-                                <select value={selectedAudio} onChange={(e) => setSelectedAudio(e.target.value)}>
+                                <select className="box-border w-full bg-[#10111A] border-2 border-[#3E437C] text-[#A9B0D8] p-4 rounded-lg text-sm outline-none mb-5" value={selectedAudio} onChange={(e) => setSelectedAudio(e.target.value)}>
                                     {audioDevices.length === 0 && <option>Revisando hardware...</option>}
                                     {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Micrófono'}</option>)}
                                 </select>
 
-                                <button className="btn btn-green shadow-lg" onClick={handleJoin}>
+                                <button className="w-full p-[15px] font-bold text-base rounded-lg cursor-pointer border-none transition duration-200 mb-2.5 bg-[#4945A4] text-white hover:bg-[#5A56C4] shadow-lg" onClick={handleJoin}>
                                     🎧 CONECTAR Y ESCUCHAR
                                 </button>
                             </div>
                         </div>
                     ) : (
-                        <div className={`crew-layout ${isTalking ? 'speaking' : ''} ${isDirectorTalking && !isTalking ? 'receiving' : ''}`}>
+                        <div className={`flex flex-col items-center h-screen p-5 text-center relative transition-all duration-300 ${
+                            tallyState === 'PGM' 
+                                ? 'bg-[#381212] border-[8px] border-[#ef4444]' 
+                                : tallyState === 'PVW' 
+                                    ? 'bg-[#12381e] border-[8px] border-[#22c55e]' 
+                                    : 'bg-[#10111A]'
+                        }`}>
+                            {tallyState !== 'OFF' && (
+                                <div className={`w-full py-2 mb-2 rounded-lg font-black text-center text-sm animate-pulse tracking-widest ${
+                                    tallyState === 'PGM' 
+                                        ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(239,68,68,0.7)]' 
+                                        : 'bg-green-600 text-black shadow-[0_0_15px_rgba(34,197,94,0.7)]'
+                                }`}>
+                                    {tallyState === 'PGM' ? '🔴 PROGRAM / AL AIRE' : '🟢 PREVIEW / PREVIO'}
+                                </div>
+                            )}
+                            
                             <div className="w-full flex justify-between px-4 mb-4">
                                 <span className="text-xs font-bold text-[#A9B0D8]">SALA: {roomName}</span>
                                 <span className={networkQoS === 'degradada' ? 'text-xs font-bold text-red-500 animate-pulse uppercase' : 'text-xs font-bold text-[#A9B0D8] uppercase'}>{networkQoS === 'degradada' ? '⚠️ RED POBRE' : status}</span>
@@ -1147,9 +1101,9 @@
 
                             <h2 className="text-3xl font-black text-white mb-6 tracking-widest">{crewName.toUpperCase()}</h2>
 
-                            <div className={`status-ring ${isDirectorTalking ? 'active' : 'idle'}`}>
+                            <div className={`w-[120px] h-[120px] rounded-full border-[6px] bg-[#141522] flex items-center justify-center text-[3rem] my-5 mx-0 transition-all duration-300 relative ${isDirectorTalking ? 'border-[#ef4444] text-[#ef4444] shadow-[0_0_50px_rgba(239,68,68,0.5)]' : 'border-[#4945A4] text-[#4945A4] shadow-[0_0_30px_rgba(73,69,164,0.4)]'}`}>
                                 {isDirectorTalking ? '🗣️' : '🎧'}
-                                {isDirectorTalking && <div className="vu-ring" style={{ opacity: Math.min(vuLevel / 50, 1), transform: `scale(${1 + (vuLevel / 300)})` }}></div>}
+                                {isDirectorTalking && <div className="absolute -top-[6px] -left-[6px] -right-[6px] -bottom-[6px] rounded-full border-[6px] border-[#ef4444] opacity-0 pointer-events-none" style={{ opacity: Math.min(vuLevel / 50, 1), transform: `scale(${1 + (vuLevel / 300)})` }}></div>}
                             </div>
 
                             <div className="h-6 mb-4">
@@ -1161,20 +1115,95 @@
                             </div>
 
                             <div
-                                className={`walkie-btn ${isTalking ? 'talking' : ''}`}
+                                className={`w-full max-w-[300px] flex-1 my-2.5 mx-0 rounded-[20px] border-4 text-[1.5rem] font-black flex flex-col items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition duration-100 cursor-pointer select-none ${isTalking ? 'bg-[#2E502B] border-[#406D37] shadow-[0_0_40px_rgba(64,109,55,0.8)] text-white scale-95' : 'bg-[#152414] border-[#17291B] text-[#406D37]'}`}
                                 onMouseDown={startTalk} onMouseUp={stopTalk} onMouseLeave={stopTalk}
                                 onTouchStart={startTalk} onTouchEnd={stopTalk}
+                                onContextMenu={(e) => e.preventDefault()}
                             >
                                 {isTalking ? '🎙️ ENVIANDO...' : 'PUSH TO TALK'}
-                                <span>{isTalking ? 'Suelta para escuchar' : 'Mantén presionado para hablar'}</span>
+                                <span className="text-[0.9rem] opacity-80 mt-1">{isTalking ? 'Suelta para escuchar' : 'Mantén presionado para hablar'}</span>
                             </div>
 
-                            <button className="btn btn-dark mt-4" onClick={() => setPocketMode(true)}>
+                            <button className="w-full p-[15px] font-bold text-base rounded-lg cursor-pointer border-none transition duration-200 mb-2.5 bg-black/30 border-2 border-[#3E437C] text-[#888] hover:border-[#4945A4] hover:text-white mt-4" onClick={() => setPocketMode(true)}>
                                 🔒 ACTIVAR MODO BOLSILLO
                             </button>
 
                             <div className="mt-4 text-[10px] font-bold text-[#4945A4] uppercase px-6">
                                 IMPORTANTE: Usa el "Modo Bolsillo" para simular la pantalla apagada en negro y evitar que el teléfono corte el audio y bloquee la app.
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Botón flotante de chat */}
+                    <button 
+                        onClick={() => { setIsChatOpen(true); setUnreadCount(0); }}
+                        className="fixed bottom-4 right-4 bg-purple-600 hover:bg-purple-500 text-white rounded-full p-4 shadow-[0_0_15px_rgba(147,51,234,0.6)] cursor-pointer z-50 flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+                    >
+                        💬
+                        {unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+                                {unreadCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Panel lateral de chat (Drawer) */}
+                    {isChatOpen && (
+                        <div className="fixed inset-0 bg-black/60 z-50 flex justify-end transition-opacity duration-300">
+                            <div className="absolute inset-0" onClick={() => setIsChatOpen(false)}></div>
+                            <div className="relative w-full max-w-md bg-[#141522] border-l-2 border-[#3E437C] h-full flex flex-col shadow-[0_0_35px_rgba(62,67,124,0.5)] z-10">
+                                <div className="p-4 border-b border-[#3E437C] bg-[#10111A] flex justify-between items-center">
+                                    <h3 className="font-black text-lg text-purple-400">CHAT DE PRODUCCIÓN</h3>
+                                    <button onClick={() => setIsChatOpen(false)} className="text-gray-400 hover:text-white font-bold text-lg p-2">✕</button>
+                                </div>
+                                <div className="flex-1 p-4 overflow-y-auto space-y-3 flex flex-col">
+                                    {messages.length === 0 && (
+                                        <div className="text-center text-gray-500 italic text-sm my-auto">
+                                            No hay mensajes. Escribe algo para iniciar.
+                                        </div>
+                                    )}
+                                    {messages.map(msg => {
+                                        const isSelf = msg.sender === 'Yo';
+                                        return (
+                                            <div 
+                                                key={msg.id} 
+                                                className={`flex flex-col max-w-[85%] rounded-lg p-2.5 text-sm ${
+                                                    isSelf 
+                                                        ? 'self-end bg-[#4945A4] text-white rounded-tr-none' 
+                                                        : 'self-start bg-[#23253A] text-[#A9B0D8] rounded-tl-none'
+                                                }`}
+                                            >
+                                                <span className="text-[10px] font-bold text-purple-300 mb-1 uppercase">
+                                                    {msg.sender}
+                                                </span>
+                                                <p className="break-all font-semibold leading-snug">{msg.text}</p>
+                                                <span className="text-[8px] text-gray-400 self-end mt-1">
+                                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="p-4 border-t border-[#3E437C] bg-[#10111A]">
+                                    <form 
+                                        onSubmit={(e) => { e.preventDefault(); sendChatMessage(); }}
+                                        className="flex gap-2"
+                                    >
+                                        <input 
+                                            type="text" 
+                                            value={chatInput} 
+                                            onChange={(e) => setChatInput(e.target.value)}
+                                            placeholder="Escribe un mensaje..."
+                                            className="flex-1 bg-[#10111A] border border-[#3E437C] text-sm text-white rounded-lg px-3 py-2 outline-none focus:border-purple-500 mb-0 font-normal text-left"
+                                        />
+                                        <button 
+                                            type="submit"
+                                            className="bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                                        >
+                                            Enviar
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -1242,8 +1271,8 @@
 
             if (mode === 'crew-setup') {
                 return (
-                    <div className="auth-container">
-                        <div className="glass-box animate__animated animate__zoomIn">
+                    <div className="flex flex-col items-center justify-center h-full p-5 text-center">
+                        <div className="bg-[#141522] p-7 rounded-xl border-2 border-[#3E437C] shadow-[0_0_35px_rgba(62,67,124,0.4)] max-w-[400px] w-full">
                             <h1 className="text-2xl font-black mb-1 text-white">IDENTIFICACIÓN</h1>
                             <p className="text-xs text-[#A9B0D8] mb-6">Sala: {roomName}</p>
 
@@ -1254,24 +1283,24 @@
                                 ))}
                             </div>
                             <div className="w-full border-t-2 border-[#3E437C] my-4"></div>
-                            <input value={tempInput} onChange={(e) => setTempInput(e.target.value.toUpperCase())} placeholder="OTRO NOMBRE..." onKeyPress={(e) => e.key === 'Enter' && submitCrewName(tempInput)} />
-                            <button className="btn btn-blue" onClick={() => submitCrewName(tempInput)}>CONTINUAR</button>
+                            <input className="box-border w-full bg-[#10111A] border-2 border-[#3E437C] text-white p-4 rounded-lg text-lg text-center font-bold mb-4 outline-none uppercase focus:border-[#4945A4]" value={tempInput} onChange={(e) => setTempInput(e.target.value.toUpperCase())} placeholder="OTRO NOMBRE..." onKeyPress={(e) => e.key === 'Enter' && submitCrewName(tempInput)} />
+                            <button className="w-full p-[15px] font-bold text-base rounded-lg cursor-pointer border-none transition duration-200 mb-2.5 bg-[#4945A4] text-white hover:bg-[#5A56C4]" onClick={() => submitCrewName(tempInput)}>CONTINUAR</button>
                         </div>
                     </div>
                 );
             }
 
             return (
-                <div className="auth-container">
-                    <div className="glass-box animate__animated animate__zoomIn">
+                <div className="flex flex-col items-center justify-center h-full p-5 text-center">
+                    <div className="bg-[#141522] p-7 rounded-xl border-2 border-[#3E437C] shadow-[0_0_35px_rgba(62,67,124,0.4)] max-w-[400px] w-full">
                         <h1 className="text-3xl font-black mb-2 text-[#A9B0D8]">STREAM<span className="text-[#4945A4]">TALK</span> V9</h1>
                         <p className="text-[#A9B0D8] text-sm mb-8 font-bold">POCKET MODE EDITION</p>
 
                         <label className="block text-left text-xs font-bold text-[#A9B0D8] mb-2">CÓDIGO DE PRODUCCIÓN</label>
-                        <input value={roomName} onChange={(e) => setRoomName(e.target.value.toUpperCase())} placeholder="EJ: SHOW-1" />
+                        <input className="box-border w-full bg-[#10111A] border-2 border-[#3E437C] text-white p-4 rounded-lg text-lg text-center font-bold mb-4 outline-none uppercase focus:border-[#4945A4]" value={roomName} onChange={(e) => setRoomName(e.target.value.toUpperCase())} placeholder="EJ: SHOW-1" />
 
-                        <button className="btn btn-blue" onClick={enterAsDirector}>ENTRAR COMO DIRECTOR</button>
-                        <button className="btn btn-gray" onClick={() => setMode('crew-setup')}>ENTRAR COMO EQUIPO</button>
+                        <button className="w-full p-[15px] font-bold text-base rounded-lg cursor-pointer border-none transition duration-200 mb-2.5 bg-[#4945A4] text-white hover:bg-[#5A56C4]" onClick={enterAsDirector}>ENTRAR COMO DIRECTOR</button>
+                        <button className="w-full p-[15px] font-bold text-base rounded-lg cursor-pointer border-none transition duration-200 mb-2.5 bg-[#23253A] text-white" onClick={() => setMode('crew-setup')}>ENTRAR COMO EQUIPO</button>
 
                         <p className="text-[10px] text-[#A9B0D8] mt-6 text-left leading-tight">
                             * Novedad V9.0: "Modo Bolsillo". Soluciona el corte de audio simulando una pantalla en negro sin toques, forzando al navegador a permanecer 100% encendido.
