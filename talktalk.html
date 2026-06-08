@@ -94,6 +94,7 @@
             const [chatInput, setChatInput] = useState('');
             const [unreadCount, setUnreadCount] = useState(0);
             const [tallyStates, setTallyStates] = useState({});
+            const [alerts, setAlerts] = useState({});
 
             useEffect(() => {
                 navigator.mediaDevices.getUserMedia({ audio: true }).then((tempStream) => {
@@ -224,6 +225,10 @@
                                 playNotificationSound();
                                 if (!isChatOpen) setUnreadCount(c => c + 1);
                             }
+                            if (data.type === 'ALERT') {
+                                setAlerts(prev => ({ ...prev, [role]: true }));
+                                playAlertSound();
+                            }
                         });
 
                         conn.on('open', () => {
@@ -317,6 +322,9 @@
                 const next = current === type ? 'OFF' : type;
                 
                 setTallyStates(prev => ({ ...prev, [role]: next }));
+                if (next === 'PGM') {
+                    setAlerts(prev => ({ ...prev, [role]: false }));
+                }
                 
                 const peerId = Object.keys(activePeers.current).find(id => activePeers.current[id].role === role);
                 if (peerId) {
@@ -370,6 +378,34 @@
                     gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
                     osc.start();
                     osc.stop(audioCtx.currentTime + 0.15);
+                } catch (e) {}
+            };
+
+            const playAlertSound = () => {
+                try {
+                    const audioCtx = directorAudioCtx.current || window._globalAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+                    const now = audioCtx.currentTime;
+                    // First beep (high frequency)
+                    const osc1 = audioCtx.createOscillator();
+                    const gain1 = audioCtx.createGain();
+                    osc1.connect(gain1);
+                    gain1.connect(audioCtx.destination);
+                    osc1.frequency.value = 1200;
+                    gain1.gain.setValueAtTime(0.15, now);
+                    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc1.start(now);
+                    osc1.stop(now + 0.12);
+
+                    // Second beep (slightly higher frequency)
+                    const osc2 = audioCtx.createOscillator();
+                    const gain2 = audioCtx.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(audioCtx.destination);
+                    osc2.frequency.value = 1500;
+                    gain2.gain.setValueAtTime(0.15, now + 0.15);
+                    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.27);
+                    osc2.start(now + 0.15);
+                    osc2.stop(now + 0.27);
                 } catch (e) {}
             };
 
@@ -515,6 +551,15 @@
                                         {talkingStates[crew.id] && <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-pulse">HABLANDO</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        {alerts[crew.name] && (
+                                            <button 
+                                                onClick={() => setAlerts(prev => ({ ...prev, [crew.name]: false }))}
+                                                className="bg-yellow-500 text-black text-[9px] font-black px-2 py-1 rounded animate-pulse shadow-[0_0_10px_rgba(234,179,8,0.7)] flex items-center gap-1 cursor-pointer mr-1"
+                                                title="Hacer clic para limpiar alerta"
+                                            >
+                                                🔔 PEDIDO PASO
+                                            </button>
+                                        )}
                                         <button 
                                             onClick={() => toggleTally(crew.name, 'PGM')}
                                             className={`text-[9px] font-black px-2 py-1 rounded transition-colors cursor-pointer ${
@@ -661,6 +706,7 @@
             const [pocketMode, setPocketMode] = useState(false);
             const [tally, setTally] = useState(false);
             const [tallyState, setTallyState] = useState('OFF');
+            const [airRequestCooldown, setAirRequestCooldown] = useState(false);
 
             const [messages, setMessages] = useState([]);
             const [isChatOpen, setIsChatOpen] = useState(false);
@@ -967,6 +1013,19 @@
                 }
             };
 
+            const sendAirRequest = () => {
+                if (airRequestCooldown) return;
+                
+                if (dataConnRef.current && dataConnRef.current.open) {
+                    dataConnRef.current.send({ type: 'ALERT' });
+                    setAirRequestCooldown(true);
+                    setTimeout(() => setAirRequestCooldown(false), 5000);
+                    if (navigator.vibrate) navigator.vibrate(100);
+                } else {
+                    alert("No estás conectado al Director.");
+                }
+            };
+
             const sendChatMessage = () => {
                 if (!chatInput.trim()) return;
                 const msgText = chatInput.trim();
@@ -1123,6 +1182,18 @@
                                 {isTalking ? '🎙️ ENVIANDO...' : 'PUSH TO TALK'}
                                 <span className="text-[0.9rem] opacity-80 mt-1">{isTalking ? 'Suelta para escuchar' : 'Mantén presionado para hablar'}</span>
                             </div>
+
+                            <button 
+                                onClick={sendAirRequest}
+                                disabled={airRequestCooldown}
+                                className={`w-full p-[15px] font-bold text-base rounded-lg cursor-pointer transition duration-200 mb-2.5 mt-2 border-none ${
+                                    airRequestCooldown
+                                        ? 'bg-[#ef4444]/20 text-[#ef4444]/60 cursor-not-allowed border border-[#ef4444]/40'
+                                        : 'bg-[#eab308] hover:bg-[#ca8a04] text-black shadow-[0_0_15px_rgba(234,179,8,0.3)]'
+                                }`}
+                            >
+                                {airRequestCooldown ? '🔔 SOLICITUD ENVIADA...' : '🔔 SOLICITAR PASO (PEDIR AIRE)'}
+                            </button>
 
                             <button className="w-full p-[15px] font-bold text-base rounded-lg cursor-pointer border-none transition duration-200 mb-2.5 bg-black/30 border-2 border-[#3E437C] text-[#888] hover:border-[#4945A4] hover:text-white mt-4" onClick={() => setPocketMode(true)}>
                                 🔒 ACTIVAR MODO BOLSILLO
