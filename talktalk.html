@@ -28,6 +28,15 @@
             }
         }
     </script>
+    <style>
+        @keyframes strobe-flash {
+            0%, 100% { background-color: #eab308; }
+            50% { background-color: #000000; }
+        }
+        .animate-strobe {
+            animation: strobe-flash 0.15s infinite;
+        }
+    </style>
 </head>
 
 <body class="bg-[#10111A] text-[#A9B0D8] font-sans h-screen overflow-hidden select-none">
@@ -47,6 +56,111 @@
             }
         };
         const DEFAULT_ROLES = ['CAM 1', 'CAM 2', 'CAM 3', 'CAM 4', 'SONIDO', 'PISO'];
+
+        // --- SISTEMA REUTILIZABLE DE EFECTOS DE SONIDO (Previene fugas de AudioContext) ---
+        const playSoundEffect = (frequency, duration, type = 'sine', volume = 0.1) => {
+            try {
+                if (!window._soundAudioCtx || window._soundAudioCtx.state === 'closed') {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    window._soundAudioCtx = new AudioContextClass();
+                }
+                const audioCtx = window._soundAudioCtx;
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume().catch(() => {});
+                }
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = type;
+                osc.frequency.value = frequency;
+                gain.gain.setValueAtTime(volume, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start(now);
+                osc.stop(now + duration);
+            } catch (e) {
+                console.warn("No se pudo reproducir el efecto de sonido:", e);
+            }
+        };
+
+        const playAlertSoundEffect = () => {
+            try {
+                if (!window._soundAudioCtx || window._soundAudioCtx.state === 'closed') {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    window._soundAudioCtx = new AudioContextClass();
+                }
+                const audioCtx = window._soundAudioCtx;
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume().catch(() => {});
+                }
+                const now = audioCtx.currentTime;
+                
+                // Primer pitido
+                const osc1 = audioCtx.createOscillator();
+                const gain1 = audioCtx.createGain();
+                osc1.frequency.value = 1200;
+                gain1.gain.setValueAtTime(0.15, now);
+                gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                osc1.connect(gain1);
+                gain1.connect(audioCtx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.12);
+
+                // Segundo pitido
+                const osc2 = audioCtx.createOscillator();
+                const gain2 = audioCtx.createGain();
+                osc2.frequency.value = 1500;
+                gain2.gain.setValueAtTime(0.15, now + 0.15);
+                gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.27);
+                osc2.connect(gain2);
+                gain2.connect(audioCtx.destination);
+                osc2.start(now + 0.15);
+                osc2.stop(now + 0.27);
+            } catch (e) {
+                console.warn("No se pudo reproducir el sonido de alerta:", e);
+            }
+        };
+
+        // --- COMPONENTE AUDIO PLAYER PARA EL CREW (Evita re-bindings de srcObject y cortes de audio) ---
+        const CrewAudioPlayer = ({ peerId, stream, volume, muted }) => {
+            const audioRef = useRef(null);
+
+            useEffect(() => {
+                if (audioRef.current && stream) {
+                    if (audioRef.current.srcObject !== stream) {
+                        audioRef.current.srcObject = stream;
+                    }
+                }
+            }, [stream]);
+
+            useEffect(() => {
+                if (audioRef.current) {
+                    audioRef.current.volume = volume !== undefined ? volume : 1;
+                }
+            }, [volume]);
+
+            useEffect(() => {
+                if (audioRef.current) {
+                    audioRef.current.muted = muted;
+                    if (!muted) {
+                        audioRef.current.play().catch(e => console.log("Autoplay crew audio block:", e));
+                    }
+                }
+            }, [muted]);
+
+            return (
+                <audio
+                    ref={audioRef}
+                    autoPlay
+                    playsInline
+                />
+            );
+        };
+
 
         // --- COMPONENTE DIRECTOR ---
         const DirectorView = ({ roomName }) => {
@@ -85,6 +199,7 @@
 
             const directorAudioCtx = useRef(null);
             const dirMicSource = useRef(null);
+            const dirMicHPF = useRef(null);
             const crewAudioSources = useRef({});
             const crewAnalysers = useRef({});
 
@@ -123,9 +238,12 @@
 
                     if (dirMicSource.current) {
                         try { dirMicSource.current.disconnect(dest); } catch (e) { }
+                    }
+                    if (dirMicHPF.current) {
+                        try { dirMicHPF.current.disconnect(dest); } catch (e) { }
                         const isTargeted = currentTargets.includes('TODOS') || currentTargets.includes(peerInfo.role);
                         if (!isMasterMuted && isTargeted) {
-                            dirMicSource.current.connect(dest);
+                            dirMicHPF.current.connect(dest);
                         }
                     }
 
@@ -175,7 +293,16 @@
                     if (dirMicSource.current) {
                         try { dirMicSource.current.disconnect(); } catch (e) { }
                     }
+                    if (dirMicHPF.current) {
+                        try { dirMicHPF.current.disconnect(); } catch (e) { }
+                    }
                     dirMicSource.current = directorAudioCtx.current.createMediaStreamSource(stream);
+                    
+                    // Crear y conectar Filtro de Paso Alto (HPF) a 100Hz para el Director
+                    dirMicHPF.current = directorAudioCtx.current.createBiquadFilter();
+                    dirMicHPF.current.type = 'highpass';
+                    dirMicHPF.current.frequency.value = 100;
+                    dirMicSource.current.connect(dirMicHPF.current);
 
                     const directorId = `st_dir_${roomName.replace(/\s+/g, '').toUpperCase()}`;
 
@@ -184,6 +311,12 @@
 
                     peer.current.on('open', () => {
                         setStatus('Matriz Activa. Esperando al Crew...');
+                    });
+
+                    peer.current.on('disconnected', () => {
+                        console.log("Señalización del Director desconectada. Reconectando...");
+                        setStatus('Reconectando señalización...');
+                        peer.current.reconnect();
                     });
 
                     peer.current.on('connection', (conn) => {
@@ -279,6 +412,24 @@
             };
 
             const removePeer = (id) => {
+                if (activePeers.current[id]) {
+                    const peerInfo = activePeers.current[id];
+                    if (peerInfo.dest) {
+                        if (dirMicSource.current) {
+                            try { dirMicSource.current.disconnect(peerInfo.dest); } catch (e) {}
+                        }
+                        if (dirMicHPF.current) {
+                            try { dirMicHPF.current.disconnect(peerInfo.dest); } catch (e) {}
+                        }
+                        Object.values(crewAudioSources.current).forEach(srcNode => {
+                            try { srcNode.disconnect(peerInfo.dest); } catch (e) {}
+                        });
+                    }
+                    if (peerInfo.track) peerInfo.track.stop();
+                    if (peerInfo.call) peerInfo.call.close();
+                    if (peerInfo.conn) peerInfo.conn.close();
+                    delete activePeers.current[id];
+                }
                 if (crewAudioSources.current[id]) {
                     try { crewAudioSources.current[id].disconnect(); } catch (e) { }
                     delete crewAudioSources.current[id];
@@ -287,14 +438,8 @@
                     try { crewAnalysers.current[id].disconnect(); } catch (e) {}
                     delete crewAnalysers.current[id];
                 }
-                if (activePeers.current[id]) {
-                    if (activePeers.current[id].track) activePeers.current[id].track.stop();
-                    if (activePeers.current[id].call) activePeers.current[id].call.close();
-                    if (activePeers.current[id].conn) activePeers.current[id].conn.close();
-                    delete activePeers.current[id];
-                    applyAudioRouting();
-                }
                 delete audioStreamsRef.current[id];
+                applyAudioRouting();
                 setTalkingStates(prev => { const n = { ...prev }; delete n[id]; return n; });
                 setCrewData(prev => { const n = { ...prev }; delete n[id]; return n; });
             };
@@ -367,46 +512,11 @@
             };
 
             const playNotificationSound = () => {
-                try {
-                    const audioCtx = directorAudioCtx.current || window._globalAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.frequency.value = 880;
-                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 0.15);
-                } catch (e) {}
+                playSoundEffect(880, 0.15);
             };
 
             const playAlertSound = () => {
-                try {
-                    const audioCtx = directorAudioCtx.current || window._globalAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
-                    const now = audioCtx.currentTime;
-                    // First beep (high frequency)
-                    const osc1 = audioCtx.createOscillator();
-                    const gain1 = audioCtx.createGain();
-                    osc1.connect(gain1);
-                    gain1.connect(audioCtx.destination);
-                    osc1.frequency.value = 1200;
-                    gain1.gain.setValueAtTime(0.15, now);
-                    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
-                    osc1.start(now);
-                    osc1.stop(now + 0.12);
-
-                    // Second beep (slightly higher frequency)
-                    const osc2 = audioCtx.createOscillator();
-                    const gain2 = audioCtx.createGain();
-                    osc2.connect(gain2);
-                    gain2.connect(audioCtx.destination);
-                    osc2.frequency.value = 1500;
-                    gain2.gain.setValueAtTime(0.15, now + 0.15);
-                    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.27);
-                    osc2.start(now + 0.15);
-                    osc2.stop(now + 0.27);
-                } catch (e) {}
+                playAlertSoundEffect();
             };
 
             useEffect(() => {
@@ -425,15 +535,23 @@
                             for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
                             const avg = sum / dataArray.length;
                             
-                            const el = document.getElementById(`vu-bar-${peerId}`);
-                            if (el) {
-                                el.style.width = `${Math.min(avg * 2.5, 100)}%`;
-                                if (avg > 40) {
-                                    el.className = "h-full bg-red-500 rounded transition-all duration-75";
-                                } else if (avg > 15) {
-                                    el.className = "h-full bg-yellow-500 rounded transition-all duration-75";
-                                } else {
-                                    el.className = "h-full bg-green-500 rounded transition-all duration-75";
+                            const container = document.getElementById(`vu-segments-${peerId}`);
+                            if (container) {
+                                const segmentsCount = 15;
+                                const litSegments = Math.min(Math.round((avg / 60) * segmentsCount), segmentsCount);
+                                const children = container.children;
+                                for (let i = 0; i < children.length; i++) {
+                                    if (i < litSegments) {
+                                        if (i < 9) {
+                                            children[i].style.backgroundColor = '#22c55e'; // Verde
+                                        } else if (i < 13) {
+                                            children[i].style.backgroundColor = '#eab308'; // Amarillo
+                                        } else {
+                                            children[i].style.backgroundColor = '#ef4444'; // Rojo
+                                        }
+                                    } else {
+                                        children[i].style.backgroundColor = '#1e293b'; // Apagado
+                                    }
                                 }
                             }
                         }
@@ -480,18 +598,11 @@
                     {/* Renderizador oculto de audios entrantes (Controlados por estado de PTT) */}
                     <div style={{ display: 'none' }}>
                         {Object.keys(talkingStates).map(peerId => (
-                            <audio
+                            <CrewAudioPlayer
                                 key={peerId}
-                                autoPlay
-                                playsInline
-                                ref={el => {
-                                    if (el) {
-                                        if (audioStreamsRef.current[peerId] && el.srcObject !== audioStreamsRef.current[peerId]) {
-                                            el.srcObject = audioStreamsRef.current[peerId];
-                                        }
-                                        el.volume = volumes[peerId] !== undefined ? volumes[peerId] : 1;
-                                    }
-                                }}
+                                peerId={peerId}
+                                stream={audioStreamsRef.current[peerId]}
+                                volume={volumes[peerId]}
                                 muted={!talkingStates[peerId]}
                             />
                         ))}
@@ -505,6 +616,30 @@
                         <button className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded text-xs font-bold" onClick={copyLink}>
                             🔗 COPIAR LINK
                         </button>
+                    </div>
+
+                    <div className="px-4 pt-3 flex flex-col gap-2">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase">Grupos Rápidos de Destino</label>
+                        <div className="flex gap-2">
+                            <button 
+                                className="bg-[#23253A] border border-[#3E437C] text-[#A9B0D8] text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-[#4945A4] hover:text-white transition-all cursor-pointer"
+                                onClick={() => setTargets(['CAM 1', 'CAM 2', 'CAM 3', 'CAM 4'])}
+                            >
+                                📹 SOLO CÁMARAS
+                            </button>
+                            <button 
+                                className="bg-[#23253A] border border-[#3E437C] text-[#A9B0D8] text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-[#4945A4] hover:text-white transition-all cursor-pointer"
+                                onClick={() => setTargets(['SONIDO', 'PISO', 'PROD'])}
+                            >
+                                🏃‍♂️ SOLO PISO / PROD
+                            </button>
+                            <button 
+                                className="bg-[#23253A] border border-[#3E437C] text-[#A9B0D8] text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-[#f59e0b] hover:text-black transition-all cursor-pointer"
+                                onClick={() => setTargets(['TODOS'])}
+                            >
+                                📢 TODOS
+                            </button>
+                        </div>
                     </div>
 
                     <div className="px-4 pt-3 pb-1 flex justify-between items-center">
@@ -580,6 +715,11 @@
                                         >
                                             PVW
                                         </button>
+                                        <button className="bg-yellow-600/20 border border-yellow-500 hover:bg-yellow-500 text-white text-[10px] font-bold px-2 py-0.5 rounded transition-colors"
+                                            onClick={() => activePeers.current[crew.id]?.conn.send({ type: 'STROBE' })}
+                                            title="Enviar Alerta Estroboscópica Visual">
+                                            ⚡
+                                        </button>
                                         <button className="bg-red-600/20 border border-red-500 hover:bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded transition-colors"
                                             onClick={() => activePeers.current[crew.id]?.conn.send({ type: 'TALLY' })}>
                                             ⚠️
@@ -598,8 +738,10 @@
                                 </div>
                                 <div className="w-full flex items-center gap-2 mt-1">
                                     <span className="text-[9px] text-gray-500 font-bold">MIC</span>
-                                    <div className="flex-1 bg-gray-900 h-1.5 rounded overflow-hidden">
-                                        <div id={`vu-bar-${crew.id}`} className="h-full bg-green-500 w-0 transition-all duration-75"></div>
+                                    <div id={`vu-segments-${crew.id}`} className="flex-1 flex gap-[2px] h-2 bg-gray-950 p-[1px] rounded">
+                                        {Array.from({ length: 15 }).map((_, i) => (
+                                            <div key={i} className="flex-1 bg-gray-800 rounded-[1px] transition-colors duration-75"></div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -701,12 +843,14 @@
             const [joined, setJoined] = useState(false);
             const [status, setStatus] = useState('Configurando...');
             const [receiving, setReceiving] = useState(false);
-            const [vuLevel, setVuLevel] = useState(0);
+            const [isDirectorTalking, setIsDirectorTalking] = useState(false);
             const [isTalking, setIsTalking] = useState(false);
             const [pocketMode, setPocketMode] = useState(false);
             const [tally, setTally] = useState(false);
             const [tallyState, setTallyState] = useState('OFF');
             const [airRequestCooldown, setAirRequestCooldown] = useState(false);
+            const [isLatchEnabled, setIsLatchEnabled] = useState(false);
+            const [strobeActive, setStrobeActive] = useState(false);
 
             const [messages, setMessages] = useState([]);
             const [isChatOpen, setIsChatOpen] = useState(false);
@@ -725,11 +869,13 @@
 
             const incomingAudioRef = useRef(null);
             const animRef = useRef(null);
+            const crewAnalyserRef = useRef(null);
+            const crewSourceRef = useRef(null);
+            const rawStreamRef = useRef(null);
             const reconnectTimer = useRef(null);
             const backoffRef = useRef(1000);
             const [networkQoS, setNetworkQoS] = useState('excelente');
 
-            const isDirectorTalking = vuLevel > 10;
             const wasTalking = useRef(false);
 
             useEffect(() => {
@@ -783,6 +929,18 @@
                 }).catch(e => setStatus('Permiso de micrófono requerido para hablar.'));
             }, [joined]);
 
+            const cleanupAudioNodes = () => {
+                if (animRef.current) cancelAnimationFrame(animRef.current);
+                if (crewSourceRef.current) {
+                    try { crewSourceRef.current.disconnect(); } catch (e) {}
+                    crewSourceRef.current = null;
+                }
+                if (crewAnalyserRef.current) {
+                    try { crewAnalyserRef.current.disconnect(); } catch (e) {}
+                    crewAnalyserRef.current = null;
+                }
+            };
+
             // Iniciar conexión
             useEffect(() => {
                 if (!joined) return;
@@ -792,7 +950,7 @@
 
                     try {
                         if (!localStreamRef.current) {
-                            const stream = await navigator.mediaDevices.getUserMedia({
+                            const rawStream = await navigator.mediaDevices.getUserMedia({
                                 audio: {
                                     deviceId: selectedAudio ? { exact: selectedAudio } : undefined,
                                     echoCancellation: true,
@@ -803,8 +961,25 @@
                                     latency: 0
                                 }
                             });
-                            stream.getAudioTracks().forEach(t => t.enabled = false);
-                            localStreamRef.current = stream;
+                            rawStreamRef.current = rawStream;
+
+                            const audioCtx = window._globalAudioCtx;
+                            if (audioCtx) {
+                                const micSource = audioCtx.createMediaStreamSource(rawStream);
+                                const hpf = audioCtx.createBiquadFilter();
+                                hpf.type = 'highpass';
+                                hpf.frequency.value = 100; // HPF a 100Hz para el Crew
+                                const dest = audioCtx.createMediaStreamDestination();
+                                micSource.connect(hpf);
+                                hpf.connect(dest);
+                                
+                                const processedStream = dest.stream;
+                                processedStream.getAudioTracks().forEach(t => t.enabled = false);
+                                localStreamRef.current = processedStream;
+                            } else {
+                                rawStream.getAudioTracks().forEach(t => t.enabled = false);
+                                localStreamRef.current = rawStream;
+                            }
                         }
                     } catch (e) {
                         setStatus('❌ Error de micrófono local.');
@@ -861,6 +1036,12 @@
                                 try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]); } catch (e) { }
                                 setTimeout(() => setTally(false), 2500);
                             }
+                            if (data && data.type === 'STROBE') {
+                                setStrobeActive(true);
+                                try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200, 100, 500]); } catch (e) { }
+                                playNotificationSound();
+                                setTimeout(() => setStrobeActive(false), 3000);
+                            }
                             if (data && data.type === 'TALLY_STATE') {
                                 setTallyState(data.state);
                                 if (data.state === 'PGM') {
@@ -878,6 +1059,11 @@
 
                         conn.on('error', () => scheduleReconnect('Error de datos.'));
                         conn.on('close', () => scheduleReconnect('Director desconectado.'));
+                    });
+
+                    peer.current.on('disconnected', () => {
+                        console.log("Señalización del Crew desconectada. Reconectando...");
+                        peer.current.reconnect();
                     });
 
                     peer.current.on('call', (call) => {
@@ -918,26 +1104,81 @@
 
                             try {
                                 if (animRef.current) cancelAnimationFrame(animRef.current);
-                                const audioCtx = window._globalAudioCtx;
-                                const analyser = audioCtx.createAnalyser();
-                                const source = audioCtx.createMediaStreamSource(remoteStream);
-                                source.connect(analyser);
-                                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                                
+                                // Limpiar nodos previos si existen
+                                if (crewSourceRef.current) {
+                                    try { crewSourceRef.current.disconnect(); } catch (e) {}
+                                    crewSourceRef.current = null;
+                                }
+                                if (crewAnalyserRef.current) {
+                                    try { crewAnalyserRef.current.disconnect(); } catch (e) {}
+                                    crewAnalyserRef.current = null;
+                                }
 
-                                const updateLevel = () => {
-                                    analyser.getByteFrequencyData(dataArray);
-                                    let sum = 0;
-                                    for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-                                    setVuLevel(sum / dataArray.length);
-                                    animRef.current = requestAnimationFrame(updateLevel);
-                                };
-                                updateLevel();
+                                const audioCtx = window._globalAudioCtx;
+                                if (audioCtx) {
+                                    const analyser = audioCtx.createAnalyser();
+                                    analyser.fftSize = 32;
+                                    const source = audioCtx.createMediaStreamSource(remoteStream);
+                                    source.connect(analyser);
+                                    crewAnalyserRef.current = analyser;
+                                    crewSourceRef.current = source;
+                                    
+                                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                                    const updateLevel = () => {
+                                        if (!crewAnalyserRef.current) return;
+                                        analyser.getByteFrequencyData(dataArray);
+                                        let sum = 0;
+                                        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                                        const avg = sum / dataArray.length;
+                                        
+                                        const talking = avg > 10;
+                                        setIsDirectorTalking(prev => {
+                                            if (prev !== talking) return talking;
+                                            return prev;
+                                        });
+
+                                        const container = document.getElementById('vu-segments-director');
+                                        if (container) {
+                                            const segmentsCount = 15;
+                                            const litSegments = Math.min(Math.round((avg / 60) * segmentsCount), segmentsCount);
+                                            const children = container.children;
+                                            for (let i = 0; i < children.length; i++) {
+                                                if (i < litSegments) {
+                                                    if (i < 9) {
+                                                        children[i].style.backgroundColor = '#22c55e'; // Verde
+                                                    } else if (i < 13) {
+                                                        children[i].style.backgroundColor = '#eab308'; // Amarillo
+                                                    } else {
+                                                        children[i].style.backgroundColor = '#ef4444'; // Rojo
+                                                    }
+                                                } else {
+                                                    children[i].style.backgroundColor = '#1e293b'; // Apagado
+                                                }
+                                            }
+                                        }
+
+                                        const pulseRing = document.getElementById('dir-audio-ring');
+                                        if (pulseRing) {
+                                            if (talking) {
+                                                pulseRing.style.opacity = Math.min(avg / 50, 1);
+                                                pulseRing.style.transform = `scale(${1 + (avg / 300)})`;
+                                            } else {
+                                                pulseRing.style.opacity = 0;
+                                                pulseRing.style.transform = 'scale(1)';
+                                            }
+                                        }
+
+                                        animRef.current = requestAnimationFrame(updateLevel);
+                                    };
+                                    updateLevel();
+                                }
                             } catch (e) { }
                         });
 
                         call.on('close', () => {
                             setReceiving(false);
-                            if (animRef.current) cancelAnimationFrame(animRef.current);
+                            cleanupAudioNodes();
                             if (qosTimerRef.current) {
                                 clearInterval(qosTimerRef.current);
                                 qosTimerRef.current = null;
@@ -946,6 +1187,7 @@
                         });
 
                         call.on('error', (err) => {
+                            cleanupAudioNodes();
                             if (qosTimerRef.current) {
                                 clearInterval(qosTimerRef.current);
                                 qosTimerRef.current = null;
@@ -983,9 +1225,16 @@
                 return () => {
                     isIntentionalDisconnect.current = true;
                     if (peer.current) peer.current.destroy();
-                    if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop());
+                    if (localStreamRef.current) {
+                        localStreamRef.current.getTracks().forEach(t => t.stop());
+                        localStreamRef.current = null;
+                    }
+                    if (rawStreamRef.current) {
+                        rawStreamRef.current.getTracks().forEach(t => t.stop());
+                        rawStreamRef.current = null;
+                    }
                     if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-                    if (animRef.current) cancelAnimationFrame(animRef.current);
+                    cleanupAudioNodes();
                     if (pingTimerRef.current) clearInterval(pingTimerRef.current);
                     if (qosTimerRef.current) {
                         clearInterval(qosTimerRef.current);
@@ -1010,6 +1259,22 @@
                 setIsTalking(false);
                 if (dataConnRef.current && dataConnRef.current.open) {
                     dataConnRef.current.send({ type: 'PTT', state: false });
+                }
+            };
+
+            const handlePttClick = () => {
+                if (!isLatchEnabled) return;
+                if (isTalking) {
+                    setIsTalking(false);
+                    if (dataConnRef.current && dataConnRef.current.open) {
+                        dataConnRef.current.send({ type: 'PTT', state: false });
+                    }
+                } else {
+                    setIsTalking(true);
+                    if (dataConnRef.current && dataConnRef.current.open) {
+                        dataConnRef.current.send({ type: 'PTT', state: true });
+                    }
+                    if (navigator.vibrate) navigator.vibrate(50);
                 }
             };
 
@@ -1045,18 +1310,7 @@
             };
 
             const playNotificationSound = () => {
-                try {
-                    const audioCtx = window._globalAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.frequency.value = 880;
-                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + 0.15);
-                } catch (e) {}
+                playSoundEffect(880, 0.15);
             };
 
             useEffect(() => {
@@ -1102,6 +1356,14 @@
             return (
                 <div style={{ width: '100%', height: '100%' }}>
                     {tally && <div className="absolute top-0 left-0 w-full h-full bg-red-600 z-[9999] animate-ping opacity-80 pointer-events-none"></div>}
+                    {strobeActive && (
+                        <div className="fixed inset-0 z-[99999] flex flex-col items-center justify-center animate-strobe pointer-events-none text-white">
+                            <span className="text-[5rem] animate-bounce">🚨</span>
+                            <span className="text-2xl font-black uppercase tracking-widest mt-4 bg-black/80 px-4 py-2 rounded-lg border-2 border-yellow-500 shadow-[0_0_20px_#eab308]">
+                                LLAMADA DEL DIRECTOR
+                            </span>
+                        </div>
+                    )}
                     <audio ref={incomingAudioRef} autoPlay playsInline style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}></audio>
 
                     {/* --- POCKET MODE OVERLAY --- */}
@@ -1162,7 +1424,7 @@
 
                             <div className={`w-[120px] h-[120px] rounded-full border-[6px] bg-[#141522] flex items-center justify-center text-[3rem] my-5 mx-0 transition-all duration-300 relative ${isDirectorTalking ? 'border-[#ef4444] text-[#ef4444] shadow-[0_0_50px_rgba(239,68,68,0.5)]' : 'border-[#4945A4] text-[#4945A4] shadow-[0_0_30px_rgba(73,69,164,0.4)]'}`}>
                                 {isDirectorTalking ? '🗣️' : '🎧'}
-                                {isDirectorTalking && <div className="absolute -top-[6px] -left-[6px] -right-[6px] -bottom-[6px] rounded-full border-[6px] border-[#ef4444] opacity-0 pointer-events-none" style={{ opacity: Math.min(vuLevel / 50, 1), transform: `scale(${1 + (vuLevel / 300)})` }}></div>}
+                                <div id="dir-audio-ring" className="absolute -top-[6px] -left-[6px] -right-[6px] -bottom-[6px] rounded-full border-[6px] border-[#ef4444] opacity-0 pointer-events-none transition-transform duration-75"></div>
                             </div>
 
                             <div className="h-6 mb-4">
@@ -1173,14 +1435,52 @@
                                 )}
                             </div>
 
+                            {/* Vúmetro segmentado profesional del Director */}
+                            <div className="w-full max-w-[200px] mb-6 flex flex-col gap-1.5 items-center">
+                                <span className="text-[9px] font-bold text-[#4945A4] tracking-widest uppercase">Señal Director</span>
+                                <div id="vu-segments-director" className="w-full flex gap-[2px] h-2 bg-gray-950 p-[1px] rounded">
+                                    {Array.from({ length: 15 }).map((_, i) => (
+                                        <div key={i} className="flex-1 bg-gray-800 rounded-[1px] transition-colors duration-75"></div>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div
                                 className={`w-full max-w-[300px] flex-1 my-2.5 mx-0 rounded-[20px] border-4 text-[1.5rem] font-black flex flex-col items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition duration-100 cursor-pointer select-none ${isTalking ? 'bg-[#2E502B] border-[#406D37] shadow-[0_0_40px_rgba(64,109,55,0.8)] text-white scale-95' : 'bg-[#152414] border-[#17291B] text-[#406D37]'}`}
-                                onMouseDown={startTalk} onMouseUp={stopTalk} onMouseLeave={stopTalk}
-                                onTouchStart={startTalk} onTouchEnd={stopTalk}
+                                onMouseDown={!isLatchEnabled ? startTalk : undefined} 
+                                onMouseUp={!isLatchEnabled ? stopTalk : undefined} 
+                                onMouseLeave={!isLatchEnabled ? stopTalk : undefined}
+                                onTouchStart={!isLatchEnabled ? startTalk : undefined} 
+                                onTouchEnd={!isLatchEnabled ? stopTalk : undefined}
+                                onClick={isLatchEnabled ? handlePttClick : undefined}
                                 onContextMenu={(e) => e.preventDefault()}
                             >
-                                {isTalking ? '🎙️ ENVIANDO...' : 'PUSH TO TALK'}
-                                <span className="text-[0.9rem] opacity-80 mt-1">{isTalking ? 'Suelta para escuchar' : 'Mantén presionado para hablar'}</span>
+                                {isTalking ? '🎙️ ENVIANDO...' : (isLatchEnabled ? 'TOCA PARA HABLAR' : 'PUSH TO TALK')}
+                                <span className="text-[0.9rem] opacity-80 mt-1">{isTalking ? 'Suelta/Toca para escuchar' : (isLatchEnabled ? 'Presiona una vez para abrir micro' : 'Mantén presionado para hablar')}</span>
+                            </div>
+
+                            {/* Control de Modo Latch (Manos Libres) */}
+                            <div className="flex items-center justify-center gap-2 mb-4">
+                                <span className="text-[10px] font-bold text-[#A9B0D8] uppercase">🔒 Candado Micro (Latch):</span>
+                                <button 
+                                    onClick={() => {
+                                        if (isTalking) {
+                                            // Detener audio al cambiar de modo
+                                            setIsTalking(false);
+                                            if (dataConnRef.current && dataConnRef.current.open) {
+                                                dataConnRef.current.send({ type: 'PTT', state: false });
+                                            }
+                                        }
+                                        setIsLatchEnabled(!isLatchEnabled);
+                                    }}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black transition-all duration-200 cursor-pointer ${
+                                        isLatchEnabled 
+                                            ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(147,51,234,0.6)]' 
+                                            : 'bg-[#23253A] border border-[#3E437C] text-gray-400 hover:text-white'
+                                    }`}
+                                >
+                                    {isLatchEnabled ? 'MANOS LIBRES ACTIVO' : 'PULSADO MANUAL'}
+                                </button>
                             </div>
 
                             <button 
