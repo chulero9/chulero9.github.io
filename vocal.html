@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Karaoke Studio V1</title>
+  <style>
+    :root {
+      --bg: #0b0f0d;
+      --panel: #111714;
+      --panel-2: #171f1a;
+      --text: #f3f6f1;
+      --muted: #9aa79f;
+      --line: #2a342e;
+      --accent: #25d366;
+      --accent-2: #d8ff6f;
+      --danger: #ff6b5f;
+      --shadow: 0 24px 80px rgba(0,0,0,.35);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100svh;
+      background:
+        radial-gradient(circle at 75% 10%, rgba(37,211,102,.12), transparent 34%),
+        linear-gradient(180deg, #08100c 0%, #0b0f0d 44%, #080a09 100%);
+      color: var(--text);
+    }
+
+    .app {
+      min-height: 100svh;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      padding: 28px 22px;
+      background: rgba(8, 13, 10, .72);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+
+    .logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      display: grid;
+      place-items: center;
+      color: #07100b;
+      font-weight: 900;
+      box-shadow: 0 12px 35px rgba(37,211,102,.22);
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 17px;
+      letter-spacing: .2px;
+    }
+
+    .brand span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .steps {
+      display: grid;
+      gap: 12px;
+    }
+
+    .step {
+      padding: 13px 0;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .step b {
+      color: var(--text);
+      display: block;
+      font-size: 13px;
+      margin-bottom: 3px;
+    }
+
+    .note {
+      margin-top: 30px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      background: rgba(255,255,255,.03);
+    }
+
+    main {
+      padding: 32px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      animation: rise .55s ease both;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 68px);
+      line-height: .94;
+      letter-spacing: -1.5px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      max-width: 680px;
+      margin: 14px 0 0;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .status-pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: var(--muted);
+      white-space: nowrap;
+      background: rgba(255,255,255,.03);
+      font-size: 13px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(320px, 440px) 1fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .panel {
+      background: rgba(17,23,20,.78);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      animation: rise .7s ease both;
+    }
+
+    .panel-inner { padding: 22px; }
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -.2px;
+    }
+
+    .tiny {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .dropzone {
+      position: relative;
+      min-height: 230px;
+      border: 1px dashed #536159;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 28px;
+      background:
+        linear-gradient(135deg, rgba(37,211,102,.10), transparent 46%),
+        rgba(255,255,255,.025);
+      transition: border-color .2s ease, transform .2s ease, background .2s ease;
+      cursor: pointer;
+    }
+
+    .dropzone:hover, .dropzone.drag {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      background:
+        linear-gradient(135deg, rgba(37,211,102,.16), transparent 46%),
+        rgba(255,255,255,.04);
+    }
+
+    .dropzone input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .upload-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 16px;
+      color: #08100b;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .dropzone strong {
+      display: block;
+      font-size: 18px;
+      margin-bottom: 7px;
+    }
+
+    .dropzone span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .file-meta {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      min-height: 18px;
+    }
+
+    .modes {
+      display: grid;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .mode {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      cursor: pointer;
+      transition: border-color .2s ease, background .2s ease;
+      background: rgba(255,255,255,.025);
+    }
+
+    .mode:hover { border-color: #4d5f54; }
+    .mode input { margin-top: 3px; accent-color: var(--accent); }
+    .mode:has(input:checked) {
+      border-color: rgba(37,211,102,.8);
+      background: rgba(37,211,102,.08);
+    }
+
+    .mode b {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 3px;
+    }
+
+    .mode span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 18px;
+      border: 0;
+      border-radius: 8px;
+      padding: 15px 18px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #07100b;
+      font-weight: 850;
+      font-size: 15px;
+      cursor: pointer;
+      transition: transform .16s ease, filter .16s ease;
+    }
+
+    button:hover { transform: translateY(-1px); filter: brightness(1.03); }
+    button:disabled {
+      cursor: not-allowed;
+      filter: grayscale(.7) brightness(.65);
+      transform: none;
+    }
+
+    .visual {
+      display: grid;
+      grid-template-rows: 260px auto 1fr;
+    }
+
+    .wave-wrap {
+      padding: 22px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(216,255,111,.06), transparent),
+        rgba(255,255,255,.02);
+    }
+
+    canvas {
+      width: 100%;
+      height: 216px;
+      display: block;
+      border-radius: 8px;
+      background: #080c0a;
+      border: 1px solid rgba(255,255,255,.05);
+    }
+
+    .progress-row {
+      padding: 18px 22px;
+      display: grid;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .progress-copy {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .bar {
+      height: 8px;
+      background: rgba(255,255,255,.08);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width .35s ease;
+    }
+
+    .players {
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
+
+    .track {
+      display: grid;
+      grid-template-columns: 170px 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+
+    .track:last-child { border-bottom: 0; }
+
+    .track-name b {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .track-name span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    audio {
+      width: 100%;
+      height: 38px;
+      filter: sepia(8%) saturate(80%) brightness(.92);
+    }
+
+    .download {
+      width: auto;
+      margin: 0;
+      padding: 11px 13px;
+      text-decoration: none;
+      color: #07100b;
+      background: var(--accent);
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .empty {
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      max-width: 360px;
+      background: #18211c;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+      transform: translateY(18px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .22s ease, transform .22s ease;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      aside { display: none; }
+      main { padding: 20px; }
+      header { display: block; }
+      .status-pill { display: inline-block; margin-top: 18px; }
+      .workspace { grid-template-columns: 1fr; }
+      .visual { grid-template-rows: auto auto 1fr; }
+      .track { grid-template-columns: 1fr; }
+      .download { text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">
+        <div class="logo">K</div>
+        <div>
+          <strong>Karaoke Studio</strong>
+          <span>Primera versión web</span>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step"><b>1. Sube una canción</b>MP3, WAV, M4A u otro audio compatible.</div>
+        <div class="step"><b>2. Elige el modo</b>Karaoke, voz central o stems básicos.</div>
+        <div class="step"><b>3. Procesa y descarga</b>Escucha el resultado y baja el WAV.</div>
+      </div>
+
+      <div class="note">
+        Esta versión usa reducción vocal básica en el navegador. Para calidad profesional real, se conecta luego un servidor con IA como Demucs.
+      </div>
+    </aside>
+
+    <main>
+      <header>
+        <div>
+          <h1>Convierte canciones en karaoke.</h1>
+          <p class="subtitle">Carga un audio, elimina la voz central de forma aproximada y genera versiones listas para escuchar o descargar.</p>
+        </div>
+        <div class="status-pill" id="engineStatus">Motor local listo</div>
+      </header>
+
+      <section class="workspace">
+        <div class="panel">
+          <div class="panel-inner">
+            <div class="panel-title">
+              <h2>Audio</h2>
+              <span class="tiny">V1 local</span>
+            </div>
+
+            <label class="dropzone" id="dropzone">
+              <input id="fileInput" type="file" accept="audio/*" />
+              <div>
+                <div class="upload-icon">♪</div>
+                <strong>Arrastra tu canción aquí</strong>
+                <span>o haz clic para seleccionar un archivo</span>
+              </div>
+            </label>
+
+            <div class="file-meta" id="fileMeta">Ningún archivo cargado.</div>
+
+            <div class="modes">
+              <label class="mode">
+                <input type="radio" name="mode" value="karaoke" checked />
+                <div>
+                  <b>Karaoke sin voz</b>
+                  <span>Reduce la voz que está al centro de la mezcla estéreo.</span>
+                </div>
+              </label>
+
+              <label class="mode">
+                <input type="radio" name="mode" value="voice" />
+                <div>
+                  <b>Solo voz central</b>
+                  <span>Extrae una versión aproximada del centro de la canción.</span>
+                </div>
+              </label>
+
+              <label class="mode">
+                <input type="radio" name="mode" value="stems" />
+                <div>
+                  <b>Stems básicos</b>
+                  <span>Genera voz aproximada, bajo y acompañamiento lateral.</span>
+                </div>
+              </label>
+            </div>
+
+            <button id="processBtn" disabled>Procesar audio</button>
+          </div>
+        </div>
+
+        <div class="panel visual">
+          <div class="wave-wrap">
+            <canvas id="wave" width="1200" height="360"></canvas>
+          </div>
+
+          <div class="progress-row">
+            <div class="progress-copy">
+              <span id="progressText">Esperando archivo</span>
+              <span id="progressPct">0%</span>
+            </div>
+            <div class="bar"><span id="progressBar"></span></div>
+          </div>
+
+          <div class="players" id="players">
+            <div class="empty">
+              Los resultados aparecerán aquí. Primero sube una canción y presiona “Procesar audio”.
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const dropzone = document.getElementById("dropzone");
+    const fileMeta = document.getElementById("fileMeta");
+    const processBtn = document.getElementById("processBtn");
+    const players = document.getElementById("players");
+    const progressBar = document.getElementById("progressBar");
+    const progressText = document.getElementById("progressText");
+    const progressPct = document.getElementById("progressPct");
+    const engineStatus = document.getElementById("engineStatus");
+    const toast = document.getElementById("toast");
+    const canvas = document.getElementById("wave");
+    const ctx = canvas.getContext("2d");
+
+    let audioContext;
+    let currentFile;
+    let decodedBuffer;
+    let originalUrl;
+
+    drawEmptyWave();
+
+    ["dragenter", "dragover"].forEach(evt => {
+      dropzone.addEventListener(evt, e => {
+        e.preventDefault();
+        dropzone.classList.add("drag");
+      });
+    });
+
+    ["dragleave", "drop"].forEach(evt => {
+      dropzone.addEventListener(evt, e => {
+        e.preventDefault();
+        dropzone.classList.remove("drag");
+      });
+    });
+
+    dropzone.addEventListener("drop", e => {
+      const file = e.dataTransfer.files[0];
+      if (file) loadFile(file);
+    });
+
+    fileInput.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (file) loadFile(file);
+    });
+
+    processBtn.addEventListener("click", processAudio);
+
+    async function loadFile(file) {
+      if (!file.type.startsWith("audio/")) {
+        showToast("Selecciona un archivo de audio válido.");
+        return;
+      }
+
+      currentFile = file;
+      processBtn.disabled = true;
+      setProgress(8, "Cargando audio");
+      fileMeta.textContent = `${file.name} · ${formatBytes(file.size)}`;
+
+      try {
+        audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+        const arrayBuffer = await file.arrayBuffer();
+        decodedBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+        originalUrl = URL.createObjectURL(file);
+        drawWave(decodedBuffer);
+        renderOriginalPlayer();
+        setProgress(100, "Audio cargado");
+        processBtn.disabled = false;
+        engineStatus.textContent = "Audio listo";
+      } catch (err) {
+        console.error(err);
+        setProgress(0, "No se pudo leer el audio");
+        showToast("No pude abrir ese archivo. Prueba con MP3 o WAV.");
+      }
+    }
+
+    async function processAudio() {
+      if (!decodedBuffer) return;
+
+      processBtn.disabled = true;
+      const mode = document.querySelector("input[name='mode']:checked").value;
+      setProgress(18, "Analizando mezcla estéreo");
+      await wait(180);
+
+      const source = extractStereo(decodedBuffer);
+      setProgress(44, "Separando señales");
+      await wait(180);
+
+      let results = [];
+
+      if (mode === "karaoke") {
+        const out = makeKaraoke(source);
+        results.push(makeResult("Karaoke sin voz", "Reducción vocal central", out.left, out.right));
+      }
+
+      if (mode === "voice") {
+        const out = makeVoice(source);
+        results.push(makeResult("Solo voz central", "Extracción aproximada", out.left, out.right));
+      }
+
+      if (mode === "stems") {
+        const vocal = makeVoice(source);
+        const bass = makeBass(source);
+        const sides = makeKaraoke(source);
+        results.push(makeResult("Voz aproximada", "Centro filtrado", vocal.left, vocal.right));
+        results.push(makeResult("Bajo aproximado", "Frecuencias graves", bass.left, bass.right));
+        results.push(makeResult("Instrumentos laterales", "Acompañamiento estéreo", sides.left, sides.right));
+      }
+
+      setProgress(72, "Creando archivos WAV");
+      await wait(180);
+
+      results = results.map(item => {
+        const wav = encodeWav(item.left, item.right, decodedBuffer.sampleRate);
+        return { ...item, url: URL.createObjectURL(wav) };
+      });
+
+      setProgress(100, "Proceso terminado");
+      renderResults(results);
+      processBtn.disabled = false;
+      engineStatus.textContent = "Resultado generado";
+      showToast("Listo. Ya puedes escuchar y descargar el resultado.");
+    }
+
+    function extractStereo(buffer) {
+      const left = buffer.getChannelData(0);
+      const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left;
+      return {
+        left: new Float32Array(left),
+        right: new Float32Array(right),
+        sampleRate: buffer.sampleRate
+      };
+    }
+
+    function makeKaraoke(src) {
+      const n = src.left.length;
+      const left = new Float32Array(n);
+      const right = new Float32Array(n);
+
+      for (let i = 0; i < n; i++) {
+        const side = (src.left[i] - src.right[i]) * 0.9;
+        left[i] = side;
+        right[i] = -side;
+      }
+
+      normalize(left, right);
+      return { left, right };
+    }
+
+    function makeVoice(src) {
+      const n = src.left.length;
+      const mid = new Float32Array(n);
+
+      for (let i = 0; i < n; i++) {
+        mid[i] = (src.left[i] + src.right[i]) * 0.5;
+      }
+
+      const focused = lowPass(highPass(mid, 120, src.sampleRate), 5200, src.sampleRate);
+      const left = new Float32Array(focused);
+      const right = new Float32Array(focused);
+      normalize(left, right);
+      return { left, right };
+    }
+
+    function makeBass(src) {
+      const n = src.left.length;
+      const mid = new Float32Array(n);
+
+      for (let i = 0; i < n; i++) {
+        mid[i] = (src.left[i] + src.right[i]) * 0.5;
+      }
+
+      const bass = lowPass(mid, 180, src.sampleRate);
+      const left = new Float32Array(bass);
+      const right = new Float32Array(bass);
+      normalize(left, right);
+      return { left, right };
+    }
+
+    function lowPass(input, cutoff, sampleRate) {
+      const output = new Float32Array(input.length);
+      const rc = 1 / (2 * Math.PI * cutoff);
+      const dt = 1 / sampleRate;
+      const alpha = dt / (rc + dt);
+      output[0] = input[0] || 0;
+
+      for (let i = 1; i < input.length; i++) {
+        output[i] = output[i - 1] + alpha * (input[i] - output[i - 1]);
+      }
+
+      return output;
+    }
+
+    function highPass(input, cutoff, sampleRate) {
+      const output = new Float32Array(input.length);
+      const rc = 1 / (2 * Math.PI * cutoff);
+      const dt = 1 / sampleRate;
+      const alpha = rc / (rc + dt);
+      output[0] = input[0] || 0;
+
+      for (let i = 1; i < input.length; i++) {
+        output[i] = alpha * (output[i - 1] + input[i] - input[i - 1]);
+      }
+
+      return output;
+    }
+
+    function normalize(left, right) {
+      let peak = 0;
+
+      for (let i = 0; i < left.length; i++) {
+        peak = Math.max(peak, Math.abs(left[i]), Math.abs(right[i]));
+      }
+
+      if (peak > 0.98) {
+        const gain = 0.98 / peak;
+        for (let i = 0; i < left.length; i++) {
+          left[i] *= gain;
+          right[i] *= gain;
+        }
+      }
+    }
+
+    function makeResult(name, detail, left, right) {
+      return { name, detail, left, right };
+    }
+
+    function encodeWav(left, right, sampleRate) {
+      const length = left.length;
+      const buffer = new ArrayBuffer(44 + length * 4);
+      const view = new DataView(buffer);
+
+      writeString(view, 0, "RIFF");
+      view.setUint32(4, 36 + length * 4, true);
+      writeString(view, 8, "WAVE");
+      writeString(view, 12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 2, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 4, true);
+      view.setUint16(32, 4, true);
+      view.setUint16(34, 16, true);
+      writeString(view, 36, "data");
+      view.setUint32(40, length * 4, true);
+
+      let offset = 44;
+      for (let i = 0; i < length; i++) {
+        view.setInt16(offset, clamp16(left[i]), true);
+        offset += 2;
+        view.setInt16(offset, clamp16(right[i]), true);
+        offset += 2;
+      }
+
+      return new Blob([view], { type: "audio/wav" });
+    }
+
+    function clamp16(sample) {
+      const s = Math.max(-1, Math.min(1, sample));
+      return s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+
+    function writeString(view, offset, text) {
+      for (let i = 0; i < text.length; i++) {
+        view.setUint8(offset + i, text.charCodeAt(i));
+      }
+    }
+
+    function renderOriginalPlayer() {
+      players.innerHTML = `
+        <div class="track">
+          <div class="track-name">
+            <b>Original</b>
+            <span>Archivo cargado</span>
+          </div>
+          <audio controls src="${originalUrl}"></audio>
+          <span class="tiny">Sin procesar</span>
+        </div>
+        <div class="empty">Elige un modo y presiona “Procesar audio”.</div>
+      `;
+    }
+
+    function renderResults(results) {
+      const original = `
+        <div class="track">
+          <div class="track-name">
+            <b>Original</b>
+            <span>Referencia</span>
+          </div>
+          <audio controls src="${originalUrl}"></audio>
+          <span class="tiny">Fuente</span>
+        </div>
+      `;
+
+      const rendered = results.map((item, index) => `
+        <div class="track">
+          <div class="track-name">
+            <b>${item.name}</b>
+            <span>${item.detail}</span>
+          </div>
+          <audio controls src="${item.url}"></audio>
+          <a class="download" href="${item.url}" download="${safeName(item.name)}-${index + 1}.wav">Descargar WAV</a>
+        </div>
+      `).join("");
+
+      players.innerHTML = original + rendered;
+    }
+
+    function drawWave(buffer) {
+      const width = canvas.width;
+      const height = canvas.height;
+      const data = buffer.getChannelData(0);
+      const step = Math.ceil(data.length / width);
+      const amp = height / 2;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#080c0a";
+      ctx.fillRect(0, 0, width, height);
+
+      const grad = ctx.createLinearGradient(0, 0, width, 0);
+      grad.addColorStop(0, "#25d366");
+      grad.addColorStop(1, "#d8ff
